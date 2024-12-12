@@ -114,12 +114,12 @@ const AdminSidebar = () => {
           </h4>
           <hr />
           <ul className="nav flex-column">
-            <li className="nav-item">
+            {/* <li className="nav-item">
               <NavLink to="/quan-ly/dashboard" className="nav-link text-white">
                 <i className="fas fa-tachometer-alt me-2"></i>
                 Dashboard
               </NavLink>
-            </li>
+            </li> */}
 
             {/* Quản lý sách */}
             <li className="nav-item">

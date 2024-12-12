@@ -1,58 +1,75 @@
 import React, { ChangeEvent, useState, useEffect } from "react";
 import { Search } from "react-bootstrap-icons";
 import { NavLink, useNavigate } from "react-router-dom";
+import { findByBook } from "../../api/SachApi";
+import { on } from "events";
+import { set } from "date-fns";
 
 interface NavbarProps {
   tuKhoaTimKiem: string;
   setTuKhoaTimKiem: (tuKhoa: string) => void;
 }
 
+
 function Navbar({ tuKhoaTimKiem, setTuKhoaTimKiem }: NavbarProps) {
   const [tuKhoaTamThoi, setTuKhoaTamThoi] = useState("");
   const [soLuongGioHang, setSoLuongGioHang] = useState(0);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const navigate = useNavigate();
-  const [jwt, setJwt] = useState(localStorage.getItem('jwt') || '');
+  const [jwt, setJwt] = useState(localStorage.getItem("jwt") || "");
   const [userInfo, setUserInfo] = useState<any>(null);
+  const [isAdminorStaff, setIsAdminorStaff] = useState(false);
 
   useEffect(() => {
     const loadSoLuongGioHang = () => {
-      const gioHang = JSON.parse(localStorage.getItem('gioHang') || '[]');
-      const tongSoLuong = gioHang.reduce((total: number, item: any) => total + item.soLuong, 0);
+      const gioHang = JSON.parse(localStorage.getItem("gioHang") || "[]");
+      const tongSoLuong = gioHang.reduce(
+        (total: number, item: any) => total + item.soLuong,
+        0
+      );
       setSoLuongGioHang(tongSoLuong);
     };
 
     loadSoLuongGioHang();
-    
+
     // Lắng nghe cả storage và cartUpdated event
-    window.addEventListener('storage', loadSoLuongGioHang);
-    window.addEventListener('cartUpdated', loadSoLuongGioHang);
-    
+    window.addEventListener("storage", loadSoLuongGioHang);
+    window.addEventListener("cartUpdated", loadSoLuongGioHang);
+
     return () => {
-      window.removeEventListener('storage', loadSoLuongGioHang);
-      window.removeEventListener('cartUpdated', loadSoLuongGioHang);
+      window.removeEventListener("storage", loadSoLuongGioHang);
+      window.removeEventListener("cartUpdated", loadSoLuongGioHang);
     };
   }, []);
 
   useEffect(() => {
     if (jwt) {
-      const decodedJwt = JSON.parse(atob(jwt.split('.')[1]));
+      const decodedJwt = JSON.parse(atob(jwt.split(".")[1]));
       setUserInfo(decodedJwt);
+
+      // Kiểm tra xem ng dùng là admin hoặc staff
+      if (decodedJwt.isAdmin || decodedJwt.isStaff) {
+        setIsAdminorStaff(true);
+      }
     }
   }, [jwt]);
 
   const handleLogout = () => {
-    localStorage.removeItem('jwt');
-    setJwt('');
-    navigate('/');
+    localStorage.removeItem("jwt");
+    setJwt("");
+    navigate("/");
   };
 
   const onSearchInputChange = (e: ChangeEvent<HTMLInputElement>) => {
+    setTuKhoaTimKiem(e.target.value);
     setTuKhoaTamThoi(e.target.value);
   };
-  const handleSearch = () => {
-    setTuKhoaTimKiem(tuKhoaTamThoi);
+
+  const onSearchSubmit = async () => {
+    const result = await findByBook(tuKhoaTamThoi, 0);  // Gọi API tìm kiếm
+    console.log(result);  // In kết quả ra console hoặc cập nhật state tương ứng để hiển thị
   };
+
   return (
     <nav className="navbar navbar-expand-lg navbar-dark bg-dark">
       <div className="container-fluid">
@@ -137,13 +154,15 @@ function Navbar({ tuKhoaTimKiem, setTuKhoaTimKiem }: NavbarProps) {
               </ul>
             </li>
             <li className="nav-item">
-              <NavLink className="nav-link" to="/about">Liên hệ</NavLink>
+              <NavLink className="nav-link" to="/about">
+                Liên hệ
+              </NavLink>
             </li>
           </ul>
         </div>
 
         {/* Tìm kiếm */}
-        <div className="d-flex">
+        <div className="d-flex" >
           <input
             className="form-control me-2"
             type="search"
@@ -155,7 +174,7 @@ function Navbar({ tuKhoaTimKiem, setTuKhoaTimKiem }: NavbarProps) {
           <button
             className="btn btn-outline-success"
             type="button"
-            onClick={handleSearch}
+            onClick={onSearchSubmit}
           >
             <Search />
           </button>
@@ -184,16 +203,19 @@ function Navbar({ tuKhoaTimKiem, setTuKhoaTimKiem }: NavbarProps) {
               </NavLink>
             ) : (
               <div className="dropdown">
-                <button 
+                <button
                   className="btn nav-link dropdown-toggle"
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  style={{ border: 'none' }}
+                  style={{ border: "none" }}
                 >
                   <i className="fas fa-user me-1"></i>
-                  {userInfo?.sub || 'User'}
+                  {userInfo?.sub || "User"}
                 </button>
-                <ul className={`dropdown-menu dropdown-menu-end ${isDropdownOpen ? 'show' : ''}`}
-                  style={{ minWidth: '200px', right: 0, left: 'auto' }}
+                <ul
+                  className={`dropdown-menu dropdown-menu-end ${
+                    isDropdownOpen ? "show" : ""
+                  }`}
+                  style={{ minWidth: "200px", right: 0, left: "auto" }}
                 >
                   <li>
                     <NavLink to="/profile" className="dropdown-item">
@@ -205,15 +227,27 @@ function Navbar({ tuKhoaTimKiem, setTuKhoaTimKiem }: NavbarProps) {
                       <i className="fas fa-user me-2"></i>Đơn hàng của tôi
                     </NavLink>
                   </li>
+                  <li className="nav-item">
+                    {!jwt ? null : isAdminorStaff ? (
+                      <NavLink
+                        className="dropdown-item"
+                        to="/quan-ly/danh-sach-sach"
+                      >
+                        <i className="fas fa-cog me-2"></i>Quản lý
+                      </NavLink>
+                    ) : null}
+                  </li>
                   <li>
                     <NavLink to="/settings" className="dropdown-item">
                       <i className="fas fa-cog me-2"></i>Cài đặt
                     </NavLink>
                   </li>
-                  <li><hr className="dropdown-divider" /></li>
                   <li>
-                    <button 
-                      className="dropdown-item text-danger" 
+                    <hr className="dropdown-divider" />
+                  </li>
+                  <li>
+                    <button
+                      className="dropdown-item text-danger"
                       onClick={handleLogout}
                     >
                       <i className="fas fa-sign-out-alt me-2"></i>Đăng xuất
