@@ -78,7 +78,7 @@ const CapNhatSach: React.FC = () => {
         <div className="container-fluid px-4">
             <h1 className="mt-4">Cập nhật sách</h1>
             <ol className="breadcrumb mb-4">
-                <li className="breadcrumb-item"><a href="/quan-ly">Dashboard</a></li>
+                <li className="breadcrumb-item"><a href="/quan-ly">Cập nhật sách</a></li>
                 <li className="breadcrumb-item active">Cập nhật sách</li>
             </ol>
 

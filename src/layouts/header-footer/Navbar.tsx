@@ -9,6 +9,11 @@ interface NavbarProps {
   tuKhoaTimKiem: string;
   setTuKhoaTimKiem: (tuKhoa: string) => void;
 }
+interface NavbarProps {
+  isAdmin?: boolean;
+  isUser?: boolean;
+  isStaff?: boolean;
+}
 
 
 function Navbar({ tuKhoaTimKiem, setTuKhoaTimKiem }: NavbarProps) {
@@ -59,17 +64,20 @@ function Navbar({ tuKhoaTimKiem, setTuKhoaTimKiem }: NavbarProps) {
     setJwt("");
     navigate("/");
   };
+  useEffect(() => {
+    setTuKhoaTamThoi(tuKhoaTimKiem); // Đồng bộ hóa tuKhoaTimKiem với state của input
+  }, [tuKhoaTimKiem]);
 
   const onSearchInputChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setTuKhoaTimKiem(e.target.value);
-    setTuKhoaTamThoi(e.target.value);
+    setTuKhoaTamThoi(e.target.value); 
   };
 
   const onSearchSubmit = async () => {
-    const result = await findByBook(tuKhoaTamThoi, 0);  // Gọi API tìm kiếm
-    console.log(result);  // In kết quả ra console hoặc cập nhật state tương ứng để hiển thị
-  };
+    setTuKhoaTimKiem(tuKhoaTamThoi);
+    const result = await findByBook(tuKhoaTamThoi, 0); // Gọi API tìm kiếm
+    console.log(result); 
 
+  };
   return (
     <nav className="navbar navbar-expand-lg navbar-dark bg-dark">
       <div className="container-fluid">
@@ -162,7 +170,7 @@ function Navbar({ tuKhoaTimKiem, setTuKhoaTimKiem }: NavbarProps) {
         </div>
 
         {/* Tìm kiếm */}
-        <div className="d-flex" >
+        <div className="d-flex">
           <input
             className="form-control me-2"
             type="search"
@@ -174,11 +182,12 @@ function Navbar({ tuKhoaTimKiem, setTuKhoaTimKiem }: NavbarProps) {
           <button
             className="btn btn-outline-success"
             type="button"
-            onClick={onSearchSubmit}
+            onClick={onSearchSubmit} // Chỉ thực hiện tìm kiếm khi nhấn nút
           >
             <Search />
           </button>
         </div>
+
 
         {/* Biểu tượng giỏ hàng */}
         <ul className="navbar-nav me-1">

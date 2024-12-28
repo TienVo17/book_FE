@@ -19,6 +19,7 @@ import ThanhToan from "./layouts/products/ThanhToan";
 import KetQuaThanhToan from "./layouts/products/KetQuaThanhToan";
 import DonHangUser from "./layouts/products/DonHangUser";
 import AdminRoute from "./layouts/admin/components/route/Adminroute";
+import DatHangNhanh from "./layouts/products/DatHangNhanh";
 // import { ToastContainer } from 'react-toastify';
 
 
@@ -52,6 +53,7 @@ function App() {
               <Route path="/dang-nhap" element={<DangNhap />} />
               <Route path="/test" element={<Test />} />
               <Route path="/gio-hang" element={<GioHang />} />
+              <Route path="/dat-hang-nhanh" element={<DatHangNhanh />} />
             </Routes>
             <Footer />
           </>

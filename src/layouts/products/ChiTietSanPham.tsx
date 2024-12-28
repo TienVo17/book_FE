@@ -8,8 +8,37 @@ import dinhDangSo from "../utils/DinhDangSo";
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { themVaoGioHang } from '../utils/GioHangUtils';
+import { useNavigate } from 'react-router-dom';
 
 const ChiTietSanPham: React.FC = () => {
+  const navigate = useNavigate();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [tenNguoiMua, setTenNguoiMua] = useState("");
+  const [soDienThoaiNguoiMua, setSoDienThoaiNguoiMua] = useState("");
+  const [emailNguoiMua, setEmailNguoiMua] = useState("");
+
+  const handleMuaNgay = () => {
+    if (!sach) return;
+
+    const sanPhamMuaNgay = {
+      maSach: sach.maSach,
+      sachDto: {
+        tenSach: sach.tenSach,
+        giaBan: sach.giaBan,
+        hinhAnh: sach.danhSachAnh?.[0]?.urlHinh || ''
+      },
+      soLuong: soLuong
+    };
+
+    localStorage.setItem('gioHang', JSON.stringify([sanPhamMuaNgay]));
+
+    if (localStorage.getItem('jwt')) {
+      navigate('/thanh-toan');
+    } else {
+      navigate('/dat-hang-nhanh');
+    }
+  };
+
   const { maSach } = useParams();
   let maSachNumber = 0;
 
@@ -144,7 +173,10 @@ const ChiTietSanPham: React.FC = () => {
                   </div>
                 )}
                 <div className="d-grid gap-2">
-                  <button type="button" className="btn btn-danger mt-3">
+                  <button
+                    className="btn btn-danger mt-3"
+                    onClick={handleMuaNgay}
+                  >
                     Mua ngay
                   </button>
                   <button

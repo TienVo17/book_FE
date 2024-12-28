@@ -21,10 +21,6 @@ const AdminSidebar = () => {
     setOpenSubMenu(openSubMenu === menu ? null : menu);
   };
 
-  const handleThemSach = () => {
-    navigate('/quan-ly/them-sach');
-  };
-
   const handleLogout = () => {
     localStorage.removeItem('jwt');
     setJwt('');

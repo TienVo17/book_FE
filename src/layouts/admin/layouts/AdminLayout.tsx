@@ -14,7 +14,7 @@ const AdminLayout: React.FC = () => {
       <AdminSidebar />
       <main className="flex-grow-1 p-4" style={{marginLeft: '250px'}}>
         <Routes>
-            <Route path="dashboard" element={<div>Dashboard</div>} />
+            {/* <Route path="dashboard" element={<div>ard</div>} /> */}
             <Route path="/danh-sach-sach" element={<DanhSachSach />} />
             <Route path="/them-sach" element={<SachForm_Admin />} />
             <Route path="/cap-nhat-sach/:maSach" element={<CapNhatSach />} />

@@ -3,6 +3,7 @@ import SachModel from '../../../../models/SachModel';
 import { Link, useNavigate } from 'react-router-dom';
 import { PhanTrang } from '../../../utils/PhanTrang';
 import {getAllBook, xoaSach,findAll} from "../../../../api/SachApi";
+import DanhGiaModel from '../../../../models/DanhGiaModel';
 
 export default function DanhSachBinhLuan() {
   const [binhLuanList, setBinhLuanList] = useState<any[]>([]);
@@ -24,28 +25,35 @@ export default function DanhSachBinhLuan() {
      findAll();
   }, [trangHienTai]);
 
-  const findAll= ()=>{
-    fetch("http://localhost:8080/api/admin/danh-gia/findAll?page="+(trangHienTai-1), {
+  const findAll = () => {
+    fetch("http://localhost:8080/api/admin/danh-gia/findAll?page=" + (trangHienTai - 1), {
       method: "GET",
       headers: {
-          "Authorization": `Bearer ${localStorage.getItem('jwt')}`,
-          'Content-Type': 'application/json' 
+        "Authorization": `Bearer ${localStorage.getItem('jwt')}`,
+        'Content-Type': 'application/json',
       },
-     
-      })
-      .then( (response) => {
-          return response.json();
-      })
-      .then((response) => {
-        setBinhLuanList(response.content);
-        setTongSoTrang(response.totalElements);
-        setDangTaiDuLieu(false)
-      })
-      .catch((error) => {
-          console.error("Lỗi:", error);
-          
-      });  
-  }
+    })
+    .then((response) => response.json())
+    .then((response) => {
+      // Kiểm tra và sắp xếp bình luận theo timestamp nếu có
+      const sortedResponse = (response.content as DanhGiaModel[]).sort((a, b) => {
+        // Kiểm tra tính hợp lệ của timestamp
+        const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;  // Mặc định là 0 nếu không có timestamp
+        const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;  // Mặc định là 0 nếu không có timestamp
+  
+        return timeB - timeA;  // Sắp xếp theo thời gian giảm dần
+      });
+  
+      setBinhLuanList(sortedResponse);  // Cập nhật lại danh sách bình luận đã sắp xếp
+      setTongSoTrang(response.totalElements);
+      setDangTaiDuLieu(false);
+    })
+    .catch((error) => {
+      console.error("Lỗi:", error);
+      setBaoLoi("Có lỗi xảy ra khi tải dữ liệu!");
+    });
+  };
+  
 
   const phanTrang = (trang: number) => setTrangHienTai(trang);
 
@@ -98,16 +106,16 @@ export default function DanhSachBinhLuan() {
     <div className="container-fluid px-4">
       <h1 className="mt-4">Quản lý bình luận</h1>
       <ol className="breadcrumb mb-4">
-        <li className="breadcrumb-item"><Link to="/quan-ly">Dashboard</Link></li>
+        <li className="breadcrumb-item"><Link to="/quan-ly">Bình Luận</Link></li>
         <li className="breadcrumb-item active">Danh sách bình luận</li>
       </ol>
       <div className="mb-4">
-        <button
+        {/* <button
             className="btn btn-primary btn-sm me-2"
             onClick={() => handleAdd()}
         >
           Thêm mới <i className="fas fa-add"></i>
-        </button>
+        </button> */}
         
       </div>
       <div className="card mb-4">
@@ -136,7 +144,7 @@ export default function DanhSachBinhLuan() {
                         <button
                             className="btn btn-warning btn-sm me-2"
                             onClick={() => {
-                              if (window.confirm('Bạn có đóng bán sách này?')) {
+                              if (window.confirm('Bạn muốn đóng bình luận này?')) {
                                 try {
                                    fetch("http://localhost:8080/api/admin/danh-gia/unactive/"+sach.maDanhGia, {
                                     method: "POST",

@@ -10,11 +10,14 @@ function DangKyNguoiDung() {
   const [matKhauLapLai, setMatKhauLapLai] = useState("");
   const [gioiTinh, setGioiTinh] = useState("M");
   const [thongBao, setThongBao] = useState("");
+  const [diaChi,setDiaChi]=useState("");
+  
   // báo lỗi
   const [errorTenDangNhap, setErrorTenDangNhap] = useState("");
   const [errorEmail, setErrorEmail] = useState("");
   const [errorMatKhau, setErrorMatKhau] = useState("");
   const [errorMatKhauLapLai, setErrorMatKhauLapLai] = useState("");
+  const [errorDiaChi,setErrorDiaChi]=useState("");
   const handleSubmit = async (e: React.FormEvent) => {
     // Clear any previous error messages
     setErrorTenDangNhap("");
@@ -52,6 +55,7 @@ function DangKyNguoiDung() {
             hoDem: hoDem,
             ten: ten,
             soDienThoai: soDienThoai,
+            diaChi: diaChi,
             gioiTinh: gioiTinh,
             daKichHoat: 0,
             maKichHoat: "",
@@ -74,7 +78,7 @@ function DangKyNguoiDung() {
 
   // ktr
   const kiemTraTenDangNhapDaTonTai = async (tenDangNhap: string) => {
-    const url = `http://localhost:8080/tai-khoan/search/existsByTenDangNhap?tenDangNhap=${tenDangNhap}`;
+    const url = `http://localhost:8080/nguoi-dung/search/existsByTenDangNhap?tenDangNhap=${tenDangNhap}`;
     console.log(url);
     try {
       const response = await fetch(url);
@@ -101,7 +105,7 @@ function DangKyNguoiDung() {
   };
 
   const kiemTraEmailDaTonTai = async (email: string) => {
-    const url = `http://localhost:8080/tai-khoan/search/existsByEmail?email=${email}`;
+    const url = `http://localhost:8080/nguoi-dung/search/existsByEmail?email=${email}`;
     console.log(url);
     try {
       const response = await fetch(url);
@@ -170,11 +174,11 @@ function DangKyNguoiDung() {
   };
 
   return (
-    <div className="container-fluid vh-100 overflow-hidden">
-      <div className="row justify-content-center align-items-center h-100">
-        <div className="col-md-6 col-lg-5">
-          <div className="card shadow-lg">
-            <div className="card-body p-5">
+    <div className="container py-5">
+    <div className="row justify-content-center">
+      <div className="col-12 col-md-8 col-lg-6">
+        <div className="card shadow">
+          <div className="card-body p-4">
               <div className="text-center mb-4">
                 <i className="fas fa-user-plus fa-3x text-primary mb-3"></i>
                 <h3 className="font-weight-bold">Đăng ký tài khoản</h3>
@@ -313,6 +317,22 @@ function DangKyNguoiDung() {
                       value={soDienThoai}
                       onChange={(e) => setSoDienThoai(e.target.value)}
                       placeholder="Nhập số điện thoại"
+                    />
+                  </div>
+                  <label htmlFor="diaChi" className="form-label">
+                      Địa chỉ
+                  </label>
+                  <div className="input-group">
+                    <span className="input-group-text">
+                      <i className="fas fa-phone"></i>
+                    </span>
+                    <input
+                      type="tel"
+                      id="diaChi"
+                      className="form-control"
+                      value={diaChi}
+                      onChange={(e) => setDiaChi(e.target.value)}
+                      placeholder="Nhập địa chỉ"
                     />
                   </div>
                 </div>

@@ -85,7 +85,7 @@ const SachForm: React.FC = () => {
         <div className="container-fluid px-4">
             <h1 className="mt-4">Quản lý sách</h1>
             <ol className="breadcrumb mb-4">
-                <li className="breadcrumb-item"><a href="/quan-ly">Dashboard</a></li>
+                <li className="breadcrumb-item"><a href="/quan-ly">Sách</a></li>
                 <li className="breadcrumb-item active">Thêm sách mới</li>
             </ol>
             <div className="card mb-4">

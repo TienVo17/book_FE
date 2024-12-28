@@ -13,37 +13,52 @@ interface DanhSachSanPhamProps {
 function DanhSachSanPham({ tuKhoaTimKiem, maTheLoai }: DanhSachSanPhamProps) {
   const [danhsachQuyenSach, setDanhSachQuyenSach] = useState<SachModel[]>([]);
   const [dangTaiDuLieu, setDangTaiDuLieu] = useState<boolean>(true);
-  const [baoLoi, setBaoLoi] = useState(null);
+  const [baoLoi, setBaoLoi] = useState<string | null>(null);
   const [trangHienTai, setTrangHienTai] = useState(1);
   const [tongSoTrang, setTongSoTrang] = useState(0);
   const [tongSoSach, setSoSach] = useState(0);
 
-  useEffect(
-    () => {
-      if (tuKhoaTimKiem === "" && maTheLoai == 0) {
-        getAllBook(trangHienTai - 1)
-          .then((kq) => {
+  useEffect(() => {
+    // Khi không có từ khóa tìm kiếm và thể loại
+    if (tuKhoaTimKiem === "" && maTheLoai == 0) {
+      getAllBook(trangHienTai - 1)
+        .then((kq) => {
+          console.log("Dữ liệu từ API:", kq); // Debug log
+          if (kq.ketQua && kq.ketQua.length > 0) {
             setDanhSachQuyenSach(kq.ketQua);
             setTongSoTrang(kq.tongSoTrang);
             setDangTaiDuLieu(false);
-          })
-          .catch((error) => {
-            setBaoLoi(error.message);
-          });
-      } else {
-        findByBook(tuKhoaTimKiem, maTheLoai)
-          .then((kq) => {
+          } else {
+            setDanhSachQuyenSach([]); // Nếu không có sách nào, trả về mảng trống
+            setBaoLoi("Không có sách nào phù hợp với yêu cầu.");
+            setDangTaiDuLieu(false);
+          }
+        })
+        .catch((error) => {
+          setBaoLoi("Gặp lỗi khi tải dữ liệu: " + error.message);
+          setDangTaiDuLieu(false);
+        });
+    } else {
+      // Tìm sách theo từ khóa và thể loại
+      findByBook(tuKhoaTimKiem, maTheLoai)
+        .then((kq) => {
+          console.log("Dữ liệu từ API:", kq); // Debug log
+          if (kq.ketQua && kq.ketQua.length > 0) {
             setDanhSachQuyenSach(kq.ketQua);
             setTongSoTrang(kq.tongSoTrang);
             setDangTaiDuLieu(false);
-          })
-          .catch((error) => {
-            setBaoLoi(error.message);
-          });
-      }
-    },
-    [trangHienTai, tuKhoaTimKiem, maTheLoai] // Chỉ gọi 1 lần
-  );
+          } else {
+            setDanhSachQuyenSach([]); // Nếu không có sách nào, trả về mảng trống
+            setBaoLoi("Không có sách nào phù hợp với yêu cầu.");
+            setDangTaiDuLieu(false);
+          }
+        })
+        .catch((error) => {
+          setBaoLoi("Gặp lỗi khi tải dữ liệu: " + error.message);
+          setDangTaiDuLieu(false);
+        });
+    }
+  }, [trangHienTai, tuKhoaTimKiem, maTheLoai]);
   const phanTrang = (trang: number) => setTrangHienTai(trang);
   if (dangTaiDuLieu) {
     return (

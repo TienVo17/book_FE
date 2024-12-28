@@ -85,7 +85,7 @@ export default function DanhSachSach() {
     <div className="container-fluid px-4">
       <h1 className="mt-4">Quản lý sách</h1>
       <ol className="breadcrumb mb-4">
-        <li className="breadcrumb-item"><Link to="/quan-ly">Dashboard</Link></li>
+        <li className="breadcrumb-item"><Link to="/quan-ly">Sách</Link></li>
         <li className="breadcrumb-item active">Danh sách sách</li>
       </ol>
       <div className="mb-4">
