@@ -130,6 +130,7 @@ const ChiTietSanPham: React.FC = () => {
           <div className="row">
             <div className="col-8">
               <h1>{sach.tenSach}</h1>
+              <p>{sach.tenTacGia}</p>
               <h4>{renderStars(sach.trungBinhXepHang ?? 0)}</h4>
               <h4>{dinhDangSo(sach.giaBan)} đ</h4>
               <hr />
