@@ -1,218 +1,114 @@
 import React from "react";
+import { NavLink } from "react-router-dom";
+
 function Footer() {
   return (
-    // <!-- Footer -->
-    <footer className="bg-secondary text-center text-white">
-      {/* <!-- Grid container --> */}
-      <div className="container p-4">
-        {/* <!-- Section: Social media --> */}
-        <section className="mb-4">
-          {/* <!-- Facebook --> */}
-          <a
-            className="btn btn-outline-light btn-floating m-1"
-            href="https://www.facebook.com/"
-            role="button"
-          >
-            <i className="fab fa-facebook-f"></i>
-          </a>
-
-          {/* <!-- Twitter --> */}
-          <a
-            className="btn btn-outline-light btn-floating m-1"
-            href="#!"
-            role="button"
-          >
-            <i className="fab fa-twitter"></i>
-          </a>
-
-          {/* <!-- Google --> */}
-          <a
-            className="btn btn-outline-light btn-floating m-1"
-            href="https://www.google.com/"
-            role="button"
-          >
-            <i className="fab fa-google"></i>
-          </a>
-
-          {/* <!-- Instagram --> */}
-          <a
-            className="btn btn-outline-light btn-floating m-1"
-            href="https://www.instagram.com/"
-            role="button"
-          >
-            <i className="fab fa-instagram"></i>
-          </a>
-
-          {/* <!-- Linkedin --> */}
-          <a
-            className="btn btn-outline-light btn-floating m-1"
-            href="https://www.linkedin.com/"
-            role="button"
-          >
-            <i className="fab fa-linkedin-in"></i>
-          </a>
-
-          {/* <!-- Github --> */}
-          <a
-            className="btn btn-outline-light btn-floating m-1"
-            href="https://github.com/"
-            role="button"
-          >
-            <i className="fab fa-github"></i>
-          </a>
-        </section>
-        {/* <!-- Section: Social media --> */}
-
-        {/* <!-- Section: Form --> */}
-        <section className="">
-          <form action="">
-            {/* <!--Grid row--> */}
-            <div className="row d-flex justify-content-center">
-              <div className="col-auto">
-                <p className="pt-2">
-                  <strong>Đăng ký nhận bản tin</strong>
-                </p>
-              </div>
-
-              <div className="col-md-5 col-12">
-                {/* <!-- Email input --> */}
-                <div className=" form-white mb-4">
-                  <input
-                    type="email"
-                    id="form5Example21"
-                    className="form-control"
-                    placeholder="Nhập Email"
-                  />
-                </div>
-              </div>
-
-              <div className="col-auto">
-                {/* <!-- Submit button --> */}
-                <button type="button" className="btn btn-outline-light mb-4">
-                  Đăng ký
-                </button>
-              </div>
-            </div>
-            {/* <!--Grid row--> */}
-          </form>
-        </section>
-        {/* <!-- Section: Form --> */}
-
-        {/* <!-- Section: Links --> */}
-        <section className="">
-          {/* <!--Grid row--> */}
-          <div className="row">
-            <div className="col-lg-6 col-md-12">
-              <div className="row">
-                <div className="col-lg-4 col-md-12 mb-4">
-                  <h5 className="text-uppercase">DỊCH VỤ</h5>
-
-                  <ul className="list-unstyled mb-0">
-                    <li>
-                      <a href="#!" className="text-white">
-                        Điều khoản sử dụng
-                      </a>
-                    </li>
-                    <li>
-                      <a href="#!" className="text-white">
-                        Chính sách bảo mật thông tin cá nhân
-                      </a>
-                    </li>
-                    <li>
-                      <a href="#!" className="text-white">
-                        Chính sách bảo mật thanh toán
-                      </a>
-                    </li>
-                    <li>
-                      <a href="#!" className="text-white">
-                        Hệ thống trung tâm - nhà sách
-                      </a>
-                    </li>
-                  </ul>
-                </div>
-
-                <div className="col-lg-4 col-md-12 mb-4">
-                  <h5 className="text-uppercase">HỖ TRỢ</h5>
-
-                  <ul className="list-unstyled mb-0">
-                    <li>
-                      <a href="#!" className="text-white">
-                        Chính sách đổi - trả - hoàn tiền
-                      </a>
-                    </li>
-                    <li>
-                      <a href="#!" className="text-white">
-                        Chính sách bảo hành - bồi hoàn
-                      </a>
-                    </li>
-                    <li>
-                      <a href="#!" className="text-white">
-                        Chính sách vận chuyển
-                      </a>
-                    </li>
-                    <li>
-                      <a href="#!" className="text-white">
-                        Chính sách khách sỉ
-                      </a>
-                    </li>
-                  </ul>
-                </div>
-
-                <div className="col-lg-4 col-md-12 mb-4">
-                  <h5 className="text-uppercase">TÀI KHOẢN CỦA TÔI</h5>
-
-                  <ul className="list-unstyled mb-0">
-                    {/* <li>
-                                        <Link to={"/login"} className='text-white'>
-                                            Đăng nhập/Tạo mới tài khoản
-                                        </Link>
-                                    </li> */}
-                    <li>
-                      <a href="#!" className="text-white">
-                        Thay đổi địa chỉ khách hàng
-                      </a>
-                    </li>
-                    <li>
-                      <a href="#!" className="text-white">
-                        Chi tiết tài khoản
-                      </a>
-                    </li>
-                    <li>
-                      <a href="#!" className="text-white">
-                        Lịch sử mua hàng
-                      </a>
-                    </li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-            <div className="col-lg-6 col-md-12">
-              <iframe
-                title="map"
-                src="https://www.openstreetmap.org/export/embed.html?bbox=106.67393%2C10.73398%2C106.68193%2C10.74198&layer=mapnik&marker=10.73798%2C106.67793"
-                width="600"
-                height="300"
-                style={{ border: 0 }}
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-              ></iframe>
+    <footer className="footer-modern">
+      <div className="container">
+        <div className="row">
+          {/* Brand */}
+          <div className="col-lg-3 col-md-6 mb-4">
+            <h5 style={{ fontSize: "1.3rem", textTransform: "none", letterSpacing: "-0.3px" }}>
+              <i className="fas fa-book-open me-2" style={{ color: "var(--color-primary-light)" }}></i>
+              BookStore
+            </h5>
+            <p style={{ fontSize: "0.88rem", lineHeight: 1.7 }}>
+              Nơi mang đến hàng ngàn đầu sách hay với giá ưu đãi nhất. Giao hàng toàn quốc.
+            </p>
+            <div className="d-flex gap-2 mt-3">
+              <a href="https://www.facebook.com/" className="social-icon" aria-label="Facebook">
+                <i className="fab fa-facebook-f"></i>
+              </a>
+              <a href="#!" className="social-icon" aria-label="Twitter">
+                <i className="fab fa-twitter"></i>
+              </a>
+              <a href="https://www.instagram.com/" className="social-icon" aria-label="Instagram">
+                <i className="fab fa-instagram"></i>
+              </a>
+              <a href="https://github.com/" className="social-icon" aria-label="Github">
+                <i className="fab fa-github"></i>
+              </a>
             </div>
           </div>
-          {/* <!--Grid row--> */}
-        </section>
-        {/* <!-- Section: Links --> */}
-      </div>
-      {/* <!-- Grid container --> */}
 
-      {/* <!-- Copyright --> */}
-      <div
-        className="text-center p-3"
-        style={{ backgroundColor: "rgba(0, 0, 0, 0.2)" }}
-      >
-        © 2024 Copyright
-        <span className="text-white text-decoration-underline"> VVT</span>
+          {/* Services */}
+          <div className="col-lg-2 col-md-6 mb-4">
+            <h5>Dịch vụ</h5>
+            <ul className="list-unstyled mb-0">
+              <li className="mb-2"><a href="#!">Điều khoản sử dụng</a></li>
+              <li className="mb-2"><a href="#!">Chính sách bảo mật</a></li>
+              <li className="mb-2"><a href="#!">Bảo mật thanh toán</a></li>
+              <li className="mb-2"><a href="#!">Hệ thống nhà sách</a></li>
+            </ul>
+          </div>
+
+          {/* Support */}
+          <div className="col-lg-2 col-md-6 mb-4">
+            <h5>Hỗ trợ</h5>
+            <ul className="list-unstyled mb-0">
+              <li className="mb-2"><a href="#!">Đổi trả - Hoàn tiền</a></li>
+              <li className="mb-2"><a href="#!">Bảo hành - Bồi hoàn</a></li>
+              <li className="mb-2"><a href="#!">Chính sách vận chuyển</a></li>
+              <li className="mb-2"><a href="#!">Chính sách khách sỉ</a></li>
+            </ul>
+          </div>
+
+          {/* Account */}
+          <div className="col-lg-2 col-md-6 mb-4">
+            <h5>Tài khoản</h5>
+            <ul className="list-unstyled mb-0">
+              <li className="mb-2">
+                <NavLink to="/dang-nhap">Đăng nhập</NavLink>
+              </li>
+              <li className="mb-2"><a href="#!">Đổi địa chỉ</a></li>
+              <li className="mb-2"><a href="#!">Chi tiết tài khoản</a></li>
+              <li className="mb-2">
+                <NavLink to="/order">Lịch sử mua hàng</NavLink>
+              </li>
+            </ul>
+          </div>
+
+          {/* Newsletter */}
+          <div className="col-lg-3 col-md-12 mb-4">
+            <h5>Đăng ký nhận tin</h5>
+            <p style={{ fontSize: "0.85rem" }}>Nhận thông tin ưu đãi và sách mới nhất.</p>
+            <form className="d-flex gap-2">
+              <input
+                type="email"
+                className="form-control"
+                placeholder="Email của bạn"
+                style={{
+                  background: "rgba(255,255,255,0.06)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  color: "white",
+                  borderRadius: "var(--radius-md)",
+                  fontSize: "0.85rem",
+                  padding: "0.5rem 0.8rem"
+                }}
+              />
+              <button
+                type="button"
+                className="btn"
+                style={{
+                  background: "var(--color-primary)",
+                  color: "white",
+                  borderRadius: "var(--radius-md)",
+                  padding: "0.5rem 1rem",
+                  whiteSpace: "nowrap",
+                  fontSize: "0.85rem"
+                }}
+              >
+                Đăng ký
+              </button>
+            </form>
+          </div>
+        </div>
+
+        {/* Copyright */}
+        <div className="footer-bottom text-center">
+          &copy; 2026 BookStore. Designed by VVT
+        </div>
       </div>
-      {/* <!-- Copyright --> */}
     </footer>
   );
 }

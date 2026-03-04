@@ -1,29 +1,28 @@
 import React, { ChangeEvent, useState, useEffect } from "react";
 import { Search } from "react-bootstrap-icons";
 import { NavLink, useNavigate } from "react-router-dom";
-import { findByBook } from "../../api/SachApi";
-import { on } from "events";
-import { set } from "date-fns";
 
 interface NavbarProps {
   tuKhoaTimKiem: string;
   setTuKhoaTimKiem: (tuKhoa: string) => void;
 }
-interface NavbarProps {
-  isAdmin?: boolean;
-  isUser?: boolean;
-  isStaff?: boolean;
-}
-
 
 function Navbar({ tuKhoaTimKiem, setTuKhoaTimKiem }: NavbarProps) {
   const [tuKhoaTamThoi, setTuKhoaTamThoi] = useState("");
   const [soLuongGioHang, setSoLuongGioHang] = useState(0);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const navigate = useNavigate();
   const [jwt, setJwt] = useState(localStorage.getItem("jwt") || "");
   const [userInfo, setUserInfo] = useState<any>(null);
   const [isAdminorStaff, setIsAdminorStaff] = useState(false);
+
+  // Track scroll for navbar style change
+  useEffect(() => {
+    const handleScroll = () => setScrolled(window.scrollY > 20);
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   useEffect(() => {
     const loadSoLuongGioHang = () => {
@@ -36,8 +35,6 @@ function Navbar({ tuKhoaTimKiem, setTuKhoaTimKiem }: NavbarProps) {
     };
 
     loadSoLuongGioHang();
-
-    // Lắng nghe cả storage và cartUpdated event
     window.addEventListener("storage", loadSoLuongGioHang);
     window.addEventListener("cartUpdated", loadSoLuongGioHang);
 
@@ -51,8 +48,6 @@ function Navbar({ tuKhoaTimKiem, setTuKhoaTimKiem }: NavbarProps) {
     if (jwt) {
       const decodedJwt = JSON.parse(atob(jwt.split(".")[1]));
       setUserInfo(decodedJwt);
-
-      // Kiểm tra xem ng dùng là admin hoặc staff
       if (decodedJwt.isAdmin || decodedJwt.isStaff) {
         setIsAdminorStaff(true);
       }
@@ -62,44 +57,67 @@ function Navbar({ tuKhoaTimKiem, setTuKhoaTimKiem }: NavbarProps) {
   const handleLogout = () => {
     localStorage.removeItem("jwt");
     setJwt("");
+    setIsDropdownOpen(false);
     navigate("/");
   };
+
   useEffect(() => {
-    setTuKhoaTamThoi(tuKhoaTimKiem); // Đồng bộ hóa tuKhoaTimKiem với state của input
+    setTuKhoaTamThoi(tuKhoaTimKiem);
   }, [tuKhoaTimKiem]);
 
   const onSearchInputChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setTuKhoaTamThoi(e.target.value); 
+    setTuKhoaTamThoi(e.target.value);
   };
 
-  const onSearchSubmit = async () => {
+  const onSearchSubmit = () => {
     setTuKhoaTimKiem(tuKhoaTamThoi);
-    const result = await findByBook(tuKhoaTamThoi, 0); // Gọi API tìm kiếm
-    console.log(result); 
-
   };
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      onSearchSubmit();
+    }
+  };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (isDropdownOpen) {
+        const target = e.target as HTMLElement;
+        if (!target.closest(".user-dropdown")) {
+          setIsDropdownOpen(false);
+        }
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isDropdownOpen]);
+
   return (
-    <nav className="navbar navbar-expand-lg navbar-dark bg-dark">
-      <div className="container-fluid">
-        <a className="navbar-brand" href="#">
-          Bookstore
-        </a>
+    <nav className={`navbar navbar-expand-lg navbar-modern sticky-top ${scrolled ? "scrolled" : ""}`}>
+      <div className="container">
+        <NavLink className="navbar-brand" to="/">
+          <i className="fas fa-book-open me-2" style={{ fontSize: "1.2rem" }}></i>
+          BookStore
+        </NavLink>
+
         <button
           className="navbar-toggler"
           type="button"
           data-bs-toggle="collapse"
-          data-bs-target="#navbarSupportedContent"
-          aria-controls="navbarSupportedContent"
+          data-bs-target="#navbarMain"
+          aria-controls="navbarMain"
           aria-expanded="false"
           aria-label="Toggle navigation"
+          style={{ border: "1.5px solid var(--color-border)", padding: "0.4rem 0.6rem" }}
         >
-          <span className="navbar-toggler-icon"></span>
+          <i className="fas fa-bars" style={{ color: "var(--color-text)" }}></i>
         </button>
 
-        <div className="collapse navbar-collapse" id="navbarSupportedContent">
+        <div className="collapse navbar-collapse" id="navbarMain">
           <ul className="navbar-nav me-auto mb-2 mb-lg-0">
             <li className="nav-item">
-              <NavLink className="nav-link active" aria-current="page" to="/">
+              <NavLink className="nav-link" to="/">
                 Trang chủ
               </NavLink>
             </li>
@@ -114,7 +132,7 @@ function Navbar({ tuKhoaTimKiem, setTuKhoaTimKiem }: NavbarProps) {
               >
                 Thể loại sách
               </NavLink>
-              <ul className="dropdown-menu" aria-labelledby="navbarDropdown1">
+              <ul className="dropdown-menu dropdown-modern" aria-labelledby="navbarDropdown1">
                 <li>
                   <NavLink className="dropdown-item" to="/1">
                     Thể loại 1
@@ -141,23 +159,17 @@ function Navbar({ tuKhoaTimKiem, setTuKhoaTimKiem }: NavbarProps) {
                 data-bs-toggle="dropdown"
                 aria-expanded="false"
               >
-                Quy định bán hàng
+                Quy định
               </a>
-              <ul className="dropdown-menu" aria-labelledby="navbarDropdown2">
+              <ul className="dropdown-menu dropdown-modern" aria-labelledby="navbarDropdown2">
                 <li>
-                  <a className="dropdown-item" href="#">
-                    Quy định 1
-                  </a>
+                  <a className="dropdown-item" href="#">Quy định 1</a>
                 </li>
                 <li>
-                  <a className="dropdown-item" href="#">
-                    Quy định 2
-                  </a>
+                  <a className="dropdown-item" href="#">Quy định 2</a>
                 </li>
                 <li>
-                  <a className="dropdown-item" href="#">
-                    Quy định 3
-                  </a>
+                  <a className="dropdown-item" href="#">Quy định 3</a>
                 </li>
               </ul>
             </li>
@@ -169,104 +181,92 @@ function Navbar({ tuKhoaTimKiem, setTuKhoaTimKiem }: NavbarProps) {
           </ul>
         </div>
 
-        {/* Tìm kiếm */}
-        <div className="d-flex">
+        {/* Search */}
+        <div className="search-modern me-3">
           <input
-            className="form-control me-2"
             type="search"
-            placeholder="Tìm kiếm"
-            aria-label="Search"
+            placeholder="Tìm kiếm sách..."
+            aria-label="Tìm kiếm"
             onChange={onSearchInputChange}
+            onKeyDown={handleSearchKeyDown}
             value={tuKhoaTamThoi}
           />
           <button
-            className="btn btn-outline-success"
+            className="search-btn"
             type="button"
-            onClick={onSearchSubmit} // Chỉ thực hiện tìm kiếm khi nhấn nút
+            onClick={onSearchSubmit}
+            aria-label="Tìm kiếm"
           >
-            <Search />
+            <Search size={14} />
           </button>
         </div>
 
+        {/* Cart */}
+        <NavLink to="/gio-hang" className="cart-icon me-3" aria-label="Giỏ hàng">
+          <i className="fas fa-shopping-bag"></i>
+          {soLuongGioHang > 0 && (
+            <span className="cart-badge" key={soLuongGioHang}>
+              {soLuongGioHang}
+            </span>
+          )}
+        </NavLink>
 
-        {/* Biểu tượng giỏ hàng */}
-        <ul className="navbar-nav me-1">
-          <li className="nav-item">
-            <NavLink className="nav-link position-relative" to="/gio-hang">
-              <i className="fas fa-shopping-cart"></i>
-              {soLuongGioHang > 0 && (
-                <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
-                  {soLuongGioHang}
-                </span>
-              )}
-            </NavLink>
-          </li>
-        </ul>
-
-        {/* Thay thế phần biểu tượng đăng nhập cũ bằng code mới */}
-        <ul className="navbar-nav me-1">
-          <li className="nav-item">
-            {!jwt ? (
-              <NavLink className="nav-link" to="/dang-nhap">
-                <i className="fas fa-user"></i>
-              </NavLink>
-            ) : (
-              <div className="dropdown">
-                <button
-                  className="btn nav-link dropdown-toggle"
-                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  style={{ border: "none" }}
-                >
-                  <i className="fas fa-user me-1"></i>
-                  {userInfo?.sub || "User"}
-                </button>
-                <ul
-                  className={`dropdown-menu dropdown-menu-end ${
-                    isDropdownOpen ? "show" : ""
-                  }`}
-                  style={{ minWidth: "200px", right: 0, left: "auto" }}
-                >
+        {/* User */}
+        {!jwt ? (
+          <NavLink to="/dang-nhap" className="btn-modern-primary" style={{ padding: "0.45rem 1.2rem", fontSize: "0.85rem" }}>
+            <i className="fas fa-user" style={{ fontSize: "0.8rem" }}></i>
+            Đăng nhập
+          </NavLink>
+        ) : (
+          <div className="user-dropdown position-relative">
+            <button
+              className="btn-modern-outline"
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              style={{ padding: "0.4rem 1rem", fontSize: "0.85rem" }}
+            >
+              <i className="fas fa-user-circle"></i>
+              {userInfo?.sub || "User"}
+            </button>
+            {isDropdownOpen && (
+              <ul
+                className="dropdown-menu dropdown-modern show"
+                style={{ position: "absolute", right: 0, top: "calc(100% + 6px)", minWidth: "200px" }}
+              >
+                <li>
+                  <NavLink to="/profile" className="dropdown-item" onClick={() => setIsDropdownOpen(false)}>
+                    <i className="fas fa-user me-2"></i>Tài khoản
+                  </NavLink>
+                </li>
+                <li>
+                  <NavLink to="/order" className="dropdown-item" onClick={() => setIsDropdownOpen(false)}>
+                    <i className="fas fa-box me-2"></i>Đơn hàng của tôi
+                  </NavLink>
+                </li>
+                {isAdminorStaff && (
                   <li>
-                    <NavLink to="/profile" className="dropdown-item">
-                      <i className="fas fa-user me-2"></i>Tài khoản
-                    </NavLink>
-                  </li>
-                  <li>
-                    <NavLink to="/order" className="dropdown-item">
-                      <i className="fas fa-user me-2"></i>Đơn hàng của tôi
-                    </NavLink>
-                  </li>
-                  <li className="nav-item">
-                    {!jwt ? null : isAdminorStaff ? (
-                      <NavLink
-                        className="dropdown-item"
-                        to="/quan-ly/danh-sach-sach"
-                      >
-                        <i className="fas fa-cog me-2"></i>Quản lý
-                      </NavLink>
-                    ) : null}
-                  </li>
-                  <li>
-                    <NavLink to="/settings" className="dropdown-item">
-                      <i className="fas fa-cog me-2"></i>Cài đặt
-                    </NavLink>
-                  </li>
-                  <li>
-                    <hr className="dropdown-divider" />
-                  </li>
-                  <li>
-                    <button
-                      className="dropdown-item text-danger"
-                      onClick={handleLogout}
+                    <NavLink
+                      to="/quan-ly/danh-sach-sach"
+                      className="dropdown-item"
+                      onClick={() => setIsDropdownOpen(false)}
                     >
-                      <i className="fas fa-sign-out-alt me-2"></i>Đăng xuất
-                    </button>
+                      <i className="fas fa-cog me-2"></i>Quản lý
+                    </NavLink>
                   </li>
-                </ul>
-              </div>
+                )}
+                <li><hr className="dropdown-divider" style={{ margin: "0.3rem 0", opacity: 0.1 }} /></li>
+                <li>
+                  <button
+                    className="dropdown-item"
+                    onClick={handleLogout}
+                    style={{ color: "var(--color-danger)" }}
+                  >
+                    <i className="fas fa-sign-out-alt me-2"></i>Đăng xuất
+                  </button>
+                </li>
+              </ul>
             )}
-          </li>
-        </ul>
+          </div>
+        )}
       </div>
     </nav>
   );

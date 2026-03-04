@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { NavLink } from 'react-router-dom';
+import { NavLink } from "react-router-dom";
+
 function DangKyNguoiDung() {
   const [tenDangNhap, setTenDangNhap] = useState("");
   const [email, setEmail] = useState("");
@@ -10,76 +11,53 @@ function DangKyNguoiDung() {
   const [matKhauLapLai, setMatKhauLapLai] = useState("");
   const [gioiTinh, setGioiTinh] = useState("M");
   const [thongBao, setThongBao] = useState("");
-  const [diaChi,setDiaChi]=useState("");
-  
-  // báo lỗi
+  const [diaChi, setDiaChi] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+
   const [errorTenDangNhap, setErrorTenDangNhap] = useState("");
   const [errorEmail, setErrorEmail] = useState("");
   const [errorMatKhau, setErrorMatKhau] = useState("");
   const [errorMatKhauLapLai, setErrorMatKhauLapLai] = useState("");
-  const [errorDiaChi,setErrorDiaChi]=useState("");
+
   const handleSubmit = async (e: React.FormEvent) => {
-    // Clear any previous error messages
     setErrorTenDangNhap("");
     setErrorEmail("");
     setErrorMatKhau("");
     setErrorMatKhauLapLai("");
-
-    // Tránh click liên tục
     e.preventDefault();
 
-    // Kiểm tra các điều kiện và gán kết quả vào biến
     const isTenDangNhapValid = !(await kiemTraTenDangNhapDaTonTai(tenDangNhap));
     const isEmailValid = !(await kiemTraEmailDaTonTai(email));
     const isMatKhauValid = !kiemTraMatKhauDaTonTai(matKhau);
     const isMatKhauLapLaiValid = !kiemTraMatKhauLapLai(matKhauLapLai);
-    // Kiểm tra tất cả các điều kiện
-    if (
-      isTenDangNhapValid &&
-      isEmailValid &&
-      isMatKhauValid &&
-      isMatKhauLapLaiValid
-    ) {
+
+    if (isTenDangNhapValid && isEmailValid && isMatKhauValid && isMatKhauLapLaiValid) {
+      setIsLoading(true);
       try {
         const url = "http://localhost:8080/tai-khoan/dang-ky";
-
         const response = await fetch(url, {
           method: "POST",
-          headers: {
-            "Content-type": "application/json",
-          },
+          headers: { "Content-type": "application/json" },
           body: JSON.stringify({
-            tenDangNhap: tenDangNhap,
-            email: email,
-            matKhau: matKhau,
-            hoDem: hoDem,
-            ten: ten,
-            soDienThoai: soDienThoai,
-            diaChi: diaChi,
-            gioiTinh: gioiTinh,
-            daKichHoat: 0,
-            maKichHoat: "",
+            tenDangNhap, email, matKhau, hoDem, ten,
+            soDienThoai, diaChi, gioiTinh, daKichHoat: 0, maKichHoat: "",
           }),
         });
-
         if (response.ok) {
-          setThongBao(
-            "Đăng ký thành công, vui lòng kiểm tra email để kích hoạt!"
-          );
+          setThongBao("Đăng ký thành công, vui lòng kiểm tra email để kích hoạt!");
         } else {
-          console.log(response.json());
           setThongBao("Đã xảy ra lỗi trong quá trình đăng ký tài khoản.");
         }
       } catch (error) {
         setThongBao("Đã xảy ra lỗi trong quá trình đăng ký tài khoản.");
+      } finally {
+        setIsLoading(false);
       }
     }
   };
 
-  // ktr
   const kiemTraTenDangNhapDaTonTai = async (tenDangNhap: string) => {
     const url = `http://localhost:8080/nguoi-dung/search/existsByTenDangNhap?tenDangNhap=${tenDangNhap}`;
-    console.log(url);
     try {
       const response = await fetch(url);
       const data = await response.text();
@@ -89,24 +67,18 @@ function DangKyNguoiDung() {
       }
       return false;
     } catch (error) {
-      console.error("Lỗi khi kiểm tra tên đăng nhập: ", error);
       return false;
     }
   };
-  const handleTenDangNhapChange = async (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    const newTenDangNhap = e.target.value;
-    setTenDangNhap(newTenDangNhap);
-    // Kiểm tra
+
+  const handleTenDangNhapChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    setTenDangNhap(e.target.value);
     setErrorTenDangNhap("");
-    // kiểm tra sự tồn tại
-    return kiemTraTenDangNhapDaTonTai(newTenDangNhap);
+    return kiemTraTenDangNhapDaTonTai(e.target.value);
   };
 
   const kiemTraEmailDaTonTai = async (email: string) => {
     const url = `http://localhost:8080/nguoi-dung/search/existsByEmail?email=${email}`;
-    console.log(url);
     try {
       const response = await fetch(url);
       const data = await response.text();
@@ -116,7 +88,6 @@ function DangKyNguoiDung() {
       }
       return false;
     } catch (error) {
-      console.error("Lỗi khi kiểm tra tên Email: ", error);
       return false;
     }
   };
@@ -124,260 +95,161 @@ function DangKyNguoiDung() {
   const kiemTraMatKhauDaTonTai = (matKhau: string) => {
     const passwordRegex = /^(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$/;
     if (!passwordRegex.test(matKhau)) {
-      setErrorMatKhau(
-        "Mật khẩu phải có ít nhất 8 ký tự và bao gồm ít nhất 1 ký tự đặc biệt (!@#$%^&*)"
-      );
+      setErrorMatKhau("Mật khẩu phải có ít nhất 8 ký tự và 1 ký tự đặc biệt (!@#$%^&*)");
       return true;
-    } else {
-      setErrorMatKhau(""); // Mật khẩu hợp lệ
-      return false;
     }
-  };
-  const handleMatKhauChange = async (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    // Thay đổi giá trị
-    setMatKhau(e.target.value);
-    // Kiểm tra
     setErrorMatKhau("");
-    // Kiểm tra sự tồn tại
-    return kiemTraMatKhauDaTonTai(e.target.value);
+    return false;
+  };
+
+  const handleMatKhauChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setMatKhau(e.target.value);
+    setErrorMatKhau("");
+    kiemTraMatKhauDaTonTai(e.target.value);
   };
 
   const kiemTraMatKhauLapLai = (matKhauLapLai: string) => {
     if (matKhauLapLai !== matKhau) {
       setErrorMatKhauLapLai("Mật khẩu không trùng khớp.");
       return true;
-    } else {
-      setErrorMatKhauLapLai(""); // Mật khẩu trùng khớp
-      return false;
     }
-  };
-  const handleMatKhauLapLaiChange = async (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    // Thay đổi giá trị
-    setMatKhauLapLai(e.target.value);
-    // Kiểm tra
     setErrorMatKhauLapLai("");
-    // Kiểm tra sự tồn tại
-    return kiemTraMatKhauLapLai(e.target.value);
+    return false;
   };
 
-  const handleEmailChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newEmail = e.target.value;
-    setEmail(newEmail);
-    // Kiểm tra
-    setErrorEmail("");
-    // kiểm tra sự tồn tại
-    return kiemTraEmailDaTonTai(newEmail);
+  const handleMatKhauLapLaiChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setMatKhauLapLai(e.target.value);
+    setErrorMatKhauLapLai("");
+    kiemTraMatKhauLapLai(e.target.value);
   };
+
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setEmail(e.target.value);
+    setErrorEmail("");
+    kiemTraEmailDaTonTai(e.target.value);
+  };
+
+  const renderField = (label: string, id: string, type: string, value: string, onChange: any, placeholder: string, icon: string, error?: string) => (
+    <div className="mb-3">
+      <label htmlFor={id} style={{ fontWeight: 600, fontSize: "0.88rem", marginBottom: 6, display: "block" }}>
+        {label}
+      </label>
+      <div style={{ position: "relative" }}>
+        <i className={`fas ${icon}`} style={{
+          position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)",
+          color: "var(--color-text-muted)", fontSize: "0.85rem"
+        }}></i>
+        <input
+          type={type}
+          className="auth-input"
+          id={id}
+          value={value}
+          onChange={onChange}
+          placeholder={placeholder}
+          style={{ paddingLeft: "2.2rem" }}
+        />
+      </div>
+      {error && (
+        <small className="animate-fade-in" style={{ color: "var(--color-danger)", fontSize: "0.8rem", marginTop: 4, display: "block" }}>
+          {error}
+        </small>
+      )}
+    </div>
+  );
 
   return (
-    <div className="container py-5">
-    <div className="row justify-content-center">
-      <div className="col-12 col-md-8 col-lg-6">
-        <div className="card shadow">
-          <div className="card-body p-4">
-              <div className="text-center mb-4">
-                <i className="fas fa-user-plus fa-3x text-primary mb-3"></i>
-                <h3 className="font-weight-bold">Đăng ký tài khoản</h3>
-              </div>
+    <div className="auth-container" style={{ padding: "2rem 1rem" }}>
+      <div className="auth-card" style={{ maxWidth: 520 }}>
+        <div className="text-center mb-4">
+          <div style={{
+            width: 64, height: 64, borderRadius: "50%",
+            background: "linear-gradient(135deg, var(--color-primary), var(--color-primary-light))",
+            display: "inline-flex", alignItems: "center", justifyContent: "center", marginBottom: "1rem"
+          }}>
+            <i className="fas fa-user-plus" style={{ color: "white", fontSize: "1.5rem" }}></i>
+          </div>
+          <h2>Đăng ký tài khoản</h2>
+          <p style={{ color: "var(--color-text-secondary)", fontSize: "0.9rem" }}>
+            Tạo tài khoản để mua sắm dễ dàng
+          </p>
+        </div>
 
-              <form onSubmit={handleSubmit}>
-                <div className="mb-3">
-                  <label htmlFor="tenDangNhap" className="form-label">
-                    Tên đăng nhập
-                  </label>
-                  <div className="input-group">
-                    <span className="input-group-text">
-                      <i className="fas fa-user"></i>
-                    </span>
-                    <input
-                      type="text"
-                      id="tenDangNhap"
-                      className="form-control"
-                      value={tenDangNhap}
-                      onChange={handleTenDangNhapChange}
-                      placeholder="Nhập tên đăng nhập"
-                    />
-                  </div>
-                  {errorTenDangNhap && (
-                    <small className="text-danger">{errorTenDangNhap}</small>
-                  )}
-                </div>
+        <form onSubmit={handleSubmit}>
+          {renderField("Tên đăng nhập", "tenDangNhap", "text", tenDangNhap, handleTenDangNhapChange, "Nhập tên đăng nhập", "fa-user", errorTenDangNhap)}
+          {renderField("Email", "email", "email", email, handleEmailChange, "Nhập email", "fa-envelope", errorEmail)}
+          {renderField("Mật khẩu", "matKhau", "password", matKhau, handleMatKhauChange, "Nhập mật khẩu", "fa-lock", errorMatKhau)}
+          {renderField("Xác nhận mật khẩu", "matKhauLapLai", "password", matKhauLapLai, handleMatKhauLapLaiChange, "Nhập lại mật khẩu", "fa-lock", errorMatKhauLapLai)}
 
-                <div className="mb-3">
-                  <label htmlFor="email" className="form-label">
-                    Email
-                  </label>
-                  <div className="input-group">
-                    <span className="input-group-text">
-                      <i className="fas fa-envelope"></i>
-                    </span>
-                    <input
-                      type="email"
-                      id="email"
-                      className="form-control"
-                      value={email}
-                      onChange={handleEmailChange}
-                      placeholder="Nhập email"
-                    />
-                  </div>
-                  {errorEmail && (
-                    <small className="text-danger">{errorEmail}</small>
-                  )}
-                </div>
-
-                <div className="mb-3">
-                  <label htmlFor="matKhau" className="form-label">
-                    Mật khẩu
-                  </label>
-                  <div className="input-group">
-                    <span className="input-group-text">
-                      <i className="fas fa-lock"></i>
-                    </span>
-                    <input
-                      type="password"
-                      id="matKhau"
-                      className="form-control"
-                      value={matKhau}
-                      onChange={handleMatKhauChange}
-                      placeholder="Nhập mật khẩu"
-                    />
-                  </div>
-                  {errorMatKhau && (
-                    <small className="text-danger">{errorMatKhau}</small>
-                  )}
-                </div>
-
-                <div className="mb-3">
-                  <label htmlFor="matKhauLapLai" className="form-label">
-                    Xác nhận mật khẩu
-                  </label>
-                  <div className="input-group">
-                    <span className="input-group-text">
-                      <i className="fas fa-lock"></i>
-                    </span>
-                    <input
-                      type="password"
-                      id="matKhauLapLai"
-                      className="form-control"
-                      value={matKhauLapLai}
-                      onChange={handleMatKhauLapLaiChange}
-                      placeholder="Nhập lại mật khẩu"
-                    />
-                  </div>
-                  {errorMatKhauLapLai && (
-                    <small className="text-danger">{errorMatKhauLapLai}</small>
-                  )}
-                </div>
-
-                <div className="row mb-3">
-                  <div className="col-md-6">
-                    <label htmlFor="hoDem" className="form-label">
-                      Họ đệm
-                    </label>
-                    <input
-                      type="text"
-                      id="hoDem"
-                      className="form-control"
-                      value={hoDem}
-                      onChange={(e) => setHoDen(e.target.value)}
-                      placeholder="Nhập họ đệm"
-                    />
-                  </div>
-                  <div className="col-md-6">
-                    <label htmlFor="ten" className="form-label">
-                      Tên
-                    </label>
-                    <input
-                      type="text"
-                      id="ten"
-                      className="form-control"
-                      value={ten}
-                      onChange={(e) => setTen(e.target.value)}
-                      placeholder="Nhập tên"
-                    />
-                  </div>
-                </div>
-
-                <div className="mb-3">
-                  <label htmlFor="soDienThoai" className="form-label">
-                    Số điện thoại
-                  </label>
-                  <div className="input-group">
-                    <span className="input-group-text">
-                      <i className="fas fa-phone"></i>
-                    </span>
-                    <input
-                      type="tel"
-                      id="soDienThoai"
-                      className="form-control"
-                      value={soDienThoai}
-                      onChange={(e) => setSoDienThoai(e.target.value)}
-                      placeholder="Nhập số điện thoại"
-                    />
-                  </div>
-                  <label htmlFor="diaChi" className="form-label">
-                      Địa chỉ
-                  </label>
-                  <div className="input-group">
-                    <span className="input-group-text">
-                      <i className="fas fa-phone"></i>
-                    </span>
-                    <input
-                      type="tel"
-                      id="diaChi"
-                      className="form-control"
-                      value={diaChi}
-                      onChange={(e) => setDiaChi(e.target.value)}
-                      placeholder="Nhập địa chỉ"
-                    />
-                  </div>
-                </div>
-
-                <div className="mb-4">
-                  <label htmlFor="gioiTinh" className="form-label">
-                    Giới tính
-                  </label>
-                  <select
-                    id="gioiTinh"
-                    className="form-select"
-                    value={gioiTinh}
-                    onChange={(e) => setGioiTinh(e.target.value)}
-                  >
-                    <option value="M">Nam</option>
-                    <option value="F">Nữ</option>
-                    <option value="O">Khác</option>
-                  </select>
-                </div>
-
-                <div className="d-grid gap-2">
-                  <button type="submit" className="btn btn-primary btn-lg">
-                    Đăng ký
-                  </button>
-                </div>
-
-                {thongBao && (
-                  <div className="alert alert-success mt-3" role="alert">
-                    <i className="fas fa-check-circle me-2"></i>
-                    {thongBao}
-                  </div>
-                )}
-
-                <div className="text-center mt-3">
-                  <p>
-                    Đã có tài khoản?{" "}
-                    <NavLink to="/dang-nhap" className="text-decoration-none">
-                      Đăng nhập ngay
-                    </NavLink>
-                  </p>
-                </div>
-              </form>
+          <div className="row mb-3">
+            <div className="col-md-6">
+              <label htmlFor="hoDem" style={{ fontWeight: 600, fontSize: "0.88rem", marginBottom: 6, display: "block" }}>Họ đệm</label>
+              <input type="text" className="auth-input" id="hoDem" value={hoDem} onChange={(e) => setHoDen(e.target.value)} placeholder="Nhập họ đệm" />
+            </div>
+            <div className="col-md-6">
+              <label htmlFor="ten" style={{ fontWeight: 600, fontSize: "0.88rem", marginBottom: 6, display: "block" }}>Tên</label>
+              <input type="text" className="auth-input" id="ten" value={ten} onChange={(e) => setTen(e.target.value)} placeholder="Nhập tên" />
             </div>
           </div>
-        </div>
+
+          {renderField("Số điện thoại", "soDienThoai", "tel", soDienThoai, (e: any) => setSoDienThoai(e.target.value), "Nhập số điện thoại", "fa-phone")}
+          {renderField("Địa chỉ", "diaChi", "text", diaChi, (e: any) => setDiaChi(e.target.value), "Nhập địa chỉ", "fa-map-marker-alt")}
+
+          <div className="mb-4">
+            <label htmlFor="gioiTinh" style={{ fontWeight: 600, fontSize: "0.88rem", marginBottom: 6, display: "block" }}>Giới tính</label>
+            <select
+              id="gioiTinh"
+              className="auth-input"
+              value={gioiTinh}
+              onChange={(e) => setGioiTinh(e.target.value)}
+              style={{ cursor: "pointer" }}
+            >
+              <option value="M">Nam</option>
+              <option value="F">Nữ</option>
+              <option value="O">Khác</option>
+            </select>
+          </div>
+
+          <button
+            type="submit"
+            className="btn-modern-primary w-100"
+            style={{ padding: "0.7rem", justifyContent: "center", fontSize: "0.95rem" }}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <>
+                <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                Đang xử lý...
+              </>
+            ) : (
+              "Đăng ký"
+            )}
+          </button>
+
+          {thongBao && (
+            <div
+              className="mt-3 animate-fade-in"
+              style={{
+                background: "rgba(16,185,129,0.06)",
+                border: "1px solid rgba(16,185,129,0.15)",
+                borderRadius: "var(--radius-md)",
+                padding: "0.7rem 1rem",
+                fontSize: "0.88rem",
+                color: "var(--color-success)"
+              }}
+              role="alert"
+            >
+              <i className="fas fa-check-circle me-2"></i>
+              {thongBao}
+            </div>
+          )}
+
+          <div className="text-center mt-4" style={{ fontSize: "0.9rem", color: "var(--color-text-secondary)" }}>
+            Đã có tài khoản?{" "}
+            <NavLink to="/dang-nhap" style={{ fontWeight: 600 }}>
+              Đăng nhập ngay
+            </NavLink>
+          </div>
+        </form>
       </div>
     </div>
   );

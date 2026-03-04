@@ -1,44 +1,16 @@
 import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import SachModel from "../../models/SachModel";
 import { getBookById } from "../../api/SachApi";
 import HinhAnhSanPham from "./components/HinhAnhSanPham";
 import DanhGiaSanPham, { renderStars } from "./components/DanhGiaSanPham";
 import dinhDangSo from "../utils/DinhDangSo";
-import { toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
-import { themVaoGioHang } from '../utils/GioHangUtils';
-import { useNavigate } from 'react-router-dom';
+import { toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import { themVaoGioHang } from "../utils/GioHangUtils";
 
 const ChiTietSanPham: React.FC = () => {
   const navigate = useNavigate();
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [tenNguoiMua, setTenNguoiMua] = useState("");
-  const [soDienThoaiNguoiMua, setSoDienThoaiNguoiMua] = useState("");
-  const [emailNguoiMua, setEmailNguoiMua] = useState("");
-
-  const handleMuaNgay = () => {
-    if (!sach) return;
-
-    const sanPhamMuaNgay = {
-      maSach: sach.maSach,
-      sachDto: {
-        tenSach: sach.tenSach,
-        giaBan: sach.giaBan,
-        hinhAnh: sach.danhSachAnh?.[0]?.urlHinh || ''
-      },
-      soLuong: soLuong
-    };
-
-    localStorage.setItem('gioHang', JSON.stringify([sanPhamMuaNgay]));
-
-    if (localStorage.getItem('jwt')) {
-      navigate('/thanh-toan');
-    } else {
-      navigate('/dat-hang-nhanh');
-    }
-  };
-
   const { maSach } = useParams();
   let maSachNumber = 0;
 
@@ -47,7 +19,6 @@ const ChiTietSanPham: React.FC = () => {
     if (Number.isNaN(maSachNumber)) maSachNumber = 0;
   } catch (error) {
     maSachNumber = 0;
-    console.error("Lỗi", error);
   }
 
   const [sach, setSach] = useState<SachModel | null>(null);
@@ -67,6 +38,7 @@ const ChiTietSanPham: React.FC = () => {
       setSoLuong(soLuong - 1);
     }
   };
+
   const handleSoLuongChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const soLuongMoi = parseInt(event.target.value);
     const soLuongTonKho = sach && sach.soLuong ? sach.soLuong : 0;
@@ -75,19 +47,35 @@ const ChiTietSanPham: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    const loadSanPham = async () => {
-      getBookById(maSachNumber)
-        .then((sach) => {
-          setSach(sach);
-          setDangTaiDuLieu(false);
-        })
-        .catch((error) => {
-          setBaoLoi(error.message);
-          setDangTaiDuLieu(false);
-        });
+  const handleMuaNgay = () => {
+    if (!sach) return;
+    const sanPhamMuaNgay = {
+      maSach: sach.maSach,
+      sachDto: {
+        tenSach: sach.tenSach,
+        giaBan: sach.giaBan,
+        hinhAnh: sach.danhSachAnh?.[0]?.urlHinh || "",
+      },
+      soLuong: soLuong,
     };
-    loadSanPham();
+    localStorage.setItem("gioHang", JSON.stringify([sanPhamMuaNgay]));
+    if (localStorage.getItem("jwt")) {
+      navigate("/thanh-toan");
+    } else {
+      navigate("/dat-hang-nhanh");
+    }
+  };
+
+  useEffect(() => {
+    getBookById(maSachNumber)
+      .then((sach) => {
+        setSach(sach);
+        setDangTaiDuLieu(false);
+      })
+      .catch((error) => {
+        setBaoLoi(error.message);
+        setDangTaiDuLieu(false);
+      });
   }, [maSachNumber]);
 
   const xuLyThemVaoGioHang = () => {
@@ -98,102 +86,145 @@ const ChiTietSanPham: React.FC = () => {
 
   if (dangTaiDuLieu) {
     return (
-      <div>
-        <h1>Đang tải dữ liệu</h1>
+      <div className="container py-5">
+        <div className="detail-section">
+          <div className="row">
+            <div className="col-md-5">
+              <div className="skeleton" style={{ height: 400, borderRadius: "var(--radius-md)" }}></div>
+            </div>
+            <div className="col-md-7">
+              <div className="skeleton skeleton-text" style={{ width: "60%", height: 28 }}></div>
+              <div className="skeleton skeleton-text mt-3" style={{ width: "30%" }}></div>
+              <div className="skeleton skeleton-text mt-3" style={{ width: "40%", height: 32 }}></div>
+              <div className="skeleton skeleton-text mt-4" style={{ width: "100%" }}></div>
+              <div className="skeleton skeleton-text" style={{ width: "90%" }}></div>
+              <div className="skeleton skeleton-text" style={{ width: "75%" }}></div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
 
   if (baoLoi) {
     return (
-      <div>
-        <h1>Gặp lỗi: {baoLoi}</h1>
+      <div className="container py-5 text-center">
+        <i className="fas fa-exclamation-triangle" style={{ fontSize: "3rem", color: "var(--color-danger)", marginBottom: "1rem", display: "block" }}></i>
+        <h5 style={{ color: "var(--color-text-secondary)" }}>Gặp lỗi: {baoLoi}</h5>
       </div>
     );
   }
 
   if (!sach) {
     return (
-      <div>
-        <h1>Sách không tồn tại!</h1>
+      <div className="container py-5 text-center">
+        <i className="fas fa-book" style={{ fontSize: "3rem", color: "var(--color-text-muted)", marginBottom: "1rem", display: "block" }}></i>
+        <h5 style={{ color: "var(--color-text-secondary)" }}>Sách không tồn tại!</h5>
       </div>
     );
   }
 
   return (
-    <div className="container">
-      <div className="row mt-4 mb-4">
-        <div className="col-4">
-          <HinhAnhSanPham maSach={maSachNumber} />
-        </div>
-        <div className="col-8">
-          <div className="row">
-            <div className="col-8">
-              <h1>{sach.tenSach}</h1>
-              <p>{sach.tenTacGia}</p>
-              <h4>{renderStars(sach.trungBinhXepHang ?? 0)}</h4>
-              <h4>{dinhDangSo(sach.giaBan)} đ</h4>
-              <hr />
-              <div
-                dangerouslySetInnerHTML={{
-                  __html: sach.moTa || "Mô tả không có sẵn",
-                }}
-              />
-              <hr />
+    <div className="container py-4">
+      <div className="detail-section animate-fade-in">
+        <div className="row">
+          {/* Image */}
+          <div className="col-lg-5 mb-4 mb-lg-0">
+            <div style={{ borderRadius: "var(--radius-md)", overflow: "hidden" }}>
+              <HinhAnhSanPham maSach={maSachNumber} />
             </div>
-            <div className="col-4">
-              <div>
-                <div className="mb-2">Số lượng</div>
-                <div className="d-flex align-items-center">
-                  <button
-                    className="btn btn-outline-secondary me-2"
-                    onClick={giamSoLuong}
-                  >
-                    -
-                  </button>
+          </div>
+
+          {/* Info */}
+          <div className="col-lg-7">
+            <h1 style={{ fontFamily: "var(--font-heading)", fontSize: "1.8rem", fontWeight: 700, marginBottom: "0.5rem" }}>
+              {sach.tenSach}
+            </h1>
+
+            <p style={{ color: "var(--color-text-secondary)", fontSize: "0.95rem", marginBottom: "0.75rem" }}>
+              <i className="fas fa-pen-nib me-2"></i>{sach.tenTacGia}
+            </p>
+
+            <div className="mb-3">
+              {renderStars(sach.trungBinhXepHang ?? 0)}
+            </div>
+
+            <div className="d-flex align-items-baseline gap-3 mb-3">
+              <span className="detail-price">{dinhDangSo(sach.giaBan)} đ</span>
+              {sach.giaNiemYet != null && sach.giaBan != null && sach.giaNiemYet > sach.giaBan && (
+                <span style={{ textDecoration: "line-through", color: "var(--color-text-muted)", fontSize: "1.1rem" }}>
+                  {dinhDangSo(sach.giaNiemYet)} đ
+                </span>
+              )}
+            </div>
+
+            <div
+              style={{ color: "var(--color-text-secondary)", fontSize: "0.93rem", lineHeight: 1.7, marginBottom: "1.5rem" }}
+              dangerouslySetInnerHTML={{ __html: sach.moTa || "Mô tả không có sẵn" }}
+            />
+
+            <hr style={{ borderColor: "var(--color-border)", opacity: 0.5 }} />
+
+            {/* Quantity + Actions */}
+            <div className="row align-items-end mt-3">
+              <div className="col-auto">
+                <label style={{ fontWeight: 600, fontSize: "0.88rem", marginBottom: 8, display: "block", color: "var(--color-text-secondary)" }}>
+                  Số lượng
+                </label>
+                <div className="qty-control">
+                  <button onClick={giamSoLuong} aria-label="Giảm số lượng">-</button>
                   <input
-                    className="form-control text-center"
                     type="number"
                     value={soLuong}
                     min={1}
                     onChange={handleSoLuongChange}
+                    aria-label="Số lượng"
                   />
-                  <button
-                    className="btn btn-outline-secondary ms-2"
-                    onClick={tangSoLuong}
-                  >
-                    +
-                  </button>
-                </div>
-
-                {sach.giaBan && (
-                  <div className="mt text-center">
-                    Số tiền tạm tính
-                    <br />
-                    <h4>{dinhDangSo(soLuong * sach.giaBan)} đ</h4>
-                  </div>
-                )}
-                <div className="d-grid gap-2">
-                  <button
-                    className="btn btn-danger mt-3"
-                    onClick={handleMuaNgay}
-                  >
-                    Mua ngay
-                  </button>
-                  <button
-                    className="btn btn-primary mt-2"
-                    onClick={xuLyThemVaoGioHang}
-                  >
-                    <i className="fas fa-shopping-cart me-2"></i>
-                    Thêm vào giỏ hàng
-                  </button>
+                  <button onClick={tangSoLuong} aria-label="Tăng số lượng">+</button>
                 </div>
               </div>
+
+              {sach.giaBan && (
+                <div className="col-auto">
+                  <div style={{ color: "var(--color-text-secondary)", fontSize: "0.85rem" }}>Tạm tính</div>
+                  <div style={{ fontFamily: "var(--font-heading)", fontWeight: 700, fontSize: "1.3rem", color: "var(--color-accent)" }}>
+                    {dinhDangSo(soLuong * sach.giaBan)} đ
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="d-flex gap-3 mt-4 flex-wrap">
+              <button className="btn-modern-accent" onClick={handleMuaNgay} style={{ padding: "0.7rem 2rem" }}>
+                <i className="fas fa-bolt"></i>
+                Mua ngay
+              </button>
+              <button className="btn-modern-primary" onClick={xuLyThemVaoGioHang} style={{ padding: "0.7rem 2rem" }}>
+                <i className="fas fa-shopping-cart"></i>
+                Thêm vào giỏ hàng
+              </button>
+            </div>
+
+            {/* Stock info */}
+            <div className="mt-3" style={{ fontSize: "0.85rem", color: "var(--color-text-muted)" }}>
+              {sach.soLuong && sach.soLuong > 0 ? (
+                <span style={{ color: "var(--color-success)" }}>
+                  <i className="fas fa-check-circle me-1"></i>
+                  Còn {sach.soLuong} sản phẩm
+                </span>
+              ) : (
+                <span style={{ color: "var(--color-danger)" }}>
+                  <i className="fas fa-times-circle me-1"></i>
+                  Hết hàng
+                </span>
+              )}
             </div>
           </div>
         </div>
       </div>
-      <div className="row mt-4 mb-4">
+
+      {/* Reviews */}
+      <div className="mt-4 animate-fade-in-up">
         <DanhGiaSanPham maSach={maSachNumber} />
       </div>
     </div>
