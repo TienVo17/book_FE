@@ -98,7 +98,7 @@ const DangNhap = () => {
             <button
               type="button"
               style={{ background: "none", border: "none", color: "var(--color-primary)", fontSize: "0.85rem", cursor: "pointer" }}
-              onClick={() => {}}
+              onClick={() => navigate('/quen-mat-khau')}
             >
               Quên mật khẩu?
             </button>

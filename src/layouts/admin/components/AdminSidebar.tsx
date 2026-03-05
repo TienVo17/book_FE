@@ -10,10 +10,8 @@ const AdminSidebar = () => {
 
   useEffect(() => {
     if (jwt) {
-
       const decodedJwt = JSON.parse(atob(jwt.split('.')[1]));
       setUserInfo(decodedJwt);
-      
     }
   }, [jwt]);
 
@@ -40,21 +38,17 @@ const AdminSidebar = () => {
         borderRadius: '4px'
       }}>
         <div className="dropdown">
-          <button 
+          <button
             className="btn text-white dropdown-toggle"
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            style={{ 
-              border: 'none',
-              background: 'none',
-              padding: '5px'
-            }}
+            style={{ border: 'none', background: 'none', padding: '5px' }}
           >
             <i className="fas fa-user me-2"></i>
             {userInfo?.sub || 'Admin'}
           </button>
           {isDropdownOpen && (
             <ul className="dropdown-menu show dropdown-menu-end"
-              style={{ 
+              style={{
                 position: 'absolute',
                 top: '100%',
                 right: 0,
@@ -79,7 +73,7 @@ const AdminSidebar = () => {
               <li><hr className="dropdown-divider" /></li>
               <li>
                 <button
-                  className="dropdown-item text-danger" 
+                  className="dropdown-item text-danger"
                   onClick={handleLogout}
                   style={{ border: 'none', background: 'none', width: '100%', textAlign: 'left' }}
                 >
@@ -92,10 +86,10 @@ const AdminSidebar = () => {
       </div>
 
       {/* Sidebar chính */}
-      <div className="sidebar" 
+      <div className="sidebar"
         style={{
-          width: '250px', 
-          height: '100vh', 
+          width: '250px',
+          height: '100vh',
           position: 'fixed',
           left: 0,
           top: 0,
@@ -110,12 +104,15 @@ const AdminSidebar = () => {
           </h4>
           <hr />
           <ul className="nav flex-column">
-            {/* <li className="nav-item">
-              <NavLink to="/quan-ly/dashboard" className="nav-link text-white">
-                <i className="fas fa-tachometer-alt me-2"></i>
-                Dashboard
-              </NavLink>
-            </li> */}
+            {/* Dashboard */}
+            {userInfo?.isAdmin && (
+              <li className="nav-item">
+                <NavLink to="/quan-ly/dashboard" className="nav-link text-white">
+                  <i className="fas fa-tachometer-alt me-2"></i>
+                  Dashboard
+                </NavLink>
+              </li>
+            )}
 
             {/* Quản lý sách */}
             <li className="nav-item">
@@ -137,47 +134,51 @@ const AdminSidebar = () => {
             </li>
 
             {/* Quản lý đơn hàng */}
-            {userInfo?.isAdmin ?
-            <li className="nav-item">
-              <div className="nav-link text-white" style={{cursor: 'pointer'}} onClick={() => toggleSubMenu('donhang')}>
-                <i className="fas fa-shopping-cart me-2"></i>
-                Quản lý đơn hàng
-                <i className={`fas fa-chevron-${openSubMenu === 'donhang' ? 'down' : 'right'} float-end mt-1`}></i>
-              </div>
-              {openSubMenu === 'donhang' && (
-                <ul className="nav flex-column ms-3">
-                  <li className="nav-item">
-                    <NavLink to="/quan-ly/danh-sach-don-hang" className="nav-link text-white">
-                      <i className="fas fa-list me-2"></i>
-                      Danh sách đơn hàng
-                    </NavLink>
-                  </li>
-                </ul>
-              )}
-            </li>:""
-}
-            {/* Các menu khác tương tự */}
-            {userInfo?.isAdmin ?<li className="nav-item">
-              <div className="nav-link text-white" style={{cursor: 'pointer'}} onClick={() => toggleSubMenu('nguoidung')}>
-                <i className="fas fa-users me-2"></i>
-                Quản lý người dùng
-                <i className={`fas fa-chevron-${openSubMenu === 'nguoidung' ? 'down' : 'right'} float-end mt-1`}></i>
-              </div>
-              {openSubMenu === 'nguoidung' && (
-                <ul className="nav flex-column ms-3">
-                
-                  <li className="nav-item">
-                    <NavLink to="/quan-ly/danh-sach-nguoi-dung" className="nav-link text-white">
-                      <i className="fas fa-list me-2"></i>
-                      Danh sách người dùng
-                    </NavLink>
-                  </li>
-                </ul>
-              )}
-            </li> : "" }
+            {userInfo?.isAdmin &&
+              <li className="nav-item">
+                <div className="nav-link text-white" style={{cursor: 'pointer'}} onClick={() => toggleSubMenu('donhang')}>
+                  <i className="fas fa-shopping-cart me-2"></i>
+                  Quản lý đơn hàng
+                  <i className={`fas fa-chevron-${openSubMenu === 'donhang' ? 'down' : 'right'} float-end mt-1`}></i>
+                </div>
+                {openSubMenu === 'donhang' && (
+                  <ul className="nav flex-column ms-3">
+                    <li className="nav-item">
+                      <NavLink to="/quan-ly/danh-sach-don-hang" className="nav-link text-white">
+                        <i className="fas fa-list me-2"></i>
+                        Danh sách đơn hàng
+                      </NavLink>
+                    </li>
+                  </ul>
+                )}
+              </li>
+            }
+
+            {/* Quản lý người dùng */}
+            {userInfo?.isAdmin &&
+              <li className="nav-item">
+                <div className="nav-link text-white" style={{cursor: 'pointer'}} onClick={() => toggleSubMenu('nguoidung')}>
+                  <i className="fas fa-users me-2"></i>
+                  Quản lý người dùng
+                  <i className={`fas fa-chevron-${openSubMenu === 'nguoidung' ? 'down' : 'right'} float-end mt-1`}></i>
+                </div>
+                {openSubMenu === 'nguoidung' && (
+                  <ul className="nav flex-column ms-3">
+                    <li className="nav-item">
+                      <NavLink to="/quan-ly/danh-sach-nguoi-dung" className="nav-link text-white">
+                        <i className="fas fa-list me-2"></i>
+                        Danh sách người dùng
+                      </NavLink>
+                    </li>
+                  </ul>
+                )}
+              </li>
+            }
+
+            {/* Quản lý bình luận */}
             <li className="nav-item">
               <div className="nav-link text-white" style={{cursor: 'pointer'}} onClick={() => toggleSubMenu('binhluan')}>
-                <i className="fas fa-book me-2"></i>
+                <i className="fas fa-comments me-2"></i>
                 Quản lý bình luận
                 <i className={`fas fa-chevron-${openSubMenu === 'binhluan' ? 'down' : 'right'} float-end mt-1`}></i>
               </div>
@@ -192,6 +193,16 @@ const AdminSidebar = () => {
                 </ul>
               )}
             </li>
+
+            {/* Quản lý coupon */}
+            {userInfo?.isAdmin && (
+              <li className="nav-item">
+                <NavLink to="/quan-ly/quan-ly-coupon" className="nav-link text-white">
+                  <i className="fas fa-ticket-alt me-2"></i>
+                  Quản lý coupon
+                </NavLink>
+              </li>
+            )}
           </ul>
         </div>
       </div>

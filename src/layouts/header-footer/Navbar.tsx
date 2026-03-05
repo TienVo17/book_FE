@@ -1,6 +1,8 @@
 import React, { ChangeEvent, useState, useEffect } from "react";
 import { Search } from "react-bootstrap-icons";
 import { NavLink, useNavigate } from "react-router-dom";
+import { getAllTheLoai } from "../../api/TheLoaiApi";
+import { TheLoaiModel } from "../../models/TheLoaiModel";
 
 interface NavbarProps {
   tuKhoaTimKiem: string;
@@ -16,6 +18,12 @@ function Navbar({ tuKhoaTimKiem, setTuKhoaTimKiem }: NavbarProps) {
   const [jwt, setJwt] = useState(localStorage.getItem("jwt") || "");
   const [userInfo, setUserInfo] = useState<any>(null);
   const [isAdminorStaff, setIsAdminorStaff] = useState(false);
+  const [theLoaiList, setTheLoaiList] = useState<TheLoaiModel[]>([]);
+
+  // Fetch categories on mount
+  useEffect(() => {
+    getAllTheLoai().then(setTheLoaiList).catch(console.error);
+  }, []);
 
   // Track scroll for navbar style change
   useEffect(() => {
@@ -133,21 +141,16 @@ function Navbar({ tuKhoaTimKiem, setTuKhoaTimKiem }: NavbarProps) {
                 Thể loại sách
               </NavLink>
               <ul className="dropdown-menu dropdown-modern" aria-labelledby="navbarDropdown1">
-                <li>
-                  <NavLink className="dropdown-item" to="/1">
-                    Thể loại 1
-                  </NavLink>
-                </li>
-                <li>
-                  <NavLink className="dropdown-item" to="/2">
-                    Thể loại 2
-                  </NavLink>
-                </li>
-                <li>
-                  <NavLink className="dropdown-item" to="/3">
-                    Thể loại 3
-                  </NavLink>
-                </li>
+                {theLoaiList.map(tl => (
+                  <li key={tl.maTheLoai}>
+                    <NavLink className="dropdown-item" to={`/?maTheLoai=${tl.maTheLoai}`}>
+                      {tl.tenTheLoai} ({tl.soLuongSach})
+                    </NavLink>
+                  </li>
+                ))}
+                {theLoaiList.length === 0 && (
+                  <li><span className="dropdown-item text-muted">Đang tải...</span></li>
+                )}
               </ul>
             </li>
             <li className="nav-item dropdown">
@@ -240,6 +243,11 @@ function Navbar({ tuKhoaTimKiem, setTuKhoaTimKiem }: NavbarProps) {
                 <li>
                   <NavLink to="/order" className="dropdown-item" onClick={() => setIsDropdownOpen(false)}>
                     <i className="fas fa-box me-2"></i>Đơn hàng của tôi
+                  </NavLink>
+                </li>
+                <li>
+                  <NavLink to="/yeu-thich" className="dropdown-item" onClick={() => setIsDropdownOpen(false)}>
+                    <i className="fas fa-heart me-2"></i>Yêu thích
                   </NavLink>
                 </li>
                 {isAdminorStaff && (

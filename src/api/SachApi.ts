@@ -217,3 +217,18 @@ export async function findAll(trangHienTai: number): Promise<KetQuaInterface> {
   console.log(ketQua);
   return { ketQua: ketQua, tongSoSach: tongSoSach, tongSoTrang: tongSoTrang };
 }
+
+// Sách bán chạy
+export async function getSachBanChay(limit: number = 8): Promise<SachModel[]> {
+  return my_request(`http://localhost:8080/api/sach/ban-chay?limit=${limit}`);
+}
+
+// Sách mới nhất
+export async function getSachMoiNhat(limit: number = 8): Promise<SachModel[]> {
+  return my_request(`http://localhost:8080/api/sach/moi-nhat?limit=${limit}`);
+}
+
+// Sách liên quan
+export async function getSachLienQuan(maSach: number, limit: number = 6): Promise<SachModel[]> {
+  return my_request(`http://localhost:8080/api/sach/${maSach}/lien-quan?limit=${limit}`);
+}

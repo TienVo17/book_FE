@@ -20,7 +20,11 @@ import KetQuaThanhToan from "./layouts/products/KetQuaThanhToan";
 import DonHangUser from "./layouts/products/DonHangUser";
 import AdminRoute from "./layouts/admin/components/route/Adminroute";
 import DatHangNhanh from "./layouts/products/DatHangNhanh";
-// import { ToastContainer } from 'react-toastify';
+import HoSoNguoiDung from "./layouts/user/HoSoNguoiDung";
+import QuenMatKhau from "./layouts/user/QuenMatKhau";
+import DatLaiMatKhau from "./layouts/user/DatLaiMatKhau";
+import { RequireAuth } from "./layouts/utils/RequireAuth";
+import DanhSachYeuThich from "./layouts/user/DanhSachYeuThich";
 
 
 function App() {
@@ -54,6 +58,10 @@ function App() {
               <Route path="/test" element={<Test />} />
               <Route path="/gio-hang" element={<GioHang />} />
               <Route path="/dat-hang-nhanh" element={<DatHangNhanh />} />
+              <Route path="/profile" element={<RequireAuth><HoSoNguoiDung /></RequireAuth>} />
+              <Route path="/quen-mat-khau" element={<QuenMatKhau />} />
+              <Route path="/dat-lai-mat-khau/:token" element={<DatLaiMatKhau />} />
+              <Route path="/yeu-thich" element={<RequireAuth><DanhSachYeuThich /></RequireAuth>} />
             </Routes>
             <Footer />
           </>

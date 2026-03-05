@@ -6,6 +6,8 @@ import { Link } from "react-router-dom";
 import { renderStars } from "./DanhGiaSanPham";
 import dinhDangSo from "../../utils/DinhDangSo";
 import { themVaoGioHang } from "../../utils/GioHangUtils";
+import { themYeuThich, xoaYeuThich } from "../../../api/YeuThichApi";
+import { toast } from "react-toastify";
 
 interface SachPropsInterface {
   sach: SachModel;
@@ -17,6 +19,7 @@ const SachProps: React.FC<SachPropsInterface> = (props) => {
   const [danhSachAnh, setDanhSachAnh] = useState<HinhAnhModel[]>([]);
   const [dangTaiDuLieu, setDangTaiDuLieu] = useState(true);
   const [baoLoi, setBaoLoi] = useState(null);
+  const [daYeuThich, setDaYeuThich] = useState(false);
 
   useEffect(() => {
     getAllImageOfOneBook(maSach)
@@ -29,6 +32,29 @@ const SachProps: React.FC<SachPropsInterface> = (props) => {
         setBaoLoi(error.message);
       });
   }, []);
+
+  const handleToggleYeuThich = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const jwt = localStorage.getItem('jwt');
+    if (!jwt) {
+      toast.info("Vui lòng đăng nhập để sử dụng tính năng yêu thích!");
+      return;
+    }
+    try {
+      if (daYeuThich) {
+        await xoaYeuThich(maSach);
+        setDaYeuThich(false);
+        toast.success("Đã xóa khỏi danh sách yêu thích!");
+      } else {
+        await themYeuThich(maSach);
+        setDaYeuThich(true);
+        toast.success("Đã thêm vào danh sách yêu thích!");
+      }
+    } catch (error) {
+      toast.error("Có lỗi xảy ra, vui lòng thử lại!");
+    }
+  };
 
   if (dangTaiDuLieu) {
     return (
@@ -83,9 +109,9 @@ const SachProps: React.FC<SachPropsInterface> = (props) => {
             <button
               className="btn-icon"
               aria-label="Yêu thích"
-              onClick={(e) => e.preventDefault()}
+              onClick={handleToggleYeuThich}
             >
-              <i className="fas fa-heart"></i>
+              <i className={`fas fa-heart ${daYeuThich ? 'text-danger' : ''}`}></i>
             </button>
             <button
               className="btn-icon btn-icon-cart"
