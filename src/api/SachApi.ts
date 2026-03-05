@@ -52,13 +52,13 @@ export async function findByBook(
   tuKhoaTimKiem: string,
   maTheLoai: number
 ): Promise<KetQuaInterface> {
-  let duongDan: string = `http://localhost:8080/sach?sort=maSach,desc&size=8&page=0`;
-  if (tuKhoaTimKiem !== "" && maTheLoai == 0) {
-    duongDan = `http://localhost:8080/api/sach/search?tensach=${tuKhoaTimKiem}&page=0&size=8`;
-  } else if (tuKhoaTimKiem === "" && maTheLoai > 0) {
-    duongDan = `http://localhost:8080/sach/search/findByListTheLoai_MaTheLoai?sort=maSach,desc&size=8&page=0&maTheLoai=${maTheLoai}`;
-  } else if (tuKhoaTimKiem !== "" && maTheLoai > 0) {
-    duongDan = `http://localhost:8080/sach/search/findByTenSachContainingAndListTheLoai_MaTheLoai?sort=maSach,desc&size=8&page=0&maTheLoai=${maTheLoai}&tenSach=${tuKhoaTimKiem}`;
+  // Dùng chung endpoint /api/sach với query params để lọc + tìm kiếm
+  let duongDan: string = `http://localhost:8080/api/sach?page=0`;
+  if (tuKhoaTimKiem !== "") {
+    duongDan += `&tensach=${encodeURIComponent(tuKhoaTimKiem)}`;
+  }
+  if (maTheLoai > 0) {
+    duongDan += `&maTheLoai=${maTheLoai}`;
   }
   return laySach(duongDan);
 }

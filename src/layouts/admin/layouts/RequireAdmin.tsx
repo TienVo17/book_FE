@@ -15,7 +15,7 @@ const RequireAdmin = <P extends object>(WrappedComponent: React.ComponentType<P>
     const WithAdminCheck: React.FC<P> = (props) => {
         const navigate = useNavigate();
         useEffect(() => {
-            const token = localStorage.getItem('token');
+            const token = localStorage.getItem('jwt');
             console.log("Token: " + token);
             // Trong tình huống chưa đăng nhập
             if (!token) {
