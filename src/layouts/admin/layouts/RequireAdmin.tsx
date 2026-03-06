@@ -6,9 +6,10 @@ interface Props {
 }
 
 interface JwtPayload {
-    isAdmin: boolean;
-    isStaff: boolean;
-    isUser: boolean;
+    exp?: number;
+    isAdmin?: boolean;
+    isStaff?: boolean;
+    isUser?: boolean;
 }
 
 const RequireAdmin = <P extends object>(WrappedComponent: React.ComponentType<P>) => {
@@ -16,24 +17,26 @@ const RequireAdmin = <P extends object>(WrappedComponent: React.ComponentType<P>
         const navigate = useNavigate();
         useEffect(() => {
             const token = localStorage.getItem('jwt');
-            console.log("Token: " + token);
-            // Trong tình huống chưa đăng nhập
             if (!token) {
                 navigate("/dang-nhap");
                 return;
-            } else {
-                // Giải mã token
-                const decodedToken = jwtDecode(token) as JwtPayload;
-                console.log(decodedToken);
+            }
 
-                // Lấy thông tin cụ thể
-                const isAdmin = decodedToken.isAdmin;
-
-                // Kiểm tra không phải là admin
-                if (!isAdmin) {
-                    navigate("/bao-loi-403");
+            try {
+                const decodedToken = jwtDecode<JwtPayload>(token);
+                if (!decodedToken.exp || decodedToken.exp * 1000 <= Date.now()) {
+                    localStorage.removeItem('jwt');
+                    navigate("/dang-nhap");
                     return;
                 }
+
+                if (!decodedToken.isAdmin) {
+                    navigate("/bao-loi-403");
+                }
+            } catch (error) {
+                console.error('Invalid token:', error);
+                localStorage.removeItem('jwt');
+                navigate("/dang-nhap");
             }
         }, [navigate]);
         return <WrappedComponent {...props} />
