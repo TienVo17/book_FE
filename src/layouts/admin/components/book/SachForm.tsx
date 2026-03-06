@@ -1,4 +1,4 @@
-﻿import React, { FormEvent, useCallback, useState } from 'react';
+import React, { FormEvent, useCallback, useState } from 'react';
 import UploadFile, { UploadFileValue } from '../UploadFile';
 import { useNavigate } from 'react-router-dom';
 import { createSachAdmin, uploadHinhAnhSach } from '../../../../api/AdminApi';
@@ -37,19 +37,19 @@ const SachForm: React.FC = () => {
         try {
           await uploadHinhAnhSach(createdSach.maSach, uploadValue.newFiles);
         } catch (uploadError) {
-          const errorMessage = uploadError instanceof Error ? uploadError.message : 'Upload hinh anh that bai';
-          alert(`Da tao sach thanh cong, nhung upload anh that bai. Ban co the cap nhat lai tai trang sua sach.\n${errorMessage}`);
+          const errorMessage = uploadError instanceof Error ? uploadError.message : 'Upload hình ảnh thất bại';
+          alert(`Đã tạo sách thành công, nhưng upload ảnh thất bại. Bạn có thể cập nhật lại tại trang sửa sách.\n${errorMessage}`);
           navigate(`/quan-ly/cap-nhat-sach/${createdSach.maSach}`);
           return;
         }
       }
 
-      alert('Da them sach thanh cong!');
+      alert('Đã thêm sách thành công!');
       setSach(emptySach);
       setUploadValue({ existingUrls: [], newFiles: [] });
       navigate('/quan-ly/danh-sach-sach');
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Gap loi trong qua trinh them sach';
+      const errorMessage = error instanceof Error ? error.message : 'Gặp lỗi trong quá trình thêm sách';
       alert(errorMessage);
     } finally {
       setIsSubmitting(false);
@@ -58,22 +58,22 @@ const SachForm: React.FC = () => {
 
   return (
     <div className="container-fluid px-4">
-      <h1 className="mt-4">Quan ly sach</h1>
+      <h1 className="mt-4">Quản lý sách</h1>
       <ol className="breadcrumb mb-4">
-        <li className="breadcrumb-item"><a href="/quan-ly">Sach</a></li>
-        <li className="breadcrumb-item active">Them sach moi</li>
+        <li className="breadcrumb-item"><a href="/quan-ly">Sách</a></li>
+        <li className="breadcrumb-item active">Thêm sách mới</li>
       </ol>
       <div className="card mb-4">
         <div className="card-header">
           <i className="fas fa-book me-1"></i>
-          Them sach moi
+          Thêm sách mới
         </div>
         <div className="card-body">
           <form onSubmit={handleSubmit}>
             <div className="row">
               <div className="col-md-6">
                 <div className="mb-3">
-                  <label htmlFor="tenSach" className="form-label">Ten sach</label>
+                  <label htmlFor="tenSach" className="form-label">Tên sách</label>
                   <input
                     className="form-control"
                     type="text"
@@ -83,7 +83,7 @@ const SachForm: React.FC = () => {
                   />
                 </div>
                 <div className="mb-3">
-                  <label htmlFor="giaBan" className="form-label">Gia ban</label>
+                  <label htmlFor="giaBan" className="form-label">Giá bán</label>
                   <input
                     className="form-control"
                     type="number"
@@ -93,7 +93,7 @@ const SachForm: React.FC = () => {
                   />
                 </div>
                 <div className="mb-3">
-                  <label htmlFor="giaNiemYet" className="form-label">Gia niem yet</label>
+                  <label htmlFor="giaNiemYet" className="form-label">Giá niêm yết</label>
                   <input
                     className="form-control"
                     type="number"
@@ -103,7 +103,7 @@ const SachForm: React.FC = () => {
                   />
                 </div>
                 <div className="mb-3">
-                  <label htmlFor="soLuong" className="form-label">So luong</label>
+                  <label htmlFor="soLuong" className="form-label">Số lượng</label>
                   <input
                     className="form-control"
                     type="number"
@@ -115,7 +115,7 @@ const SachForm: React.FC = () => {
               </div>
               <div className="col-md-6">
                 <div className="mb-3">
-                  <label htmlFor="tenTacGia" className="form-label">Ten tac gia</label>
+                  <label htmlFor="tenTacGia" className="form-label">Tên tác giả</label>
                   <input
                     className="form-control"
                     type="text"
@@ -135,12 +135,12 @@ const SachForm: React.FC = () => {
                   />
                 </div>
                 <div className="mb-3">
-                  <label htmlFor="uploadAnh" className="form-label">Upload anh</label>
+                  <label htmlFor="uploadAnh" className="form-label">Upload ảnh</label>
                   <UploadFile onChange={handleUploadChange} />
                 </div>
               </div>
               <div className="col-md-12">
-                <label htmlFor="moTa" className="form-label">Mo ta</label>
+                <label htmlFor="moTa" className="form-label">Mô tả</label>
                 <textarea
                   className="form-control"
                   rows={3}
@@ -153,14 +153,14 @@ const SachForm: React.FC = () => {
             <div className="text-center mt-3">
               <button type="submit" className="btn btn-primary me-2" disabled={isSubmitting}>
                 <i className="fas fa-save me-2"></i>
-                {isSubmitting ? 'Dang luu...' : 'Luu sach'}
+                {isSubmitting ? 'Đang lưu...' : 'Lưu sách'}
               </button>
               <button type="reset" className="btn btn-secondary" disabled={isSubmitting} onClick={() => {
                 setSach(emptySach);
                 setUploadValue({ existingUrls: [], newFiles: [] });
               }}>
                 <i className="fas fa-undo me-2"></i>
-                Lam moi
+                Làm mới
               </button>
             </div>
           </form>

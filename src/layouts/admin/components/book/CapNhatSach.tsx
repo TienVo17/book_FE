@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getBookById } from '../../../../api/SachApi';
 import { findImageByBook } from '../../../../api/HinhAnhApi';
@@ -36,7 +36,7 @@ const CapNhatSach: React.FC = () => {
     Promise.all([getBookById(bookId), findImageByBook(bookId)])
       .then(([sachData, imageData]) => {
         if (!sachData) {
-          throw new Error('Khong the lay thong tin sach');
+          throw new Error('Không thể lấy thông tin sách');
         }
 
         const urls = (imageData || [])
@@ -48,7 +48,7 @@ const CapNhatSach: React.FC = () => {
         setUploadValue({ existingUrls: urls, newFiles: [] });
       })
       .catch((error) => {
-        const errorMessage = error instanceof Error ? error.message : 'Khong the lay thong tin sach';
+        const errorMessage = error instanceof Error ? error.message : 'Không thể lấy thông tin sách';
         alert(errorMessage);
       });
   }, [maSach]);
@@ -81,10 +81,10 @@ const CapNhatSach: React.FC = () => {
         await uploadHinhAnhSach(updatedSach.maSach, uploadValue.newFiles);
       }
 
-      alert('Cap nhat sach thanh cong!');
+      alert('Cập nhật sách thành công!');
       navigate('/quan-ly/danh-sach-sach');
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Co loi xay ra khi cap nhat sach';
+      const errorMessage = error instanceof Error ? error.message : 'Có lỗi xảy ra khi cập nhật sách';
       alert(errorMessage);
     } finally {
       setIsSubmitting(false);
@@ -93,23 +93,23 @@ const CapNhatSach: React.FC = () => {
 
   return (
     <div className="container-fluid px-4">
-      <h1 className="mt-4">Cap nhat sach</h1>
+      <h1 className="mt-4">Cập nhật sách</h1>
       <ol className="breadcrumb mb-4">
-        <li className="breadcrumb-item"><a href="/quan-ly">Cap nhat sach</a></li>
-        <li className="breadcrumb-item active">Cap nhat sach</li>
+        <li className="breadcrumb-item"><a href="/quan-ly">Cập nhật sách</a></li>
+        <li className="breadcrumb-item active">Cập nhật sách</li>
       </ol>
 
       <div className="card mb-4">
         <div className="card-header">
           <i className="fas fa-book me-1"></i>
-          Cap nhat
+          Cập nhật
         </div>
         <div className="card-body">
           <form onSubmit={handleSubmit}>
             <div className="row">
               <div className="col-md-6">
                 <div className="mb-3">
-                  <label htmlFor="tenSach" className="form-label">Ten sach</label>
+                  <label htmlFor="tenSach" className="form-label">Tên sách</label>
                   <input
                     className="form-control"
                     type="text"
@@ -119,7 +119,7 @@ const CapNhatSach: React.FC = () => {
                   />
                 </div>
                 <div className="mb-3">
-                  <label htmlFor="giaBan" className="form-label">Gia ban</label>
+                  <label htmlFor="giaBan" className="form-label">Giá bán</label>
                   <input
                     className="form-control"
                     type="number"
@@ -129,7 +129,7 @@ const CapNhatSach: React.FC = () => {
                   />
                 </div>
                 <div className="mb-3">
-                  <label htmlFor="giaNiemYet" className="form-label">Gia niem yet</label>
+                  <label htmlFor="giaNiemYet" className="form-label">Giá niêm yết</label>
                   <input
                     className="form-control"
                     type="number"
@@ -139,7 +139,7 @@ const CapNhatSach: React.FC = () => {
                   />
                 </div>
                 <div className="mb-3">
-                  <label htmlFor="soLuong" className="form-label">So luong</label>
+                  <label htmlFor="soLuong" className="form-label">Số lượng</label>
                   <input
                     className="form-control"
                     type="number"
@@ -151,7 +151,7 @@ const CapNhatSach: React.FC = () => {
               </div>
               <div className="col-md-6">
                 <div className="mb-3">
-                  <label htmlFor="tenTacGia" className="form-label">Ten tac gia</label>
+                  <label htmlFor="tenTacGia" className="form-label">Tên tác giả</label>
                   <input
                     className="form-control"
                     type="text"
@@ -172,12 +172,12 @@ const CapNhatSach: React.FC = () => {
                 </div>
 
                 <div className="mb-3">
-                  <label htmlFor="uploadAnh" className="form-label">Upload anh</label>
+                  <label htmlFor="uploadAnh" className="form-label">Upload ảnh</label>
                   <UploadFile onChange={handleUploadChange} existingImageUrls={existingImageUrls} />
                 </div>
               </div>
               <div className="col-md-12">
-                <label htmlFor="moTa" className="form-label">Mo ta</label>
+                <label htmlFor="moTa" className="form-label">Mô tả</label>
                 <textarea
                   className="form-control"
                   rows={3}
@@ -190,17 +190,17 @@ const CapNhatSach: React.FC = () => {
             <div className="text-center mt-3">
               <button type="submit" className="btn btn-primary me-2" disabled={isSubmitting}>
                 <i className="fas fa-save me-2"></i>
-                {isSubmitting ? 'Dang cap nhat...' : 'Luu sach'}
+                {isSubmitting ? 'Đang cập nhật...' : 'Lưu sách'}
               </button>
               <button type="reset" className="btn btn-secondary" disabled={isSubmitting} onClick={() => {
                 setUploadValue({ existingUrls: existingImageUrls, newFiles: [] });
               }}>
                 <i className="fas fa-undo me-2"></i>
-                Lam moi anh
+                Làm mới ảnh
               </button>
             </div>
             {imagesChanged && !isSubmitting && (
-              <p className="text-muted mt-3 mb-0">Thay doi anh se duoc ap dung khi ban luu sach.</p>
+              <p className="text-muted mt-3 mb-0">Thay đổi ảnh sẽ được áp dụng khi bạn lưu sách.</p>
             )}
           </form>
         </div>

@@ -1,12 +1,9 @@
 export async function my_request(duongDan: string) {
-    // Truy v?n t? ???ng d?n
-    const response = await fetch(duongDan);
-    // N?u b? tr? v? l?i
-    if (!response.ok) {
-      throw new Error(`Khong th? truy c?p ${duongDan}`);
-    }
-    // N?u tr? v? OK
-    return response.json();
+  const response = await fetch(duongDan);
+  if (!response.ok) {
+    throw new Error(`Không thể truy cập ${duongDan}`);
+  }
+  return response.json();
 }
 
 interface JwtPayload {
@@ -36,19 +33,18 @@ function clearAuth() {
 export function getValidJwtOrThrow(): string {
   const token = localStorage.getItem('jwt');
   if (!token) {
-    throw new Error('Phien ??ng nh?p khong t?n t?i. Vui long ??ng nh?p l?i.');
+    throw new Error('Phiên đăng nhập không tồn tại. Vui lòng đăng nhập lại.');
   }
 
   const payload = parseJwt(token);
   if (!payload?.exp || payload.exp * 1000 <= Date.now()) {
     clearAuth();
-    throw new Error('Phien ??ng nh?p ?a h?t h?n. Vui long ??ng nh?p l?i.');
+    throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
   }
 
   return token;
 }
 
-// Authenticated fetch wrapper - t? ??ng g?n JWT token
 export async function authRequest(url: string, options: RequestInit = {}) {
   const token = getValidJwtOrThrow();
   const headers: Record<string, string> = {
