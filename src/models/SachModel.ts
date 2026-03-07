@@ -1,24 +1,39 @@
+export interface SachThongTinChiTietModel {
+  congTyPhatHanh?: string;
+  nhaXuatBan?: string;
+  ngayXuatBan?: string;
+  soTrang?: number;
+  loaiBia?: string;
+  ngonNgu?: string;
+  kichThuoc?: string;
+  trongLuongGram?: number;
+  phienBan?: string;
+}
+
 import HinhAnhModel from "./HinhAnhModel";
 
 class SachModel {
   maSach: number;
-  tenSach?: string; // có thể bị null
+  tenSach?: string;
   giaBan?: number;
   giaNiemYet?: number;
   moTa?: string;
+  moTaNgan?: string;
+  moTaChiTiet?: string;
   soLuong?: number;
   tenTacGia?: string;
   trungBinhXepHang?: number;
   isbn?: string;
-  image?:string;
+  slug?: string;
+  image?: string;
   danhSachAnh?: HinhAnhModel[];
-  listImageStr?:string[];
-  isActive?:number;
-
+  listImageStr?: string[];
+  isActive?: number;
+  thongTinChiTiet?: SachThongTinChiTietModel;
 
   constructor(
     maSach: number,
-    tenSach?: string, // có thể bị null
+    tenSach?: string,
     giaBan?: number,
     giaNiemYet?: number,
     moTa?: string,
@@ -27,9 +42,13 @@ class SachModel {
     trungBinhXepHang?: number,
     isbn?: string,
     danhSachAnh?: HinhAnhModel[],
-    image?:string,
-    listImageStr?:string[],
-    isActive?:number
+    image?: string,
+    listImageStr?: string[],
+    isActive?: number,
+    moTaNgan?: string,
+    moTaChiTiet?: string,
+    slug?: string,
+    thongTinChiTiet?: SachThongTinChiTietModel,
   ) {
     this.maSach = maSach;
     this.tenSach = tenSach;
@@ -44,13 +63,11 @@ class SachModel {
     this.image = image;
     this.listImageStr = listImageStr;
     this.isActive = isActive;
+    this.moTaNgan = moTaNgan;
+    this.moTaChiTiet = moTaChiTiet;
+    this.slug = slug;
+    this.thongTinChiTiet = thongTinChiTiet;
   }
 }
-export default SachModel;
 
-// danhSachMaTheLoai?: number[];
-// danhSachTheLoai?: GenreModel[];
-// daThichSach?: boolean;
-// phanTramGiamGia?: number;
-// soLuongDaBan?: number;
-// anhDaiDien?: string;
+export default SachModel;

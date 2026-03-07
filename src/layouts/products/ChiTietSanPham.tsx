@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import SachModel from "../../models/SachModel";
 import { getBookById, getSachLienQuan } from "../../api/SachApi";
@@ -82,14 +82,12 @@ const ChiTietSanPham: React.FC = () => {
       });
   }, [maSachNumber]);
 
-  // Fetch related books
   useEffect(() => {
     if (maSachNumber > 0) {
       getSachLienQuan(maSachNumber, 6).then(setSachLienQuan).catch(console.error);
     }
   }, [maSachNumber]);
 
-  // Check wishlist status on mount (only if logged in)
   useEffect(() => {
     const jwt = localStorage.getItem('jwt');
     if (jwt && maSachNumber > 0) {
@@ -130,57 +128,29 @@ const ChiTietSanPham: React.FC = () => {
   };
 
   if (dangTaiDuLieu) {
-    return (
-      <div className="container py-5">
-        <div className="detail-section">
-          <div className="row">
-            <div className="col-md-5">
-              <div className="skeleton" style={{ height: 400, borderRadius: "var(--radius-md)" }}></div>
-            </div>
-            <div className="col-md-7">
-              <div className="skeleton skeleton-text" style={{ width: "60%", height: 28 }}></div>
-              <div className="skeleton skeleton-text mt-3" style={{ width: "30%" }}></div>
-              <div className="skeleton skeleton-text mt-3" style={{ width: "40%", height: 32 }}></div>
-              <div className="skeleton skeleton-text mt-4" style={{ width: "100%" }}></div>
-              <div className="skeleton skeleton-text" style={{ width: "90%" }}></div>
-              <div className="skeleton skeleton-text" style={{ width: "75%" }}></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+    return <div className="container py-5">Đang tải dữ liệu...</div>;
   }
 
   if (baoLoi) {
-    return (
-      <div className="container py-5 text-center">
-        <i className="fas fa-exclamation-triangle" style={{ fontSize: "3rem", color: "var(--color-danger)", marginBottom: "1rem", display: "block" }}></i>
-        <h5 style={{ color: "var(--color-text-secondary)" }}>Gặp lỗi: {baoLoi}</h5>
-      </div>
-    );
+    return <div className="container py-5 text-center">Gặp lỗi: {baoLoi}</div>;
   }
 
   if (!sach) {
-    return (
-      <div className="container py-5 text-center">
-        <i className="fas fa-book" style={{ fontSize: "3rem", color: "var(--color-text-muted)", marginBottom: "1rem", display: "block" }}></i>
-        <h5 style={{ color: "var(--color-text-secondary)" }}>Sách không tồn tại!</h5>
-      </div>
-    );
+    return <div className="container py-5 text-center">Sách không tồn tại!</div>;
   }
+
+  const moTaHienThi = sach.moTaChiTiet || sach.moTa || "Mô tả không có sẵn";
 
   return (
     <div className="container py-4">
       <div className="detail-section animate-fade-in">
         <div className="row">
-          {/* Image */}
           <div className="col-lg-5 mb-4 mb-lg-0">
             <div style={{ borderRadius: "var(--radius-md)", overflow: "hidden" }}>
               <HinhAnhSanPham maSach={maSachNumber} />
             </div>
           </div>
 
-          {/* Info */}
           <div className="col-lg-7">
             <h1 style={{ fontFamily: "var(--font-heading)", fontSize: "1.8rem", fontWeight: 700, marginBottom: "0.5rem" }}>
               {sach.tenSach}
@@ -190,9 +160,7 @@ const ChiTietSanPham: React.FC = () => {
               <i className="fas fa-pen-nib me-2"></i>{sach.tenTacGia}
             </p>
 
-            <div className="mb-3">
-              {renderStars(sach.trungBinhXepHang ?? 0)}
-            </div>
+            <div className="mb-3">{renderStars(sach.trungBinhXepHang ?? 0)}</div>
 
             <div className="d-flex align-items-baseline gap-3 mb-3">
               <span className="detail-price">{dinhDangSo(sach.giaBan)} đ</span>
@@ -203,14 +171,27 @@ const ChiTietSanPham: React.FC = () => {
               )}
             </div>
 
-            <div
-              style={{ color: "var(--color-text-secondary)", fontSize: "0.93rem", lineHeight: 1.7, marginBottom: "1.5rem" }}
-              dangerouslySetInnerHTML={{ __html: sach.moTa || "Mô tả không có sẵn" }}
-            />
+            <div style={{ color: "var(--color-text-secondary)", fontSize: "0.93rem", lineHeight: 1.7, marginBottom: "1rem" }}>
+              {sach.moTaNgan && <p>{sach.moTaNgan}</p>}
+              <div dangerouslySetInnerHTML={{ __html: moTaHienThi }} />
+            </div>
+
+            {sach.thongTinChiTiet && (
+              <div className="mb-4">
+                <h5>Thông tin chi tiết</h5>
+                <ul className="list-group list-group-flush">
+                  {sach.thongTinChiTiet.congTyPhatHanh && <li className="list-group-item px-0">Công ty phát hành: {sach.thongTinChiTiet.congTyPhatHanh}</li>}
+                  {sach.thongTinChiTiet.nhaXuatBan && <li className="list-group-item px-0">Nhà xuất bản: {sach.thongTinChiTiet.nhaXuatBan}</li>}
+                  {sach.thongTinChiTiet.ngayXuatBan && <li className="list-group-item px-0">Ngày xuất bản: {sach.thongTinChiTiet.ngayXuatBan}</li>}
+                  {sach.thongTinChiTiet.soTrang ? <li className="list-group-item px-0">Số trang: {sach.thongTinChiTiet.soTrang}</li> : null}
+                  {sach.thongTinChiTiet.loaiBia && <li className="list-group-item px-0">Loại bìa: {sach.thongTinChiTiet.loaiBia}</li>}
+                  {sach.thongTinChiTiet.kichThuoc && <li className="list-group-item px-0">Kích thước: {sach.thongTinChiTiet.kichThuoc}</li>}
+                </ul>
+              </div>
+            )}
 
             <hr style={{ borderColor: "var(--color-border)", opacity: 0.5 }} />
 
-            {/* Quantity + Actions */}
             <div className="row align-items-end mt-3">
               <div className="col-auto">
                 <label style={{ fontWeight: 600, fontSize: "0.88rem", marginBottom: 8, display: "block", color: "var(--color-text-secondary)" }}>
@@ -218,13 +199,7 @@ const ChiTietSanPham: React.FC = () => {
                 </label>
                 <div className="qty-control">
                   <button onClick={giamSoLuong} aria-label="Giảm số lượng">-</button>
-                  <input
-                    type="number"
-                    value={soLuong}
-                    min={1}
-                    onChange={handleSoLuongChange}
-                    aria-label="Số lượng"
-                  />
+                  <input type="number" value={soLuong} min={1} onChange={handleSoLuongChange} aria-label="Số lượng" />
                   <button onClick={tangSoLuong} aria-label="Tăng số lượng">+</button>
                 </div>
               </div>
@@ -253,36 +228,19 @@ const ChiTietSanPham: React.FC = () => {
                 {daYeuThich ? ' Đã yêu thích' : ' Yêu thích'}
               </button>
             </div>
-
-            {/* Stock info */}
-            <div className="mt-3" style={{ fontSize: "0.85rem", color: "var(--color-text-muted)" }}>
-              {sach.soLuong && sach.soLuong > 0 ? (
-                <span style={{ color: "var(--color-success)" }}>
-                  <i className="fas fa-check-circle me-1"></i>
-                  Còn {sach.soLuong} sản phẩm
-                </span>
-              ) : (
-                <span style={{ color: "var(--color-danger)" }}>
-                  <i className="fas fa-times-circle me-1"></i>
-                  Hết hàng
-                </span>
-              )}
-            </div>
           </div>
         </div>
       </div>
 
-      {/* Reviews */}
       <div className="mt-4 animate-fade-in-up">
         <DanhGiaSanPham maSach={maSachNumber} />
       </div>
 
-      {/* Related books */}
       {sachLienQuan.length > 0 && (
         <div className="mt-4 animate-fade-in-up">
           <div className="section-header"><h2>Sách liên quan</h2></div>
           <div className="row">
-            {sachLienQuan.map(s => <SachProps key={s.maSach} sach={s} />)}
+            {sachLienQuan.map((s) => <SachProps key={s.maSach} sach={s} />)}
           </div>
         </div>
       )}
