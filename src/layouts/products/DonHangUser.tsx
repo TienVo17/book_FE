@@ -1,149 +1,138 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { getOneImageOfOneBook } from '../../api/HinhAnhApi';
+import { Link } from 'react-router-dom';
 
-interface SanPhamGioHang {
-    maSach: number;
-    sachDto: {
-        tenSach: string;
-        giaBan: number;
-        hinhAnh: string;
-    };
-    soLuong: number;
-    hinhAnh?: string;
+interface DonHangItem {
+    maDonHang: number;
+    ngayTao: string;
+    diaChiNhanHang: string;
+    trangThaiThanhToan: number;
+    trangThaiGiaoHang: number;
+    tongTien: number;
 }
 
 function DonHangUser() {
+    const [donHangList, setDonHangList] = useState<DonHangItem[]>([]);
+    const [loading, setLoading] = useState(true);
 
-    const navigate = useNavigate();
-    const [donHangList, setDonHangList] = useState<any[]>([]);
     useEffect(() => {
-        initData();
-        } 
-    , []);
-
-    const initData  =()=>{
-        fetch("http://localhost:8080/api/don-hang/findAll?page=0", {
-            method: "GET",
-            headers: {
-                "Authorization": `Bearer ${localStorage.getItem('jwt')}`,
-            },
+        setLoading(true);
+        fetch('http://localhost:8080/api/don-hang/findAll?page=0', {
+            headers: { Authorization: `Bearer ${localStorage.getItem('jwt')}` },
         })
-            .then( (response) => {
-                console.log("Status:", response.status);
+            .then(response => {
+                if (!response.ok) throw new Error();
                 return response.json();
             })
-            .then((response) => {
-                setDonHangList(response.content);
-                console.log(donHangList)
-            })
-            .catch((error) => {
-                console.error("Lỗi:", error);
-                
-            });
+            .then(data => setDonHangList(data.content || []))
+            .catch(() => { })
+            .finally(() => setLoading(false));
+    }, []);
+
+    const formatDate = (dateStr: string) => {
+        try {
+            return new Intl.DateTimeFormat('vi-VN', {
+                day: '2-digit', month: '2-digit', year: 'numeric',
+                hour: '2-digit', minute: '2-digit'
+            }).format(new Date(dateStr));
+        } catch {
+            return dateStr;
+        }
+    };
+
+    if (loading) {
+        return (
+            <div className="container py-5 text-center">
+                <span className="spinner-border text-primary"></span>
+                <p className="mt-2" style={{ color: 'var(--color-text-muted)' }}>Đang tải đơn hàng…</p>
+            </div>
+        );
     }
 
     return (
-        <div className="container py-5">
-            <div className="row">
-                <div className="col-12">
-                    <div className="card shadow-sm">
-                        <div className="card-header bg-dark text-white">
-                            <h4 className="mb-0">Quản lý đơn hàng</h4>
-                        </div>
-                        <div className="card-body">
-                     
-                                    <div className="table-responsive">
-                                        <table className="table table-hover align-middle">
-                                        <thead className="table-light">
-                                                <tr>
-                                                    <th scope="col" style={{ width: '100px' }}>Mã đơn hàng</th>
-                                                    <th scope="col">Ngày tạo</th>
-                                                    <th scope="col">Địa chỉ nhận hàng</th>
-                                                    <th scope="col" >Trạng thái thanh toán</th>
-                                                    <th scope="col" >Trạng thái giao hàng</th>
-                                                    <th scope="col" className="text-end">Tổng tiền</th>
-                                                
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {donHangList.map((item) => (
-                                                    <tr key={item.maDonHang}>
-                                                        <td>
-                                                            {item.maDonHang}
-                                                        </td>
-                                                        <td>
-                                                            {item.ngayTao}
-                                                        </td>
-                                                        <td>
-                                                            {item.diaChiNhanHang}
-                                                        </td>
-                                                        <td>
-                                                            <button className="btn btn-susses me-2">
-                                                                {item.trangThaiThanhToan === 0 ?"Chưa thanh toán":"Đã thanh toán"}
-                                                            </button>
-                                                        </td>
-                                                        <td>
-                                                            <button onClick={item.trangThaiGiaoHang !== 2 ?async ()=>{
-                                                                if (window.confirm('Bạn có chắc chắn muốn xóa cuốn sách này?')) {
-                                                                    await fetch("http://localhost:8080/api/don-hang/cap-nhat-trang-thai-giao-hang/"+item.maDonHang, {
-                                                                        method: "POST",
-                                                                        headers: {
-                                                                            "Authorization": `Bearer ${localStorage.getItem('jwt')}`,
-                                                                        },
-                                                                    })
-                                                                        .then( (response) => {
-                                                                           
-                                                                            return response.json();
-                                                                        })
-                                                                        .then((response) => {
-                                                                          
-                                                                          
-                                                                        })
-                                                                        .catch((error) => {
-                                                                            console.error("Lỗi:", error);
-                                                                            
-                                                                        });  
-                                                                        await   initData();  
-                                                                }
-                                                                
-                                                            }:undefined} className="btn btn-primary me-2">
-                                                                { item.trangThaiGiaoHang === 2  ?"Đã nhận hàng":"Chưa nhận hàng"}
-                                                            </button>
-                                                            
-                                                        </td>
-                                                    
-                                                        <td className="text-end">
-                                                            {item.tongTien}
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                                
-                                        </table>
-                                    </div>
-                            
-                                        <div className="card-body">
-                                            <div className="row">
-                                                <div className="col-md-6">
-                                                    <Link to="/" className="btn btn-outline-primary">
-                                                        <i className="fas fa-arrow-left me-2"></i>
-                                                        Tiếp tục mua sắm
-                                                    </Link>
-                                                </div>
-                                                <div className="col-md-6 text-end">
-                                                    
-                                                    
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                   
+        <div className="container py-4 animate-fade-in">
+            <h2 style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, marginBottom: '1.5rem' }}>
+                <i className="fas fa-receipt me-2" style={{ color: 'var(--color-primary)' }}></i>
+                Đơn hàng của tôi
+                {donHangList.length > 0 && (
+                    <span style={{
+                        fontSize: '0.85rem',
+                        fontWeight: 500,
+                        color: 'var(--color-text-secondary)',
+                        marginLeft: '0.75rem',
+                    }}>
+                        ({donHangList.length} đơn hàng)
+                    </span>
+                )}
+            </h2>
 
-                        </div>
+            {donHangList.length === 0 ? (
+                <div className="empty-state">
+                    <div className="empty-state-icon"><i className="fas fa-box-open"></i></div>
+                    <h5>Chưa có đơn hàng</h5>
+                    <p>Bạn chưa có đơn hàng nào. Hãy khám phá cửa hàng!</p>
+                    <Link to="/" className="btn-modern-primary" style={{ textDecoration: 'none' }}>
+                        <i className="fas fa-shopping-bag"></i>
+                        Mua sắm ngay
+                    </Link>
+                </div>
+            ) : (
+                <div className="order-table-wrapper">
+                    <div className="table-responsive">
+                        <table className="order-table">
+                            <thead>
+                                <tr>
+                                    <th>Mã ĐH</th>
+                                    <th>Ngày đặt</th>
+                                    <th>Địa chỉ nhận hàng</th>
+                                    <th>Thanh toán</th>
+                                    <th>Giao hàng</th>
+                                    <th style={{ textAlign: 'right' }}>Tổng tiền</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {donHangList.map((item, index) => (
+                                    <tr key={item.maDonHang} className="animate-fade-in-up" style={{ animationDelay: `${index * 50}ms` }}>
+                                        <td>
+                                            <strong style={{ color: 'var(--color-primary)' }}>#{item.maDonHang}</strong>
+                                        </td>
+                                        <td style={{ whiteSpace: 'nowrap' }}>{formatDate(item.ngayTao)}</td>
+                                        <td style={{ maxWidth: '200px' }}>
+                                            <span style={{
+                                                display: '-webkit-box',
+                                                WebkitLineClamp: 2,
+                                                WebkitBoxOrient: 'vertical',
+                                                overflow: 'hidden',
+                                                fontSize: '0.88rem',
+                                            }}>
+                                                {item.diaChiNhanHang || '—'}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span className={`status-badge ${item.trangThaiThanhToan === 0 ? 'pending' : 'paid'}`}>
+                                                {item.trangThaiThanhToan === 0 ? 'Chưa thanh toán' : 'Đã thanh toán'}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span className={`status-badge ${item.trangThaiGiaoHang === 2 ? 'delivered' : 'shipping'}`}>
+                                                {item.trangThaiGiaoHang === 2 ? 'Đã nhận hàng' : 'Đang xử lý'}
+                                            </span>
+                                        </td>
+                                        <td style={{
+                                            textAlign: 'right',
+                                            fontWeight: 600,
+                                            fontVariantNumeric: 'tabular-nums',
+                                            color: 'var(--color-accent)',
+                                        }}>
+                                            {item.tongTien?.toLocaleString('vi-VN')}đ
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
-            </div>
+            )}
+        </div>
     );
 }
 

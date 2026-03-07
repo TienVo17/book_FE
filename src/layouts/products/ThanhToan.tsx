@@ -54,7 +54,6 @@ function ThanhToan() {
             .catch(console.error);
     }, []);
 
-    // Cart mutation helpers — keep localStorage in sync
     const updateGioHang = (updated: SanPhamGioHang[]) => {
         setGioHang(updated);
         localStorage.setItem('gioHang', JSON.stringify(updated));
@@ -135,13 +134,38 @@ function ThanhToan() {
             .catch(err => console.error('Lỗi VNPay:', err));
     };
 
+    // Step indicator
+    const StepIndicator = () => (
+        <div className="checkout-steps animate-fade-in">
+            <div className={`checkout-step ${buocHienTai === 'review' ? 'active' : 'completed'}`}>
+                <span className="checkout-step-number">
+                    {buocHienTai === 'payment' ? <i className="fas fa-check"></i> : '1'}
+                </span>
+                <span className="checkout-step-label">Xem lại đơn hàng</span>
+            </div>
+            <div className={`checkout-step-line ${buocHienTai === 'payment' ? 'active' : ''}`}></div>
+            <div className={`checkout-step ${buocHienTai === 'payment' ? 'active' : ''}`}>
+                <span className="checkout-step-number">2</span>
+                <span className="checkout-step-label">Thanh toán</span>
+            </div>
+        </div>
+    );
+
     // Empty cart
     if (gioHang.length === 0 && buocHienTai === 'review') {
         return (
-            <div className="container py-5 text-center">
-                <i className="fas fa-shopping-cart fa-3x text-muted mb-3"></i>
-                <h5 className="text-muted">Giỏ hàng trống</h5>
-                <Link to="/" className="btn bg-dark text-white mt-3">Tiếp tục mua sắm</Link>
+            <div className="container py-5">
+                <div className="empty-state animate-scale-in">
+                    <div className="empty-state-icon">
+                        <i className="fas fa-shopping-cart"></i>
+                    </div>
+                    <h5>Giỏ hàng trống</h5>
+                    <p>Bạn chưa có sản phẩm nào trong giỏ hàng</p>
+                    <Link to="/" className="btn-modern-primary">
+                        <i className="fas fa-arrow-left"></i>
+                        Tiếp tục mua sắm
+                    </Link>
+                </div>
             </div>
         );
     }
@@ -150,17 +174,27 @@ function ThanhToan() {
     if (buocHienTai === 'payment') {
         return (
             <div className="container py-5">
+                <StepIndicator />
                 <div className="row justify-content-center">
-                    <div className="col-md-6 text-center">
-                        <div className="card shadow-sm p-4">
-                            <i className="fas fa-check-circle fa-4x text-success mb-3"></i>
-                            <h4>Đặt hàng thành công!</h4>
-                            <p className="text-muted">Mã đơn hàng: <strong>#{donHang?.maDonHang}</strong></p>
-                            <p>Tổng tiền: <span className="text-primary fw-bold">{donHang?.tongTien?.toLocaleString()}đ</span></p>
-                            <button className="btn btn-dark btn-lg mt-3" onClick={handleVNPay}>
-                                Thanh toán VNPAY <i className="fas fa-arrow-right ms-2"></i>
-                            </button>
-                            <Link to="/" className="btn btn-outline-secondary mt-2">Về trang chủ</Link>
+                    <div className="col-md-6">
+                        <div className="result-card result-card--success">
+                            <i className="fas fa-check-circle result-icon"></i>
+                            <h3>Đặt hàng thành công!</h3>
+                            <p>
+                                Mã đơn hàng: <strong style={{ color: 'var(--color-primary)' }}>#{donHang?.maDonHang}</strong>
+                                <br />
+                                Tổng tiền: <strong style={{ color: 'var(--color-accent)' }}>{donHang?.tongTien?.toLocaleString('vi-VN')}đ</strong>
+                            </p>
+                            <div className="result-card-actions">
+                                <button className="btn-modern-accent" onClick={handleVNPay} style={{ padding: '0.75rem 2rem' }}>
+                                    Thanh toán VNPAY
+                                    <i className="fas fa-arrow-right"></i>
+                                </button>
+                                <Link to="/" className="btn-modern-outline" style={{ textDecoration: 'none' }}>
+                                    <i className="fas fa-home"></i>
+                                    Về trang chủ
+                                </Link>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -170,8 +204,12 @@ function ThanhToan() {
 
     // Step 1: Review order
     return (
-        <div className="container py-5">
-            <h4 className="mb-4">Xác nhận đơn hàng</h4>
+        <div className="container py-5 animate-fade-in">
+            <StepIndicator />
+            <h4 style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, marginBottom: '1.5rem' }}>
+                <i className="fas fa-clipboard-check me-2" style={{ color: 'var(--color-primary)' }}></i>
+                Xác nhận đơn hàng
+            </h4>
             <div className="row">
                 <div className="col-md-8">
                     <CartItemsTable
