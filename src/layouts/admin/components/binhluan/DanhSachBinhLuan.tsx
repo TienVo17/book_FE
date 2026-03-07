@@ -1,8 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import SachModel from '../../../../models/SachModel';
-import { Link, useNavigate } from 'react-router-dom';
-import { PhanTrang } from '../../../utils/PhanTrang';
-import {getAllBook, xoaSach,findAll} from "../../../../api/SachApi";
 import DanhGiaModel from '../../../../models/DanhGiaModel';
 
 export default function DanhSachBinhLuan() {
@@ -11,212 +7,187 @@ export default function DanhSachBinhLuan() {
   const [baoLoi, setBaoLoi] = useState<string | null>(null);
   const [trangHienTai, setTrangHienTai] = useState(1);
   const [tongSoTrang, setTongSoTrang] = useState(0);
-  const [showModal, setShowModal] = useState(0);
-  const [userInfo, setUserInfo] = useState<any>(null);
-  const navigate = useNavigate();
-
-  const [jwt, setJwt] = useState(localStorage.getItem('jwt') || '');
 
   useEffect(() => {
-    if (jwt) {
-      const decodedJwt = JSON.parse(atob(jwt.split('.')[1]));
-      setUserInfo(decodedJwt);
-    }
-     findAll();
+    loadData();
   }, [trangHienTai]);
 
-  const findAll = () => {
-    fetch("http://localhost:8080/api/admin/danh-gia/findAll?page=" + (trangHienTai - 1), {
-      method: "GET",
+  const loadData = () => {
+    setDangTaiDuLieu(true);
+    fetch(`http://localhost:8080/api/admin/danh-gia/findAll?page=${trangHienTai - 1}`, {
+      method: 'GET',
       headers: {
-        "Authorization": `Bearer ${localStorage.getItem('jwt')}`,
+        'Authorization': `Bearer ${localStorage.getItem('jwt')}`,
         'Content-Type': 'application/json',
       },
     })
-    .then((response) => response.json())
-    .then((response) => {
-      // Kiểm tra và sắp xếp bình luận theo timestamp nếu có
-      const sortedResponse = (response.content as DanhGiaModel[]).sort((a, b) => {
-        // Kiểm tra tính hợp lệ của timestamp
-        const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;  // Mặc định là 0 nếu không có timestamp
-        const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;  // Mặc định là 0 nếu không có timestamp
-  
-        return timeB - timeA;  // Sắp xếp theo thời gian giảm dần
+      .then(response => response.json())
+      .then(response => {
+        const sorted = (response.content as DanhGiaModel[]).sort((a, b) => {
+          const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+          const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+          return timeB - timeA;
+        });
+        setBinhLuanList(sorted);
+        setTongSoTrang(response.totalPages || 0);
+        setDangTaiDuLieu(false);
+      })
+      .catch(error => {
+        console.error('Lỗi:', error);
+        setBaoLoi('Có lỗi xảy ra khi tải dữ liệu!');
+        setDangTaiDuLieu(false);
       });
-  
-      setBinhLuanList(sortedResponse);  // Cập nhật lại danh sách bình luận đã sắp xếp
-      setTongSoTrang(response.totalElements);
-      setDangTaiDuLieu(false);
-    })
-    .catch((error) => {
-      console.error("Lỗi:", error);
-      setBaoLoi("Có lỗi xảy ra khi tải dữ liệu!");
-    });
   };
-  
 
-  const phanTrang = (trang: number) => setTrangHienTai(trang);
-
-  const handleEdit = (maSach: number) => {
+  const handleToggleActive = async (maDanhGia: number, isActive: boolean) => {
+    const action = isActive ? 'ẩn' : 'hiện';
+    if (!window.confirm(`Bạn muốn ${action} bình luận này?`)) return;
     try {
-      navigate(`/quan-ly/cap-nhat-sach/${maSach}`);
+      const endpoint = isActive ? 'unactive' : 'active';
+      await fetch(`http://localhost:8080/api/admin/danh-gia/${endpoint}/${maDanhGia}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('jwt')}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      loadData();
     } catch (error) {
-      setBaoLoi('Có lỗi khi chuyển đến trang cập nhật');
+      alert('Có lỗi xảy ra!');
+      console.error('Lỗi:', error);
     }
   };
 
-  const handleAdd = () => {
-    try {
-      navigate(`/quan-ly/them-sach`);
-    } catch (error) {
-      setBaoLoi('Có lỗi khi chuyển đến trang cập nhật');
+  const renderStars = (rating: number) => {
+    const stars = [];
+    for (let i = 1; i <= 5; i++) {
+      stars.push(
+        <i
+          key={i}
+          className={`fas fa-star ${i <= rating ? '' : 'star-empty'}`}
+        />
+      );
     }
+    return <span className="star-rating">{stars}</span>;
   };
-
-  const handleDelete = async (maSach: number) => {
-    if (window.confirm('Bạn có chắc chắn muốn xóa cuốn sách này?')) {
-      try {
-        await xoaSach(maSach);
-        alert('Xóa sách thành công!');
-        
-
- 
-       
-
-      } catch (error) {
-        alert('Có lỗi xảy ra khi xóa sách!');
-        console.error('Lỗi xóa sách:', error);
-      }
-    }
-  };
-
-  const handleClose = ()=>{
-
-  }
-
-  if (dangTaiDuLieu) {
-    return <div>Đang tải dữ liệu...</div>;
-  }
-
-  if (baoLoi) {
-    return <div>Có lỗi xảy ra: {baoLoi}</div>;
-  }
 
   return (
-    <div className="container-fluid px-4">
-      <h1 className="mt-4">Quản lý bình luận</h1>
-      <ol className="breadcrumb mb-4">
-        <li className="breadcrumb-item"><Link to="/quan-ly">Bình Luận</Link></li>
-        <li className="breadcrumb-item active">Danh sách bình luận</li>
-      </ol>
-      <div className="mb-4">
-        {/* <button
-            className="btn btn-primary btn-sm me-2"
-            onClick={() => handleAdd()}
-        >
-          Thêm mới <i className="fas fa-add"></i>
-        </button> */}
-        
+    <div className="animate-fade-in">
+      {/* Header */}
+      <div className="admin-page-header">
+        <h4><i className="fas fa-comments me-2" />Quản lý bình luận</h4>
+        <p>Xét duyệt và quản lý bình luận của khách hàng</p>
       </div>
-      <div className="card mb-4">
-        <div className="card-header">
-          <i className="fas fa-table me-1"></i>
-          Danh sách bình luận
-        </div>
-        <div className="card-body">
-          <table className="table table-striped">
-            <thead>
-              <tr>
-                <th>Mã bình luận</th>
-                <th>Nhận xét</th>
-                <th>Điểm xếp hạng</th>
-                <th>Thao tác</th>
-              </tr>
-            </thead>
-            <tbody>
-              {binhLuanList.map((sach) => (
-                <tr key={sach.maDanhGia}>
-                  <td>{sach.maDanhGia}</td>
-                  <td>{sach.nhanXet}</td>
-                  <td>{sach.diemXepHang}</td>
-                  <td>
-                  {sach.isActive ?
-                        <button
-                            className="btn btn-warning btn-sm me-2"
-                            onClick={() => {
-                              if (window.confirm('Bạn muốn đóng bình luận này?')) {
-                                try {
-                                   fetch("http://localhost:8080/api/admin/danh-gia/unactive/"+sach.maDanhGia, {
-                                    method: "POST",
-                                    headers: {
-                                        "Authorization": `Bearer ${localStorage.getItem('jwt')}`,
-                                        'Content-Type': 'application/json' 
-                                    },
-                                })
-                                    .then( (response) => {
-                                      findAll();
-                             
-                                    })
-                                    .catch((error) => {
-                                      
-                                        
-                                    }); 
-                                } catch (error) {
-                                  alert('Có lỗi xảy ra khi xóa sách!');
-                                  console.error('Lỗi xóa sách:', error);
-                                }
-                              }
-                            }}
-                        >
-                          <i className="fas fa-lock"></i>
-                        </button>
-                        :
-                        <button
-                            className="btn btn-success btn-sm me-2"
-                            onClick={() => {
-                              if (window.confirm('Bạn có muốn mở sách này?')) {
-                                try {
-                                    fetch("http://localhost:8080/api/admin/danh-gia/active/"+sach.maDanhGia, {
-                                      method: "POST",
-                                      headers: {
-                                          "Authorization": `Bearer ${localStorage.getItem('jwt')}`,
-                                          'Content-Type': 'application/json' 
-                                      },
-                                    })
-                                    .then( (response) => {
-                                      findAll();
-                                    })
-                                    .catch((error) => {
-                                        console.error("Lỗi:", error);
-                                        
-                                    });
-                                } catch (error) {
-                                  alert('Có lỗi xảy ra khi xóa sách!');
-                                  console.error('Lỗi xóa sách:', error);
-                                }
-                              }
-                            }}
-                        >
-                          <i className="fas fa-lock"></i>
-                        </button>
-                        
-                        }
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <PhanTrang 
-        trangHienTai={trangHienTai}
-        tongSoTrang={tongSoTrang}
-        phanTrang={phanTrang}
-      />
 
-      
+      {/* Table */}
+      {dangTaiDuLieu ? (
+        <div className="text-center py-5">
+          <span className="spinner-border text-primary" />
+          <p className="mt-2" style={{ color: 'var(--color-text-muted)' }}>Đang tải…</p>
+        </div>
+      ) : baoLoi ? (
+        <div className="empty-state">
+          <div className="empty-state-icon"><i className="fas fa-exclamation-circle" /></div>
+          <h5>Có lỗi xảy ra</h5>
+          <p>{baoLoi}</p>
+        </div>
+      ) : binhLuanList.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-state-icon"><i className="fas fa-comments" /></div>
+          <h5>Chưa có bình luận</h5>
+          <p>Chưa có bình luận nào trong hệ thống</p>
+        </div>
+      ) : (
+        <div className="order-table-wrapper">
+          <div className="table-responsive">
+            <table className="order-table">
+              <thead>
+                <tr>
+                  <th>Mã</th>
+                  <th>Nhận xét</th>
+                  <th>Đánh giá</th>
+                  <th>Trạng thái</th>
+                  <th style={{ textAlign: 'center', width: '80px' }}>Thao tác</th>
+                </tr>
+              </thead>
+              <tbody>
+                {binhLuanList.map((item) => (
+                  <tr key={item.maDanhGia}>
+                    <td>
+                      <strong style={{ color: 'var(--color-primary)' }}>#{item.maDanhGia}</strong>
+                    </td>
+                    <td style={{ maxWidth: '300px' }}>
+                      <span style={{
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                      }}>
+                        {item.nhanXet || '—'}
+                      </span>
+                    </td>
+                    <td>{renderStars(item.diemXepHang)}</td>
+                    <td>
+                      <span className={`status-badge ${item.isActive ? 'paid' : 'pending'}`}>
+                        {item.isActive ? 'Hiển thị' : 'Đã ẩn'}
+                      </span>
+                    </td>
+                    <td style={{ textAlign: 'center' }}>
+                      <button
+                        className={`order-action-btn ${item.isActive ? '' : 'success'}`}
+                        title={item.isActive ? 'Ẩn bình luận' : 'Hiện bình luận'}
+                        onClick={() => handleToggleActive(item.maDanhGia, item.isActive)}
+                      >
+                        <i className={`fas fa-${item.isActive ? 'eye-slash' : 'eye'}`} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Pagination */}
+      {tongSoTrang > 1 && (
+        <div className="d-flex justify-content-between align-items-center mt-3">
+          <span className="pagination-info">
+            Trang {trangHienTai} / {tongSoTrang}
+          </span>
+          <div className="pagination-modern">
+            <button
+              className="page-btn"
+              disabled={trangHienTai === 1}
+              onClick={() => setTrangHienTai(p => Math.max(1, p - 1))}
+            >
+              <i className="fas fa-chevron-left" />
+            </button>
+            {Array.from({ length: Math.min(tongSoTrang, 5) }, (_, i) => {
+              const start = Math.max(1, Math.min(trangHienTai - 2, tongSoTrang - 4));
+              const pageNum = start + i;
+              return (
+                <button
+                  key={pageNum}
+                  className={`page-btn${pageNum === trangHienTai ? ' active' : ''}`}
+                  onClick={() => setTrangHienTai(pageNum)}
+                >
+                  {pageNum}
+                </button>
+              );
+            })}
+            <button
+              className="page-btn"
+              disabled={trangHienTai >= tongSoTrang}
+              onClick={() => setTrangHienTai(p => Math.min(tongSoTrang, p + 1))}
+            >
+              <i className="fas fa-chevron-right" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-export {}; 
+export { };

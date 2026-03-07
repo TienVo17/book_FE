@@ -15,6 +15,18 @@ const AdminSidebar = () => {
     }
   }, [jwt]);
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.admin-profile-btn') && !target.closest('.admin-profile-dropdown')) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
+
   const toggleSubMenu = (menu: string) => {
     setOpenSubMenu(openSubMenu === menu ? null : menu);
   };
@@ -25,187 +37,142 @@ const AdminSidebar = () => {
     navigate('/');
   };
 
+  const getInitials = (name: string) => {
+    return name?.charAt(0)?.toUpperCase() || 'A';
+  };
+
   return (
     <>
-      {/* Icon đăng nhập góc phải */}
-      <div style={{
-        position: 'fixed',
-        top: '20px',
-        right: '30px',
-        zIndex: 9999,
-        backgroundColor: '#343a40',
-        padding: '5px 15px',
-        borderRadius: '4px'
-      }}>
-        <div className="dropdown">
-          <button
-            className="btn text-white dropdown-toggle"
-            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            style={{ border: 'none', background: 'none', padding: '5px' }}
-          >
-            <i className="fas fa-user me-2"></i>
-            {userInfo?.sub || 'Admin'}
-          </button>
-          {isDropdownOpen && (
-            <ul className="dropdown-menu show dropdown-menu-end"
-              style={{
-                position: 'absolute',
-                top: '100%',
-                right: 0,
-                minWidth: '200px',
-                backgroundColor: 'white',
-                boxShadow: '0 0 10px rgba(0,0,0,0.1)',
-                border: '1px solid rgba(0,0,0,0.1)',
-                borderRadius: '4px',
-                padding: '8px 0'
-              }}
-            >
+      {/* Sidebar */}
+      <aside className="admin-sidebar">
+        <div className="admin-sidebar-brand">
+          <i className="fas fa-book-reader" />
+          <h4>BookStore</h4>
+        </div>
+
+        <ul className="admin-sidebar-nav">
+          {/* Overview section */}
+          <li className="admin-sidebar-section">Tổng quan</li>
+
+          {userInfo?.isAdmin && (
+            <li>
+              <NavLink to="/quan-ly/dashboard" className="admin-nav-item">
+                <i className="fas fa-chart-pie" />
+                Dashboard
+              </NavLink>
+            </li>
+          )}
+
+          {/* Management section */}
+          <li className="admin-sidebar-section">Quản lý</li>
+
+          {/* Book management */}
+          <li>
+            <div className="admin-nav-item" onClick={() => toggleSubMenu('sach')}>
+              <i className="fas fa-book" />
+              Quản lý sách
+              <i className={`fas fa-chevron-right nav-chevron ${openSubMenu === 'sach' ? 'open' : ''}`} />
+            </div>
+            <ul className={`admin-sub-menu ${openSubMenu === 'sach' ? 'open' : ''}`}>
               <li>
-                <NavLink to="/profile" className="dropdown-item">
-                  <i className="fas fa-user me-2"></i>Tài khoản
+                <NavLink to="danh-sach-sach">
+                  <i className="fas fa-list" /> Danh sách sách
                 </NavLink>
-              </li>
-              <li>
-                <NavLink to="/settings" className="dropdown-item">
-                  <i className="fas fa-cog me-2"></i>Cài đặt
-                </NavLink>
-              </li>
-              <li><hr className="dropdown-divider" /></li>
-              <li>
-                <button
-                  className="dropdown-item text-danger"
-                  onClick={handleLogout}
-                  style={{ border: 'none', background: 'none', width: '100%', textAlign: 'left' }}
-                >
-                  <i className="fas fa-sign-out-alt me-2"></i>Đăng xuất
-                </button>
               </li>
             </ul>
+          </li>
+
+          {/* Order management */}
+          {userInfo?.isAdmin && (
+            <li>
+              <div className="admin-nav-item" onClick={() => toggleSubMenu('donhang')}>
+                <i className="fas fa-shopping-bag" />
+                Quản lý đơn hàng
+                <i className={`fas fa-chevron-right nav-chevron ${openSubMenu === 'donhang' ? 'open' : ''}`} />
+              </div>
+              <ul className={`admin-sub-menu ${openSubMenu === 'donhang' ? 'open' : ''}`}>
+                <li>
+                  <NavLink to="/quan-ly/danh-sach-don-hang">
+                    <i className="fas fa-list" /> Danh sách đơn hàng
+                  </NavLink>
+                </li>
+              </ul>
+            </li>
           )}
-        </div>
-      </div>
 
-      {/* Sidebar chính */}
-      <div className="sidebar"
-        style={{
-          width: '250px',
-          height: '100vh',
-          position: 'fixed',
-          left: 0,
-          top: 0,
-          backgroundColor: '#343a40',
-          color: 'white',
-          overflowY: 'auto'
-        }}>
-        <div className="p-3">
-          <h4 className="mb-4">
-            <i className="fas fa-user-shield me-2"></i>
-            Admin Panel
-          </h4>
-          <hr />
-          <ul className="nav flex-column">
-            {/* Dashboard */}
-            {userInfo?.isAdmin && (
-              <li className="nav-item">
-                <NavLink to="/quan-ly/dashboard" className="nav-link text-white">
-                  <i className="fas fa-tachometer-alt me-2"></i>
-                  Dashboard
+          {/* User management */}
+          {userInfo?.isAdmin && (
+            <li>
+              <div className="admin-nav-item" onClick={() => toggleSubMenu('nguoidung')}>
+                <i className="fas fa-users" />
+                Quản lý người dùng
+                <i className={`fas fa-chevron-right nav-chevron ${openSubMenu === 'nguoidung' ? 'open' : ''}`} />
+              </div>
+              <ul className={`admin-sub-menu ${openSubMenu === 'nguoidung' ? 'open' : ''}`}>
+                <li>
+                  <NavLink to="/quan-ly/danh-sach-nguoi-dung">
+                    <i className="fas fa-list" /> Danh sách người dùng
+                  </NavLink>
+                </li>
+              </ul>
+            </li>
+          )}
+
+          {/* Comment management */}
+          <li>
+            <div className="admin-nav-item" onClick={() => toggleSubMenu('binhluan')}>
+              <i className="fas fa-comments" />
+              Quản lý bình luận
+              <i className={`fas fa-chevron-right nav-chevron ${openSubMenu === 'binhluan' ? 'open' : ''}`} />
+            </div>
+            <ul className={`admin-sub-menu ${openSubMenu === 'binhluan' ? 'open' : ''}`}>
+              <li>
+                <NavLink to="danh-sach-binh-luan">
+                  <i className="fas fa-list" /> Danh sách bình luận
                 </NavLink>
               </li>
-            )}
+            </ul>
+          </li>
 
-            {/* Quản lý sách */}
-            <li className="nav-item">
-              <div className="nav-link text-white" style={{cursor: 'pointer'}} onClick={() => toggleSubMenu('sach')}>
-                <i className="fas fa-book me-2"></i>
-                Quản lý sách
-                <i className={`fas fa-chevron-${openSubMenu === 'sach' ? 'down' : 'right'} float-end mt-1`}></i>
-              </div>
-              {openSubMenu === 'sach' && (
-                <ul className="nav flex-column ms-3">
-                  <li className="nav-item">
-                    <NavLink to="danh-sach-sach" className="nav-link text-white">
-                      <i className="fas fa-list me-2"></i>
-                      Danh sách sách
-                    </NavLink>
-                  </li>
-                </ul>
-              )}
+          {/* Coupon management */}
+          {userInfo?.isAdmin && (
+            <li>
+              <NavLink to="/quan-ly/quan-ly-coupon" className="admin-nav-item">
+                <i className="fas fa-ticket-alt" />
+                Quản lý coupon
+              </NavLink>
             </li>
+          )}
+        </ul>
+      </aside>
 
-            {/* Quản lý đơn hàng */}
-            {userInfo?.isAdmin &&
-              <li className="nav-item">
-                <div className="nav-link text-white" style={{cursor: 'pointer'}} onClick={() => toggleSubMenu('donhang')}>
-                  <i className="fas fa-shopping-cart me-2"></i>
-                  Quản lý đơn hàng
-                  <i className={`fas fa-chevron-${openSubMenu === 'donhang' ? 'down' : 'right'} float-end mt-1`}></i>
-                </div>
-                {openSubMenu === 'donhang' && (
-                  <ul className="nav flex-column ms-3">
-                    <li className="nav-item">
-                      <NavLink to="/quan-ly/danh-sach-don-hang" className="nav-link text-white">
-                        <i className="fas fa-list me-2"></i>
-                        Danh sách đơn hàng
-                      </NavLink>
-                    </li>
-                  </ul>
-                )}
-              </li>
-            }
-
-            {/* Quản lý người dùng */}
-            {userInfo?.isAdmin &&
-              <li className="nav-item">
-                <div className="nav-link text-white" style={{cursor: 'pointer'}} onClick={() => toggleSubMenu('nguoidung')}>
-                  <i className="fas fa-users me-2"></i>
-                  Quản lý người dùng
-                  <i className={`fas fa-chevron-${openSubMenu === 'nguoidung' ? 'down' : 'right'} float-end mt-1`}></i>
-                </div>
-                {openSubMenu === 'nguoidung' && (
-                  <ul className="nav flex-column ms-3">
-                    <li className="nav-item">
-                      <NavLink to="/quan-ly/danh-sach-nguoi-dung" className="nav-link text-white">
-                        <i className="fas fa-list me-2"></i>
-                        Danh sách người dùng
-                      </NavLink>
-                    </li>
-                  </ul>
-                )}
-              </li>
-            }
-
-            {/* Quản lý bình luận */}
-            <li className="nav-item">
-              <div className="nav-link text-white" style={{cursor: 'pointer'}} onClick={() => toggleSubMenu('binhluan')}>
-                <i className="fas fa-comments me-2"></i>
-                Quản lý bình luận
-                <i className={`fas fa-chevron-${openSubMenu === 'binhluan' ? 'down' : 'right'} float-end mt-1`}></i>
-              </div>
-              {openSubMenu === 'binhluan' && (
-                <ul className="nav flex-column ms-3">
-                  <li className="nav-item">
-                    <NavLink to="danh-sach-binh-luan" className="nav-link text-white">
-                      <i className="fas fa-list me-2"></i>
-                      Quản lý bình luận
-                    </NavLink>
-                  </li>
-                </ul>
-              )}
-            </li>
-
-            {/* Quản lý coupon */}
-            {userInfo?.isAdmin && (
-              <li className="nav-item">
-                <NavLink to="/quan-ly/quan-ly-coupon" className="nav-link text-white">
-                  <i className="fas fa-ticket-alt me-2"></i>
-                  Quản lý coupon
-                </NavLink>
-              </li>
-            )}
-          </ul>
+      {/* Profile button - top right */}
+      <div
+        className="admin-profile-btn"
+        onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+      >
+        <div className="admin-profile-avatar">
+          {getInitials(userInfo?.sub)}
         </div>
+        <span>{userInfo?.sub || 'Admin'}</span>
+        <i className={`fas fa-chevron-${isDropdownOpen ? 'up' : 'down'}`} style={{ fontSize: '0.65rem' }} />
       </div>
+
+      {/* Profile dropdown */}
+      {isDropdownOpen && (
+        <div className="admin-profile-dropdown">
+          <NavLink to="/profile">
+            <i className="fas fa-user" /> Tài khoản
+          </NavLink>
+          <NavLink to="/settings">
+            <i className="fas fa-cog" /> Cài đặt
+          </NavLink>
+          <div className="divider" />
+          <button className="logout-btn" onClick={handleLogout}>
+            <i className="fas fa-sign-out-alt" /> Đăng xuất
+          </button>
+        </div>
+      )}
     </>
   );
 };

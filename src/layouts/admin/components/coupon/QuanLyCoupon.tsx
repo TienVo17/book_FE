@@ -77,58 +77,70 @@ const QuanLyCoupon: React.FC = () => {
     };
 
     return (
-        <div>
-            <div className="d-flex justify-content-between align-items-center mb-4">
-                <h4 className="mb-0">Quản lý Coupon</h4>
-                <button className="btn btn-dark" onClick={handleAdd}>
-                    <i className="fas fa-plus me-2"></i>Thêm coupon
-                </button>
+        <div className="animate-fade-in">
+            {/* Header */}
+            <div className="admin-page-header">
+                <div className="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h4><i className="fas fa-ticket-alt me-2" />Quản lý Coupon</h4>
+                        <p>Tạo và quản lý mã giảm giá</p>
+                    </div>
+                    <button className="admin-btn-add" onClick={handleAdd} style={{ background: 'white', color: 'var(--color-text)' }}>
+                        <i className="fas fa-plus" /> Thêm coupon
+                    </button>
+                </div>
             </div>
 
+            {/* Form */}
             {showForm && (
-                <div className="card shadow-sm mb-4">
-                    <div className="card-header bg-dark text-white">
-                        <h6 className="mb-0">{isEditing ? 'Cập nhật coupon' : 'Thêm coupon mới'}</h6>
+                <div className="order-table-wrapper mb-3" style={{ animation: 'fadeInDown var(--anim-normal) var(--ease-out)' }}>
+                    <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid var(--color-border-light)' }}>
+                        <h6 className="mb-0" style={{ fontFamily: 'var(--font-heading)', fontWeight: 600 }}>
+                            <i className="fas fa-edit me-2" />
+                            {isEditing ? 'Cập nhật coupon' : 'Thêm coupon mới'}
+                        </h6>
                     </div>
-                    <div className="card-body">
+                    <div style={{ padding: '1.25rem' }}>
                         <form onSubmit={handleSubmit}>
                             <div className="row g-3">
                                 <div className="col-md-3">
-                                    <label className="form-label">Mã coupon</label>
-                                    <input className="form-control" name="ma" value={form.ma} onChange={handleChange} required disabled={isEditing} />
+                                    <label className="form-label" style={{ fontSize: '0.85rem', fontWeight: 600 }}>Mã coupon</label>
+                                    <input className="auth-input" name="ma" value={form.ma} onChange={handleChange} required disabled={isEditing} />
                                 </div>
                                 <div className="col-md-3">
-                                    <label className="form-label">Loại giảm</label>
-                                    <select className="form-select" name="loai" value={form.loai} onChange={handleChange}>
+                                    <label className="form-label" style={{ fontSize: '0.85rem', fontWeight: 600 }}>Loại giảm</label>
+                                    <select className="auth-input" name="loai" value={form.loai} onChange={handleChange} style={{ cursor: 'pointer' }}>
                                         <option value="PERCENT">Phần trăm (%)</option>
                                         <option value="FIXED">Số tiền cố định (đ)</option>
                                     </select>
                                 </div>
                                 <div className="col-md-3">
-                                    <label className="form-label">Giá trị giảm</label>
-                                    <input className="form-control" type="number" name="giaTriGiam" value={form.giaTriGiam} onChange={handleChange} min={0} required />
+                                    <label className="form-label" style={{ fontSize: '0.85rem', fontWeight: 600 }}>Giá trị giảm</label>
+                                    <input className="auth-input" type="number" name="giaTriGiam" value={form.giaTriGiam} onChange={handleChange} min={0} required />
                                 </div>
                                 <div className="col-md-3">
-                                    <label className="form-label">Giá trị tối thiểu (đ)</label>
-                                    <input className="form-control" type="number" name="giaTriToiThieu" value={form.giaTriToiThieu} onChange={handleChange} min={0} />
+                                    <label className="form-label" style={{ fontSize: '0.85rem', fontWeight: 600 }}>Giá trị tối thiểu (đ)</label>
+                                    <input className="auth-input" type="number" name="giaTriToiThieu" value={form.giaTriToiThieu} onChange={handleChange} min={0} />
                                 </div>
                                 <div className="col-md-3">
-                                    <label className="form-label">Hạn sử dụng</label>
-                                    <input className="form-control" type="date" name="hanSuDung" value={form.hanSuDung || ''} onChange={handleChange} />
+                                    <label className="form-label" style={{ fontSize: '0.85rem', fontWeight: 600 }}>Hạn sử dụng</label>
+                                    <input className="auth-input" type="date" name="hanSuDung" value={form.hanSuDung || ''} onChange={handleChange} />
                                 </div>
                                 <div className="col-md-3">
-                                    <label className="form-label">Số lượng tối đa</label>
-                                    <input className="form-control" type="number" name="soLuongToiDa" value={form.soLuongToiDa} onChange={handleChange} min={1} />
+                                    <label className="form-label" style={{ fontSize: '0.85rem', fontWeight: 600 }}>Số lượng tối đa</label>
+                                    <input className="auth-input" type="number" name="soLuongToiDa" value={form.soLuongToiDa} onChange={handleChange} min={1} />
                                 </div>
                                 <div className="col-md-3 d-flex align-items-end">
                                     <div className="form-check">
-                                        <input className="form-check-input" type="checkbox" name="isActive" id="isActive" checked={!!form.isActive} onChange={handleChange} />
-                                        <label className="form-check-label" htmlFor="isActive">Kích hoạt</label>
+                                        <input className="form-check-input" type="checkbox" name="isActive" id="isActive" checked={!!form.isActive} onChange={handleChange} style={{ cursor: 'pointer' }} />
+                                        <label className="form-check-label" htmlFor="isActive" style={{ cursor: 'pointer', fontWeight: 500 }}>Kích hoạt</label>
                                     </div>
                                 </div>
                                 <div className="col-12 d-flex gap-2">
-                                    <button type="submit" className="btn btn-dark">{isEditing ? 'Cập nhật' : 'Thêm mới'}</button>
-                                    <button type="button" className="btn btn-outline-secondary" onClick={() => setShowForm(false)}>Hủy</button>
+                                    <button type="submit" className="btn-modern-primary">
+                                        <i className="fas fa-save" /> {isEditing ? 'Cập nhật' : 'Thêm mới'}
+                                    </button>
+                                    <button type="button" className="btn-modern-outline" onClick={() => setShowForm(false)}>Hủy</button>
                                 </div>
                             </div>
                         </form>
@@ -136,63 +148,92 @@ const QuanLyCoupon: React.FC = () => {
                 </div>
             )}
 
-            <div className="card shadow-sm">
-                <div className="card-body p-0">
-                    {loading ? (
-                        <div className="text-center py-4"><div className="spinner-border text-primary"></div></div>
-                    ) : (
-                        <div className="table-responsive">
-                            <table className="table table-hover mb-0">
-                                <thead className="table-dark">
-                                    <tr>
-                                        <th>Mã</th>
-                                        <th>Loại</th>
-                                        <th className="text-end">Giá trị giảm</th>
-                                        <th className="text-end">Tối thiểu</th>
-                                        <th>Hạn dùng</th>
-                                        <th className="text-center">Đã dùng</th>
-                                        <th className="text-center">Active</th>
-                                        <th className="text-center">Thao tác</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {danhSach.length === 0 && (
-                                        <tr><td colSpan={8} className="text-center text-muted py-4">Chưa có coupon nào</td></tr>
-                                    )}
-                                    {danhSach.map(c => (
-                                        <tr key={c.maCoupon}>
-                                            <td><code>{c.ma}</code></td>
-                                            <td>
-                                                <span className={`badge ${c.loai === 'PERCENT' ? 'bg-info text-dark' : 'bg-warning text-dark'}`}>
-                                                    {c.loai === 'PERCENT' ? '%' : 'đ'}
-                                                </span>
-                                            </td>
-                                            <td className="text-end">{c.loai === 'PERCENT' ? `${c.giaTriGiam}%` : `${c.giaTriGiam?.toLocaleString()}đ`}</td>
-                                            <td className="text-end">{c.giaTriToiThieu?.toLocaleString()}đ</td>
-                                            <td>{c.hanSuDung ? new Date(c.hanSuDung).toLocaleDateString('vi-VN') : '—'}</td>
-                                            <td className="text-center">{c.daSuDung ?? 0}/{c.soLuongToiDa ?? '∞'}</td>
-                                            <td className="text-center">
-                                                {c.isActive
-                                                    ? <span className="badge bg-success">Active</span>
-                                                    : <span className="badge bg-secondary">Inactive</span>
-                                                }
-                                            </td>
-                                            <td className="text-center">
-                                                <button className="btn btn-sm btn-outline-primary me-1" onClick={() => handleEdit(c)}>
-                                                    <i className="fas fa-edit"></i>
-                                                </button>
-                                                <button className="btn btn-sm btn-outline-danger" onClick={() => handleDelete(c.maCoupon!)}>
-                                                    <i className="fas fa-trash"></i>
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
+            {/* Table */}
+            {loading ? (
+                <div className="text-center py-5">
+                    <span className="spinner-border text-primary" />
+                    <p className="mt-2" style={{ color: 'var(--color-text-muted)' }}>Đang tải…</p>
                 </div>
-            </div>
+            ) : danhSach.length === 0 ? (
+                <div className="empty-state">
+                    <div className="empty-state-icon"><i className="fas fa-ticket-alt" /></div>
+                    <h5>Chưa có coupon</h5>
+                    <p>Bấm "Thêm coupon" để tạo mã giảm giá mới</p>
+                </div>
+            ) : (
+                <div className="order-table-wrapper">
+                    <div className="table-responsive">
+                        <table className="order-table">
+                            <thead>
+                                <tr>
+                                    <th>Mã</th>
+                                    <th>Loại</th>
+                                    <th style={{ textAlign: 'right' }}>Giá trị giảm</th>
+                                    <th style={{ textAlign: 'right' }}>Tối thiểu</th>
+                                    <th>Hạn dùng</th>
+                                    <th style={{ textAlign: 'center' }}>Đã dùng</th>
+                                    <th style={{ textAlign: 'center' }}>Trạng thái</th>
+                                    <th style={{ textAlign: 'center' }}>Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {danhSach.map(c => (
+                                    <tr key={c.maCoupon}>
+                                        <td>
+                                            <code style={{
+                                                background: 'var(--color-bg)',
+                                                padding: '2px 8px',
+                                                borderRadius: 'var(--radius-sm)',
+                                                fontWeight: 600,
+                                                fontSize: '0.85rem',
+                                            }}>
+                                                {c.ma}
+                                            </code>
+                                        </td>
+                                        <td>
+                                            <span className={`status-badge ${c.loai === 'PERCENT' ? 'shipping' : 'pending'}`}>
+                                                {c.loai === 'PERCENT' ? 'Phần trăm' : 'Cố định'}
+                                            </span>
+                                        </td>
+                                        <td style={{ textAlign: 'right', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                                            {c.loai === 'PERCENT' ? `${c.giaTriGiam}%` : `${c.giaTriGiam?.toLocaleString()}đ`}
+                                        </td>
+                                        <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                                            {c.giaTriToiThieu?.toLocaleString()}đ
+                                        </td>
+                                        <td style={{ color: 'var(--color-text-secondary)' }}>
+                                            {c.hanSuDung ? new Date(c.hanSuDung).toLocaleDateString('vi-VN') : '—'}
+                                        </td>
+                                        <td style={{ textAlign: 'center', fontVariantNumeric: 'tabular-nums' }}>
+                                            {c.daSuDung ?? 0}/{c.soLuongToiDa ?? '∞'}
+                                        </td>
+                                        <td style={{ textAlign: 'center' }}>
+                                            <span className={`status-badge ${c.isActive ? 'paid' : 'pending'}`}>
+                                                {c.isActive ? 'Active' : 'Inactive'}
+                                            </span>
+                                        </td>
+                                        <td style={{ textAlign: 'center' }}>
+                                            <div className="d-flex gap-1 justify-content-center">
+                                                <button className="order-action-btn" title="Chỉnh sửa" onClick={() => handleEdit(c)}>
+                                                    <i className="fas fa-edit" />
+                                                </button>
+                                                <button
+                                                    className="order-action-btn"
+                                                    title="Xóa"
+                                                    onClick={() => handleDelete(c.maCoupon!)}
+                                                    style={{ color: 'var(--color-danger)' }}
+                                                >
+                                                    <i className="fas fa-trash" />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
