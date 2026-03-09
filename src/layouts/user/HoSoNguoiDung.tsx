@@ -16,7 +16,6 @@ const labelStyle: React.CSSProperties = {
 const HoSoNguoiDung = () => {
   const navigate = useNavigate();
 
-  // Profile state
   const [hoDem, setHoDem] = useState('');
   const [ten, setTen] = useState('');
   const [email, setEmail] = useState('');
@@ -24,15 +23,18 @@ const HoSoNguoiDung = () => {
   const [gioiTinh, setGioiTinh] = useState('M');
   const [loadingHoSo, setLoadingHoSo] = useState(false);
 
-  // Password state
   const [matKhauCu, setMatKhauCu] = useState('');
   const [matKhauMoi, setMatKhauMoi] = useState('');
   const [xacNhanMatKhau, setXacNhanMatKhau] = useState('');
   const [loadingMatKhau, setLoadingMatKhau] = useState(false);
+  const [loiMatKhau, setLoiMatKhau] = useState('');
 
   useEffect(() => {
     const jwt = localStorage.getItem('jwt');
-    if (!jwt) { navigate('/dang-nhap'); return; }
+    if (!jwt) {
+      navigate('/dang-nhap');
+      return;
+    }
 
     getHoSo()
       .then((data: any) => {
@@ -60,17 +62,37 @@ const HoSoNguoiDung = () => {
 
   const handleDoiMatKhau = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (matKhauMoi !== xacNhanMatKhau) {
-      toast.error('Mật khẩu xác nhận không khớp!');
+    setLoiMatKhau('');
+
+    if (!matKhauCu.trim()) {
+      setLoiMatKhau('Vui lòng nhập mật khẩu cũ.');
       return;
     }
+
+    if (!matKhauMoi.trim()) {
+      setLoiMatKhau('Vui lòng nhập mật khẩu mới.');
+      return;
+    }
+
+    if (matKhauMoi.length < 6) {
+      setLoiMatKhau('Mật khẩu mới phải có ít nhất 6 ký tự.');
+      return;
+    }
+
+    if (matKhauMoi !== xacNhanMatKhau) {
+      setLoiMatKhau('Mật khẩu xác nhận không khớp.');
+      return;
+    }
+
     setLoadingMatKhau(true);
     try {
       await doiMatKhau(matKhauCu, matKhauMoi);
       toast.success('Đổi mật khẩu thành công!');
-      setMatKhauCu(''); setMatKhauMoi(''); setXacNhanMatKhau('');
-    } catch {
-      toast.error('Đổi mật khẩu thất bại. Kiểm tra lại mật khẩu cũ.');
+      setMatKhauCu('');
+      setMatKhauMoi('');
+      setXacNhanMatKhau('');
+    } catch (err: any) {
+      setLoiMatKhau(err?.message || 'Đổi mật khẩu thất bại. Vui lòng thử lại.');
     } finally {
       setLoadingMatKhau(false);
     }
@@ -78,7 +100,6 @@ const HoSoNguoiDung = () => {
 
   return (
     <div className="container py-5" style={{ maxWidth: 600 }}>
-      {/* Profile info card */}
       <div className="auth-card">
         <div className="text-center mb-4">
           <div style={iconStyle}>
@@ -130,9 +151,13 @@ const HoSoNguoiDung = () => {
         </form>
       </div>
 
-      {/* Password change card */}
       <div className="auth-card mt-4">
-        <h4 className="mb-4">Đổi mật khẩu</h4>
+        <div className="mb-4">
+          <h4 className="mb-2">Đổi mật khẩu</h4>
+          <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem', marginBottom: 0 }}>
+            Mật khẩu mới phải có ít nhất 6 ký tự.
+          </p>
+        </div>
         <form onSubmit={handleDoiMatKhau}>
           <div className="mb-3">
             <label style={labelStyle}>Mật khẩu cũ</label>
@@ -142,20 +167,37 @@ const HoSoNguoiDung = () => {
           <div className="mb-3">
             <label style={labelStyle}>Mật khẩu mới</label>
             <input type="password" className="auth-input" placeholder="Nhập mật khẩu mới" value={matKhauMoi}
-              onChange={e => setMatKhauMoi(e.target.value)} required />
+              onChange={e => setMatKhauMoi(e.target.value)} required minLength={6} />
           </div>
           <div className="mb-4">
             <label style={labelStyle}>Xác nhận mật khẩu mới</label>
             <input type="password" className="auth-input" placeholder="Nhập lại mật khẩu mới" value={xacNhanMatKhau}
-              onChange={e => setXacNhanMatKhau(e.target.value)} required />
+              onChange={e => setXacNhanMatKhau(e.target.value)} required minLength={6} />
           </div>
           <button type="submit" className="btn-modern-primary w-100"
             style={{ padding: '0.7rem', justifyContent: 'center', fontSize: '0.95rem' }}
             disabled={loadingMatKhau}>
             {loadingMatKhau
               ? <><span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Đang xử lý...</>
-              : 'Đổi mật khẩu'}
+              : 'Cập nhật mật khẩu'}
           </button>
+
+          {loiMatKhau && (
+            <div
+              className="mt-3 animate-fade-in"
+              style={{
+                background: 'rgba(239,68,68,0.06)',
+                border: '1px solid rgba(239,68,68,0.15)',
+                borderRadius: 'var(--radius-md)',
+                padding: '0.7rem 1rem',
+                fontSize: '0.88rem',
+                color: 'var(--color-danger)',
+              }}
+              role="alert"
+            >
+              <i className="fas fa-exclamation-circle me-2"></i>{loiMatKhau}
+            </div>
+          )}
         </form>
       </div>
     </div>

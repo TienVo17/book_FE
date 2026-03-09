@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import React, { useMemo, useState } from 'react';
+import { NavLink, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { datLaiMatKhau } from '../../api/NguoiDungApi';
 
@@ -14,7 +14,7 @@ const labelStyle: React.CSSProperties = {
 };
 
 const DatLaiMatKhau = () => {
-  const { token } = useParams<{ token: string }>();
+  const { email, token } = useParams<{ email: string; token: string }>();
   const navigate = useNavigate();
 
   const [matKhauMoi, setMatKhauMoi] = useState('');
@@ -22,27 +22,45 @@ const DatLaiMatKhau = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const invalidLink = useMemo(() => !email || !token, [email, token]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
-    if (matKhauMoi !== xacNhanMatKhau) {
-      setError('Mật khẩu xác nhận không khớp!');
+    if (!email || !token) {
+      setError('Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.');
       return;
     }
 
-    if (!token) {
-      setError('Liên kết đặt lại mật khẩu không hợp lệ.');
+    if (matKhauMoi.length < 6) {
+      setError('Mật khẩu mới phải có ít nhất 6 ký tự.');
+      return;
+    }
+
+    if (matKhauMoi !== xacNhanMatKhau) {
+      setError('Mật khẩu xác nhận không khớp.');
       return;
     }
 
     setIsLoading(true);
     try {
-      await datLaiMatKhau(token, matKhauMoi);
+      await datLaiMatKhau(email, token, matKhauMoi);
+      setMatKhauMoi('');
+      setXacNhanMatKhau('');
       toast.success('Đặt lại mật khẩu thành công! Vui lòng đăng nhập.');
       navigate('/dang-nhap');
     } catch (err: any) {
-      setError(err?.message || 'Đặt lại mật khẩu thất bại. Liên kết có thể đã hết hạn.');
+      const message = err?.message || '';
+      if (
+        message === 'Token không hợp lệ'
+        || message === 'Token đã hết hạn'
+        || message === 'Email không tồn tại trong hệ thống'
+      ) {
+        setError('Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.');
+      } else {
+        setError(message || 'Đặt lại mật khẩu thất bại. Vui lòng thử lại.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -61,65 +79,104 @@ const DatLaiMatKhau = () => {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          <div className="mb-3">
-            <label htmlFor="matKhauMoi" style={labelStyle}>Mật khẩu mới</label>
-            <input
-              type="password"
-              id="matKhauMoi"
-              className="auth-input"
-              placeholder="Nhập mật khẩu mới"
-              value={matKhauMoi}
-              onChange={e => setMatKhauMoi(e.target.value)}
-              required
-              minLength={6}
-            />
-          </div>
-
-          <div className="mb-4">
-            <label htmlFor="xacNhanMatKhau" style={labelStyle}>Xác nhận mật khẩu mới</label>
-            <input
-              type="password"
-              id="xacNhanMatKhau"
-              className="auth-input"
-              placeholder="Nhập lại mật khẩu mới"
-              value={xacNhanMatKhau}
-              onChange={e => setXacNhanMatKhau(e.target.value)}
-              required
-              minLength={6}
-            />
-          </div>
-
-          <button
-            type="submit"
-            className="btn-modern-primary w-100"
-            style={{ padding: '0.7rem', justifyContent: 'center', fontSize: '0.95rem' }}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <><span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Đang xử lý...</>
-            ) : (
-              'Xác nhận đặt lại mật khẩu'
-            )}
-          </button>
-
-          {error && (
+        {invalidLink ? (
+          <div className="text-center py-3">
             <div
-              className="mt-3 animate-fade-in"
+              className="animate-fade-in"
               style={{
                 background: 'rgba(239,68,68,0.06)',
                 border: '1px solid rgba(239,68,68,0.15)',
                 borderRadius: 'var(--radius-md)',
-                padding: '0.7rem 1rem',
-                fontSize: '0.88rem',
+                padding: '0.9rem 1rem',
+                fontSize: '0.9rem',
                 color: 'var(--color-danger)',
+                marginBottom: '1.5rem',
               }}
               role="alert"
             >
-              <i className="fas fa-exclamation-circle me-2"></i>{error}
+              <i className="fas fa-exclamation-circle me-2"></i>
+              Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.
             </div>
-          )}
-        </form>
+            <div className="d-flex justify-content-center gap-3 flex-wrap">
+              <NavLink to="/quen-mat-khau" style={{ fontWeight: 600 }}>
+                Yêu cầu liên kết mới
+              </NavLink>
+              <NavLink to="/dang-nhap" style={{ fontWeight: 600 }}>
+                Quay lại đăng nhập
+              </NavLink>
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit}>
+            <div className="mb-3">
+              <label htmlFor="matKhauMoi" style={labelStyle}>Mật khẩu mới</label>
+              <input
+                type="password"
+                id="matKhauMoi"
+                className="auth-input"
+                placeholder="Nhập mật khẩu mới"
+                value={matKhauMoi}
+                onChange={e => setMatKhauMoi(e.target.value)}
+                required
+                minLength={6}
+              />
+            </div>
+
+            <div className="mb-2">
+              <label htmlFor="xacNhanMatKhau" style={labelStyle}>Xác nhận mật khẩu mới</label>
+              <input
+                type="password"
+                id="xacNhanMatKhau"
+                className="auth-input"
+                placeholder="Nhập lại mật khẩu mới"
+                value={xacNhanMatKhau}
+                onChange={e => setXacNhanMatKhau(e.target.value)}
+                required
+                minLength={6}
+              />
+            </div>
+
+            <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.85rem', marginBottom: '1rem' }}>
+              Mật khẩu mới phải có ít nhất 6 ký tự.
+            </p>
+
+            <button
+              type="submit"
+              className="btn-modern-primary w-100"
+              style={{ padding: '0.7rem', justifyContent: 'center', fontSize: '0.95rem' }}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <><span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Đang xử lý...</>
+              ) : (
+                'Đặt lại mật khẩu'
+              )}
+            </button>
+
+            {error && (
+              <div
+                className="mt-3 animate-fade-in"
+                style={{
+                  background: 'rgba(239,68,68,0.06)',
+                  border: '1px solid rgba(239,68,68,0.15)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '0.7rem 1rem',
+                  fontSize: '0.88rem',
+                  color: 'var(--color-danger)',
+                }}
+                role="alert"
+              >
+                <i className="fas fa-exclamation-circle me-2"></i>{error}
+              </div>
+            )}
+
+            <div className="text-center mt-4" style={{ fontSize: '0.9rem', color: 'var(--color-text-secondary)' }}>
+              <NavLink to="/dang-nhap" style={{ fontWeight: 600 }}>
+                <i className="fas fa-arrow-left me-1"></i> Quay lại đăng nhập
+              </NavLink>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   );

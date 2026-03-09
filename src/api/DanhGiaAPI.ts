@@ -7,7 +7,7 @@ async function getAllReviewOfBook(duongDan: string): Promise<DanhGiaModel[]> {
   const ketQua: DanhGiaModel[] = [];
 
   // Gọi phương thức request
-  const response = await my_request(duongDan);
+  const response = await my_request<DanhGiaModel[]>(duongDan);
 
   // Lấy ra json sach
   const responseData = response;

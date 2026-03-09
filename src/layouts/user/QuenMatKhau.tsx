@@ -12,6 +12,8 @@ const labelStyle: React.CSSProperties = {
   fontWeight: 600, fontSize: '0.88rem', marginBottom: 6, display: 'block',
 };
 
+const successMessage = 'Nếu email tồn tại trong hệ thống, chúng tôi đã gửi liên kết đặt lại mật khẩu.';
+
 const QuenMatKhau = () => {
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -22,11 +24,17 @@ const QuenMatKhau = () => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
+
     try {
       await quenMatKhau(email);
       setSent(true);
-    } catch {
-      setError('Không tìm thấy tài khoản với email này. Vui lòng thử lại.');
+    } catch (err: any) {
+      const message = err?.message || 'Không thể gửi yêu cầu lúc này. Vui lòng thử lại sau.';
+      if (message === 'Email không tồn tại trong hệ thống') {
+        setSent(true);
+      } else {
+        setError(message);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -50,9 +58,12 @@ const QuenMatKhau = () => {
             <div style={{ ...iconStyle, background: 'linear-gradient(135deg, #22c55e, #16a34a)', margin: '0 auto 1rem' }}>
               <i className="fas fa-check-circle" style={{ color: 'white', fontSize: '1.5rem' }}></i>
             </div>
-            <h5 style={{ color: 'var(--color-text-primary)', marginBottom: '0.5rem' }}>Email đã được gửi!</h5>
+            <h5 style={{ color: 'var(--color-text-primary)', marginBottom: '0.5rem' }}>Yêu cầu đã được ghi nhận</h5>
             <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-              Vui lòng kiểm tra email <strong>{email}</strong> và làm theo hướng dẫn.
+              {successMessage}
+            </p>
+            <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
+              Vui lòng kiểm tra hộp thư đến và thư rác của <strong>{email}</strong>.
             </p>
             <NavLink to="/dang-nhap" style={{ fontWeight: 600, color: 'var(--color-primary)' }}>
               <i className="fas fa-arrow-left me-1"></i> Quay lại đăng nhập

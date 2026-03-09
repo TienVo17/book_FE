@@ -23,18 +23,18 @@ function toSachAdminPayload(sach: SachModel) {
 }
 
 export async function getThongKe(): Promise<ThongKeModel> {
-  return authRequest(`${BASE}/api/admin/thong-ke`);
+  return authRequest<ThongKeModel>(`${BASE}/api/admin/thong-ke`);
 }
 
 export async function createSachAdmin(sach: SachModel): Promise<SachModel> {
-  return authRequest(`${BASE}/api/admin/sach/insert`, {
+  return authRequest<SachModel>(`${BASE}/api/admin/sach/insert`, {
     method: 'POST',
     body: JSON.stringify(toSachAdminPayload(sach)),
   });
 }
 
 export async function updateSachAdmin(sach: SachModel): Promise<SachModel> {
-  return authRequest(`${BASE}/api/admin/sach/update/${sach.maSach}`, {
+  return authRequest<SachModel>(`${BASE}/api/admin/sach/update/${sach.maSach}`, {
     method: 'PUT',
     body: JSON.stringify(toSachAdminPayload(sach)),
   });

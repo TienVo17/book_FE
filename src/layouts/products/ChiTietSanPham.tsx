@@ -92,8 +92,8 @@ const ChiTietSanPham: React.FC = () => {
     const jwt = localStorage.getItem('jwt');
     if (jwt && maSachNumber > 0) {
       getDanhSachYeuThich()
-        .then((list: any[]) => {
-          const found = list.some((item: any) => item.maSach === maSachNumber);
+        .then((list) => {
+          const found = list.some((item) => item.maSach === maSachNumber);
           setDaYeuThich(found);
         })
         .catch(console.error);

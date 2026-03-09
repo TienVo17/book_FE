@@ -5,7 +5,7 @@ const BASE = 'http://localhost:8080';
 
 // User-facing: kiểm tra mã giảm giá
 export async function kiemTraCoupon(ma: string, tongGioHang: number): Promise<KetQuaKiemTraCoupon> {
-  return authRequest(`${BASE}/api/coupon/kiem-tra`, {
+  return authRequest<KetQuaKiemTraCoupon>(`${BASE}/api/coupon/kiem-tra`, {
     method: 'POST',
     body: JSON.stringify({ ma, tongGioHang }),
   });
@@ -13,7 +13,7 @@ export async function kiemTraCoupon(ma: string, tongGioHang: number): Promise<Ke
 
 // Admin CRUD
 export async function getAllCoupons(): Promise<CouponModel[]> {
-  return authRequest(`${BASE}/api/admin/coupon`);
+  return authRequest<CouponModel[]>(`${BASE}/api/admin/coupon`);
 }
 
 export async function themCoupon(coupon: CouponModel) {

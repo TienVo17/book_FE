@@ -1,9 +1,13 @@
 ﻿import HinhAnhModel from "../models/HinhAnhModel";
 import { my_request } from "./Request";
 
+interface HinhAnhResponse extends HinhAnhModel {
+  laIcon?: boolean;
+}
+
 async function getAllImageOfBook(duongDan: string): Promise<HinhAnhModel[]> {
   const ketQua: HinhAnhModel[] = [];
-  const response = await my_request(duongDan);
+  const response = await my_request<{ _embedded: { hinhAnhs: HinhAnhResponse[] } }>(duongDan);
   const responseData = response._embedded.hinhAnhs;
 
   for (const key in responseData) {
@@ -32,5 +36,5 @@ export async function getOneImageOfOneBook(maSach: number): Promise<HinhAnhModel
 
 export async function findImageByBook(maSach: number): Promise<HinhAnhModel[]> {
   const duongDan: string = `http://localhost:8080/api/admin/sach/findImage/${maSach}`;
-  return my_request(duongDan);
+  return my_request<HinhAnhModel[]>(duongDan);
 }

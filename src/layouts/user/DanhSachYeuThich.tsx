@@ -1,15 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getDanhSachYeuThich, xoaYeuThich } from '../../api/YeuThichApi';
+import { getDanhSachYeuThich, xoaYeuThich, type YeuThichItem } from '../../api/YeuThichApi';
 import { toast } from 'react-toastify';
 import dinhDangSo from '../utils/DinhDangSo';
-
-interface YeuThichItem {
-  maSach: number;
-  tenSach: string;
-  giaBan: number;
-  hinhAnh: string;
-}
 
 const DanhSachYeuThich: React.FC = () => {
   const [danhSach, setDanhSach] = useState<YeuThichItem[]>([]);
@@ -17,7 +10,7 @@ const DanhSachYeuThich: React.FC = () => {
 
   useEffect(() => {
     getDanhSachYeuThich()
-      .then((data: YeuThichItem[]) => {
+      .then((data) => {
         setDanhSach(data);
         setDangTai(false);
       })

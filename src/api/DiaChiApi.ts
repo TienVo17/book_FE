@@ -4,7 +4,7 @@ import { DiaChiModel } from '../models/DiaChiModel';
 const BASE = 'http://localhost:8080';
 
 export async function getDanhSachDiaChi(): Promise<DiaChiModel[]> {
-  return authRequest(`${BASE}/api/dia-chi`);
+  return authRequest<DiaChiModel[]>(`${BASE}/api/dia-chi`);
 }
 
 export async function themDiaChi(diaChi: DiaChiModel) {

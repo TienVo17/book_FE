@@ -1,6 +1,21 @@
-import { authRequest } from './Request';
+import { authRequest, getApiMessage, parseResponseBody } from './Request';
 
 const BASE = 'http://localhost:8080';
+
+async function postJson(url: string, body: Record<string, string>) {
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  const payload = await parseResponseBody(response);
+  if (!response.ok) {
+    throw new Error(getApiMessage(payload, `Request failed: ${response.status}`));
+  }
+
+  return payload;
+}
 
 export async function getHoSo() {
   return authRequest(`${BASE}/api/nguoi-dung/ho-so`);
@@ -21,21 +36,9 @@ export async function doiMatKhau(matKhauCu: string, matKhauMoi: string) {
 }
 
 export async function quenMatKhau(email: string) {
-  const res = await fetch(`${BASE}/tai-khoan/quen-mat-khau`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email }),
-  });
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
+  return postJson(`${BASE}/tai-khoan/quen-mat-khau`, { email });
 }
 
-export async function datLaiMatKhau(token: string, matKhauMoi: string) {
-  const res = await fetch(`${BASE}/tai-khoan/dat-lai-mat-khau`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token, matKhauMoi }),
-  });
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
+export async function datLaiMatKhau(email: string, token: string, matKhauMoi: string) {
+  return postJson(`${BASE}/tai-khoan/dat-lai-mat-khau`, { email, token, matKhauMoi });
 }

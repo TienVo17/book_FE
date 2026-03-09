@@ -16,7 +16,7 @@ export async function findAll(trangHienTai: number): Promise<KetQuaInterface> {
     const ketQua: NguoiDungModel[] = [];
 
     //Gọi phương thức request
-    const response = await my_request(endpoint+"?page="+trangHienTai);
+    const response = await my_request<{ content: NguoiDungModel[]; totalPages: number; totalElements: number }>(endpoint+"?page="+trangHienTai);
     console.log(response);
     // Lấy ra json sách
     const responseData = response.content;

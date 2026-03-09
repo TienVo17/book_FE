@@ -60,7 +60,7 @@ function App() {
               <Route path="/dat-hang-nhanh" element={<DatHangNhanh />} />
               <Route path="/profile" element={<RequireAuth><HoSoNguoiDung /></RequireAuth>} />
               <Route path="/quen-mat-khau" element={<QuenMatKhau />} />
-              <Route path="/dat-lai-mat-khau/:token" element={<DatLaiMatKhau />} />
+              <Route path="/dat-lai-mat-khau/:email/:token" element={<DatLaiMatKhau />} />
               <Route path="/yeu-thich" element={<RequireAuth><DanhSachYeuThich /></RequireAuth>} />
             </Routes>
             <Footer />

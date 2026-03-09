@@ -8,6 +8,12 @@ interface KetQuaInterface {
   tongSoSach: number;
 }
 
+interface SachPageResponse {
+  content: SachModel[];
+  totalPages: number;
+  totalElements: number;
+}
+
 function mapSach(data: any): SachModel {
   return {
     maSach: data.maSach,
@@ -31,7 +37,7 @@ function mapSach(data: any): SachModel {
 
 async function laySach(duongDan: string): Promise<KetQuaInterface> {
   const ketQua: SachModel[] = [];
-  const response = await my_request(duongDan);
+  const response = await my_request<SachPageResponse>(duongDan);
   const responseData = response.content;
   const tongSoTrang: number = response.totalPages;
   const tongSoSach: number = response.totalElements;
@@ -158,7 +164,7 @@ const url = 'http://localhost:8080';
 const endpoint = url + "/api/admin/sach";
 export async function findAll(trangHienTai: number): Promise<KetQuaInterface> {
   const ketQua: SachModel[] = [];
-  const response = await my_request(endpoint + "?page=" + trangHienTai);
+  const response = await my_request<SachPageResponse>(endpoint + "?page=" + trangHienTai);
   const responseData = response.content;
   const tongSoTrang: number = response.totalPages;
   const tongSoSach: number = response.totalElements;
@@ -171,13 +177,13 @@ export async function findAll(trangHienTai: number): Promise<KetQuaInterface> {
 }
 
 export async function getSachBanChay(limit: number = 8): Promise<SachModel[]> {
-  return my_request(`http://localhost:8080/api/sach/ban-chay?limit=${limit}`);
+  return my_request<SachModel[]>(`http://localhost:8080/api/sach/ban-chay?limit=${limit}`);
 }
 
 export async function getSachMoiNhat(limit: number = 8): Promise<SachModel[]> {
-  return my_request(`http://localhost:8080/api/sach/moi-nhat?limit=${limit}`);
+  return my_request<SachModel[]>(`http://localhost:8080/api/sach/moi-nhat?limit=${limit}`);
 }
 
 export async function getSachLienQuan(maSach: number, limit: number = 6): Promise<SachModel[]> {
-  return my_request(`http://localhost:8080/api/sach/${maSach}/lien-quan?limit=${limit}`);
+  return my_request<SachModel[]>(`http://localhost:8080/api/sach/${maSach}/lien-quan?limit=${limit}`);
 }
