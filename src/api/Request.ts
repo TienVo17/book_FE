@@ -1,10 +1,10 @@
 export async function my_request<T = unknown>(duongDan: string): Promise<T> {
   const response = await fetch(duongDan);
+  const body = await parseResponseBody(response);
   if (!response.ok) {
-    throw new Error(`Không thể truy cập ${duongDan}`);
+    throw new Error(getApiMessage(body, `Không thể truy cập ${duongDan}`));
   }
-  const data = await response.json();
-  return data as T;
+  return body as T;
 }
 
 interface JwtPayload {
@@ -12,6 +12,7 @@ interface JwtPayload {
   isAdmin?: boolean;
   isStaff?: boolean;
   isUser?: boolean;
+  sub?: string;
 }
 
 function parseJwt(token: string): JwtPayload | null {
@@ -70,6 +71,13 @@ export async function parseResponseBody(response: Response): Promise<unknown> {
   }
 
   return parseJsonSafely(text);
+}
+
+export function getJwtPayload(token: string | null): JwtPayload | null {
+  if (!token) {
+    return null;
+  }
+  return parseJwt(token);
 }
 
 export function getValidJwtOrThrow(): string {

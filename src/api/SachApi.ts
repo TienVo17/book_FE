@@ -1,4 +1,3 @@
-import React from "react";
 import SachModel from "../models/SachModel";
 import { my_request } from "./Request";
 
@@ -32,6 +31,7 @@ function mapSach(data: any): SachModel {
     isActive: data.isActive,
     danhSachAnh: data.listHinhAnh,
     thongTinChiTiet: data.thongTinChiTiet,
+    listTheLoai: data.listTheLoai,
   };
 }
 
@@ -49,17 +49,15 @@ async function laySach(duongDan: string): Promise<KetQuaInterface> {
 }
 
 export async function getAllBook(trangHienTai: number): Promise<KetQuaInterface> {
-  const duongDan: string = `http://localhost:8080/api/sach?page=${trangHienTai}`;
-  return laySach(duongDan);
+  return laySach(`http://localhost:8080/api/sach?page=${trangHienTai}`);
 }
 
 export async function get3NewBook(): Promise<KetQuaInterface> {
-  const duongDan: string = "http://localhost:8080/sach?sort=maSach,desc&page=0&size=3";
-  return laySach(duongDan);
+  return laySach("http://localhost:8080/api/sach?page=0");
 }
 
-export async function findByBook(tuKhoaTimKiem: string, maTheLoai: number): Promise<KetQuaInterface> {
-  let duongDan: string = `http://localhost:8080/api/sach?page=0`;
+export async function findByBook(tuKhoaTimKiem: string, maTheLoai: number, trangHienTai: number = 0): Promise<KetQuaInterface> {
+  let duongDan: string = `http://localhost:8080/api/sach?page=${trangHienTai}`;
   if (tuKhoaTimKiem !== "") {
     duongDan += `&tensach=${encodeURIComponent(tuKhoaTimKiem)}`;
   }
@@ -90,28 +88,8 @@ export async function getBookById(maSach: number): Promise<SachModel | null> {
   }
 }
 
-export async function capNhatSach(sach: SachModel): Promise<boolean> {
-  const duongDan = `http://localhost:8080/api/admin/sach/update/${sach.maSach}`;
-  const token = localStorage.getItem('jwt');
-
-  try {
-    const response = await fetch(duongDan, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(sach),
-    });
-    return response.ok;
-  } catch (error) {
-    console.error('Error:', error);
-    return false;
-  }
-}
-
 export async function xoaSach(maSach: number): Promise<boolean> {
-  const duongDan = `http://localhost:8080/sach/${maSach}`;
+  const duongDan = `http://localhost:8080/api/admin/sach/delete/${maSach}`;
   const token = localStorage.getItem('jwt');
 
   if (!token) {
@@ -127,32 +105,6 @@ export async function xoaSach(maSach: number): Promise<boolean> {
         'Content-Type': 'application/json',
       },
     });
-    return response.ok;
-  } catch (error) {
-    console.error('Error:', error);
-    return false;
-  }
-}
-
-export async function themSach(sach: SachModel): Promise<boolean> {
-  const duongDan = `http://localhost:8080/sach`;
-  const token = localStorage.getItem('jwt');
-
-  if (!token) {
-    console.error('Khong tim thay token xac thuc');
-    return false;
-  }
-
-  try {
-    const response = await fetch(duongDan, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(sach),
-    });
-
     return response.ok;
   } catch (error) {
     console.error('Error:', error);

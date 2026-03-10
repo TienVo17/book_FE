@@ -25,6 +25,7 @@ import QuenMatKhau from "./layouts/user/QuenMatKhau";
 import DatLaiMatKhau from "./layouts/user/DatLaiMatKhau";
 import { RequireAuth } from "./layouts/utils/RequireAuth";
 import DanhSachYeuThich from "./layouts/user/DanhSachYeuThich";
+import TheLoaiPage from "./layouts/categories/TheLoaiPage";
 
 
 function App() {
@@ -48,6 +49,7 @@ function App() {
             <Routes>
               <Route path="/" element={<HomePage tuKhoaTimKiem={tuKhoaTimKiem} />} />
               <Route path="/about" element={<About />} />
+              <Route path="/the-loai/:slug" element={<TheLoaiPage tuKhoaTimKiem={tuKhoaTimKiem} />} />
               <Route path="/sach/:maSach" element={<ChiTietSanPham />} />
               <Route path="/dang-ky" element={<DangKyNguoiDung />} />
               <Route path="/thanh-toan" element={<ThanhToan />} />

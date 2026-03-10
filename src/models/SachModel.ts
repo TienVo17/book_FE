@@ -11,6 +11,7 @@ export interface SachThongTinChiTietModel {
 }
 
 import HinhAnhModel from "./HinhAnhModel";
+import type { TheLoaiModel } from "./TheLoaiModel";
 
 class SachModel {
   maSach: number;
@@ -30,6 +31,8 @@ class SachModel {
   listImageStr?: string[];
   isActive?: number;
   thongTinChiTiet?: SachThongTinChiTietModel;
+  listTheLoai?: TheLoaiModel[];
+  maTheLoaiList?: number[];
 
   constructor(
     maSach: number,
@@ -49,6 +52,8 @@ class SachModel {
     moTaChiTiet?: string,
     slug?: string,
     thongTinChiTiet?: SachThongTinChiTietModel,
+    listTheLoai?: TheLoaiModel[],
+    maTheLoaiList?: number[],
   ) {
     this.maSach = maSach;
     this.tenSach = tenSach;
@@ -67,6 +72,8 @@ class SachModel {
     this.moTaChiTiet = moTaChiTiet;
     this.slug = slug;
     this.thongTinChiTiet = thongTinChiTiet;
+    this.listTheLoai = listTheLoai;
+    this.maTheLoaiList = maTheLoaiList;
   }
 }
 

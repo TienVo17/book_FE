@@ -17,6 +17,7 @@ function toSachAdminPayload(sach: SachModel) {
     giaBan: sach.giaBan,
     soLuongTon: sach.soLuong,
     isActive: sach.isActive,
+    maTheLoaiList: sach.maTheLoaiList,
     listImageStr: sach.listImageStr,
     chiTiet: sach.thongTinChiTiet,
   };

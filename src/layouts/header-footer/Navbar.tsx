@@ -2,6 +2,7 @@ import React, { ChangeEvent, useState, useEffect } from "react";
 import { Search } from "react-bootstrap-icons";
 import { NavLink, useNavigate } from "react-router-dom";
 import { getAllTheLoai } from "../../api/TheLoaiApi";
+import { getJwtPayload } from "../../api/Request";
 import { TheLoaiModel } from "../../models/TheLoaiModel";
 
 interface NavbarProps {
@@ -13,6 +14,7 @@ function Navbar({ tuKhoaTimKiem, setTuKhoaTimKiem }: NavbarProps) {
   const [tuKhoaTamThoi, setTuKhoaTamThoi] = useState("");
   const [soLuongGioHang, setSoLuongGioHang] = useState(0);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [openNavDropdown, setOpenNavDropdown] = useState<"theLoai" | "quyDinh" | null>(null);
   const [scrolled, setScrolled] = useState(false);
   const navigate = useNavigate();
   const [jwt, setJwt] = useState(localStorage.getItem("jwt") || "");
@@ -54,12 +56,14 @@ function Navbar({ tuKhoaTimKiem, setTuKhoaTimKiem }: NavbarProps) {
 
   useEffect(() => {
     if (jwt) {
-      const decodedJwt = JSON.parse(atob(jwt.split(".")[1]));
+      const decodedJwt = getJwtPayload(jwt);
       setUserInfo(decodedJwt);
-      if (decodedJwt.isAdmin || decodedJwt.isStaff) {
-        setIsAdminorStaff(true);
-      }
+      setIsAdminorStaff(Boolean(decodedJwt?.isAdmin || decodedJwt?.isStaff));
+      return;
     }
+
+    setUserInfo(null);
+    setIsAdminorStaff(false);
   }, [jwt]);
 
   const handleLogout = () => {
@@ -90,16 +94,21 @@ function Navbar({ tuKhoaTimKiem, setTuKhoaTimKiem }: NavbarProps) {
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (isDropdownOpen) {
-        const target = e.target as HTMLElement;
-        if (!target.closest(".user-dropdown")) {
-          setIsDropdownOpen(false);
-        }
+      const target = e.target as HTMLElement;
+      if (isDropdownOpen && !target.closest(".user-dropdown")) {
+        setIsDropdownOpen(false);
+      }
+      if (openNavDropdown && !target.closest(".navbar-nav .dropdown")) {
+        setOpenNavDropdown(null);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isDropdownOpen]);
+  }, [isDropdownOpen, openNavDropdown]);
+
+  const toggleNavDropdown = (dropdown: "theLoai" | "quyDinh") => {
+    setOpenNavDropdown((current) => current === dropdown ? null : dropdown);
+  };
 
   return (
     <nav className={`navbar navbar-expand-lg navbar-modern sticky-top ${scrolled ? "scrolled" : ""}`}>
@@ -130,20 +139,19 @@ function Navbar({ tuKhoaTimKiem, setTuKhoaTimKiem }: NavbarProps) {
               </NavLink>
             </li>
             <li className="nav-item dropdown">
-              <NavLink
-                className="nav-link dropdown-toggle"
-                to="#"
+              <button
+                className={`nav-link dropdown-toggle nav-dropdown-toggle ${openNavDropdown === "theLoai" ? "show active" : ""}`}
+                type="button"
                 id="navbarDropdown1"
-                role="button"
-                data-bs-toggle="dropdown"
-                aria-expanded="false"
+                aria-expanded={openNavDropdown === "theLoai"}
+                onClick={() => toggleNavDropdown("theLoai")}
               >
                 Thể loại sách
-              </NavLink>
-              <ul className="dropdown-menu dropdown-modern" aria-labelledby="navbarDropdown1">
+              </button>
+              <ul className={`dropdown-menu dropdown-modern ${openNavDropdown === "theLoai" ? "show" : ""}`} aria-labelledby="navbarDropdown1">
                 {theLoaiList.map(tl => (
                   <li key={tl.maTheLoai}>
-                    <NavLink className="dropdown-item" to={`/?maTheLoai=${tl.maTheLoai}`}>
+                    <NavLink className="dropdown-item" to={`/the-loai/${tl.slug}`} onClick={() => setOpenNavDropdown(null)}>
                       {tl.tenTheLoai} ({tl.soLuongSach})
                     </NavLink>
                   </li>
@@ -154,25 +162,24 @@ function Navbar({ tuKhoaTimKiem, setTuKhoaTimKiem }: NavbarProps) {
               </ul>
             </li>
             <li className="nav-item dropdown">
-              <a
-                className="nav-link dropdown-toggle"
-                href="#"
+              <button
+                className={`nav-link dropdown-toggle nav-dropdown-toggle ${openNavDropdown === "quyDinh" ? "show active" : ""}`}
+                type="button"
                 id="navbarDropdown2"
-                role="button"
-                data-bs-toggle="dropdown"
-                aria-expanded="false"
+                aria-expanded={openNavDropdown === "quyDinh"}
+                onClick={() => toggleNavDropdown("quyDinh")}
               >
                 Quy định
-              </a>
-              <ul className="dropdown-menu dropdown-modern" aria-labelledby="navbarDropdown2">
+              </button>
+              <ul className={`dropdown-menu dropdown-modern ${openNavDropdown === "quyDinh" ? "show" : ""}`} aria-labelledby="navbarDropdown2">
                 <li>
-                  <a className="dropdown-item" href="#">Quy định 1</a>
+                  <button className="dropdown-item" type="button">Quy định 1</button>
                 </li>
                 <li>
-                  <a className="dropdown-item" href="#">Quy định 2</a>
+                  <button className="dropdown-item" type="button">Quy định 2</button>
                 </li>
                 <li>
-                  <a className="dropdown-item" href="#">Quy định 3</a>
+                  <button className="dropdown-item" type="button">Quy định 3</button>
                 </li>
               </ul>
             </li>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
+import { getJwtPayload } from '../../../api/Request';
 
 const AdminSidebar = () => {
   const [openSubMenu, setOpenSubMenu] = useState<string | null>(null);
@@ -10,7 +11,7 @@ const AdminSidebar = () => {
 
   useEffect(() => {
     if (jwt) {
-      const decodedJwt = JSON.parse(atob(jwt.split('.')[1]));
+      const decodedJwt = getJwtPayload(jwt);
       setUserInfo(decodedJwt);
     }
   }, [jwt]);
@@ -133,6 +134,16 @@ const AdminSidebar = () => {
               </li>
             </ul>
           </li>
+
+          {/* Category management */}
+          {userInfo?.isAdmin && (
+            <li>
+              <NavLink to="/quan-ly/quan-ly-the-loai" className="admin-nav-item">
+                <i className="fas fa-tags" />
+                Quản lý thể loại
+              </NavLink>
+            </li>
+          )}
 
           {/* Coupon management */}
           {userInfo?.isAdmin && (

@@ -1,10 +1,12 @@
-﻿import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getBookById } from '../../../../api/SachApi';
 import { findImageByBook } from '../../../../api/HinhAnhApi';
 import { updateSachAdmin, uploadHinhAnhSach } from '../../../../api/AdminApi';
+import { getAdminTheLoai } from '../../../../api/TheLoaiApi';
 import SachModel from '../../../../models/SachModel';
 import UploadFile, { UploadFileValue } from '../UploadFile';
+import { TheLoaiAdminModel } from '../../../../models/TheLoaiModel';
 
 const emptySach: SachModel = {
   maSach: 0,
@@ -19,6 +21,7 @@ const emptySach: SachModel = {
   isbn: '',
   trungBinhXepHang: 0,
   listImageStr: [],
+  maTheLoaiList: [],
   thongTinChiTiet: {
     congTyPhatHanh: '',
     nhaXuatBan: '',
@@ -36,9 +39,14 @@ const CapNhatSach: React.FC = () => {
   const { maSach } = useParams<{ maSach: string }>();
   const navigate = useNavigate();
   const [sach, setSach] = useState<SachModel>(emptySach);
+  const [danhSachTheLoai, setDanhSachTheLoai] = useState<TheLoaiAdminModel[]>([]);
   const [existingImageUrls, setExistingImageUrls] = useState<string[]>([]);
   const [uploadValue, setUploadValue] = useState<UploadFileValue>({ existingUrls: [], newFiles: [] });
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    getAdminTheLoai().then(setDanhSachTheLoai).catch(console.error);
+  }, []);
 
   useEffect(() => {
     const bookId = Number(maSach);
@@ -59,6 +67,7 @@ const CapNhatSach: React.FC = () => {
         setSach({
           ...emptySach,
           ...sachData,
+          maTheLoaiList: sachData.listTheLoai?.map((item) => item.maTheLoai) || sachData.maTheLoaiList || [],
           thongTinChiTiet: {
             ...emptySach.thongTinChiTiet,
             ...sachData.thongTinChiTiet,
@@ -84,6 +93,15 @@ const CapNhatSach: React.FC = () => {
         ...prev.thongTinChiTiet,
         [field]: value,
       },
+    }));
+  };
+
+  const handleTheLoaiChange = (maTheLoai: number, checked: boolean) => {
+    setSach((prev) => ({
+      ...prev,
+      maTheLoaiList: checked
+        ? [...(prev.maTheLoaiList || []), maTheLoai]
+        : (prev.maTheLoaiList || []).filter((item) => item !== maTheLoai),
     }));
   };
 
@@ -175,6 +193,24 @@ const CapNhatSach: React.FC = () => {
                 <div className="mb-3">
                   <label className="form-label">Upload ảnh</label>
                   <UploadFile onChange={handleUploadChange} existingImageUrls={existingImageUrls} />
+                </div>
+              </div>
+              <div className="col-md-12 mb-3">
+                <label className="form-label">Thể loại</label>
+                <div className="row">
+                  {danhSachTheLoai.map((theLoai) => (
+                    <div key={theLoai.maTheLoai} className="col-md-4 mb-2">
+                      <label className="form-check-label d-flex align-items-center gap-2">
+                        <input
+                          className="form-check-input"
+                          type="checkbox"
+                          checked={(sach.maTheLoaiList || []).includes(theLoai.maTheLoai)}
+                          onChange={(e) => handleTheLoaiChange(theLoai.maTheLoai, e.target.checked)}
+                        />
+                        <span>{theLoai.tenTheLoai}</span>
+                      </label>
+                    </div>
+                  ))}
                 </div>
               </div>
               <div className="col-md-12 mb-3">

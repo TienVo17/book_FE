@@ -1,8 +1,10 @@
-﻿import React, { FormEvent, useCallback, useState } from 'react';
+import React, { FormEvent, useCallback, useEffect, useState } from 'react';
 import UploadFile, { UploadFileValue } from '../UploadFile';
 import { useNavigate } from 'react-router-dom';
 import { createSachAdmin, uploadHinhAnhSach } from '../../../../api/AdminApi';
+import { getAdminTheLoai } from '../../../../api/TheLoaiApi';
 import SachModel from '../../../../models/SachModel';
+import { TheLoaiAdminModel } from '../../../../models/TheLoaiModel';
 
 const emptySach: SachModel = {
   maSach: 0,
@@ -17,6 +19,7 @@ const emptySach: SachModel = {
   isbn: '',
   trungBinhXepHang: 0,
   listImageStr: [],
+  maTheLoaiList: [],
   thongTinChiTiet: {
     congTyPhatHanh: '',
     nhaXuatBan: '',
@@ -32,9 +35,14 @@ const emptySach: SachModel = {
 
 const SachForm: React.FC = () => {
   const [sach, setSach] = useState<SachModel>(emptySach);
+  const [danhSachTheLoai, setDanhSachTheLoai] = useState<TheLoaiAdminModel[]>([]);
   const [uploadValue, setUploadValue] = useState<UploadFileValue>({ existingUrls: [], newFiles: [] });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    getAdminTheLoai().then(setDanhSachTheLoai).catch(console.error);
+  }, []);
 
   const handleUploadChange = useCallback((value: UploadFileValue) => {
     setUploadValue(value);
@@ -47,6 +55,15 @@ const SachForm: React.FC = () => {
         ...prev.thongTinChiTiet,
         [field]: value,
       },
+    }));
+  };
+
+  const handleTheLoaiChange = (maTheLoai: number, checked: boolean) => {
+    setSach((prev) => ({
+      ...prev,
+      maTheLoaiList: checked
+        ? [...(prev.maTheLoaiList || []), maTheLoai]
+        : (prev.maTheLoaiList || []).filter((item) => item !== maTheLoai),
     }));
   };
 
@@ -132,6 +149,24 @@ const SachForm: React.FC = () => {
                 <div className="mb-3">
                   <label className="form-label">Upload ảnh</label>
                   <UploadFile onChange={handleUploadChange} />
+                </div>
+              </div>
+              <div className="col-md-12 mb-3">
+                <label className="form-label">Thể loại</label>
+                <div className="row">
+                  {danhSachTheLoai.map((theLoai) => (
+                    <div key={theLoai.maTheLoai} className="col-md-4 mb-2">
+                      <label className="form-check-label d-flex align-items-center gap-2">
+                        <input
+                          className="form-check-input"
+                          type="checkbox"
+                          checked={(sach.maTheLoaiList || []).includes(theLoai.maTheLoai)}
+                          onChange={(e) => handleTheLoaiChange(theLoai.maTheLoai, e.target.checked)}
+                        />
+                        <span>{theLoai.tenTheLoai}</span>
+                      </label>
+                    </div>
+                  ))}
                 </div>
               </div>
               <div className="col-md-12 mb-3">

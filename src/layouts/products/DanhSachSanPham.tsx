@@ -7,9 +7,10 @@ import { getAllBook, findByBook } from "../../api/SachApi";
 interface DanhSachSanPhamProps {
   tuKhoaTimKiem: string;
   maTheLoai: number;
+  tieuDe?: string;
 }
 
-function DanhSachSanPham({ tuKhoaTimKiem, maTheLoai }: DanhSachSanPhamProps) {
+function DanhSachSanPham({ tuKhoaTimKiem, maTheLoai, tieuDe }: DanhSachSanPhamProps) {
   const [danhsachQuyenSach, setDanhSachQuyenSach] = useState<SachModel[]>([]);
   const [dangTaiDuLieu, setDangTaiDuLieu] = useState<boolean>(true);
   const [baoLoi, setBaoLoi] = useState<string | null>(null);
@@ -17,50 +18,43 @@ function DanhSachSanPham({ tuKhoaTimKiem, maTheLoai }: DanhSachSanPhamProps) {
   const [tongSoTrang, setTongSoTrang] = useState(0);
 
   useEffect(() => {
-    if (tuKhoaTimKiem === "" && maTheLoai === 0) {
-      getAllBook(trangHienTai - 1)
-        .then((kq) => {
-          if (kq.ketQua && kq.ketQua.length > 0) {
-            setDanhSachQuyenSach(kq.ketQua);
-            setTongSoTrang(kq.tongSoTrang);
-            setDangTaiDuLieu(false);
-          } else {
-            setDanhSachQuyenSach([]);
-            setBaoLoi("Không có sách nào phù hợp với yêu cầu.");
-            setDangTaiDuLieu(false);
-          }
-        })
-        .catch((error) => {
-          setBaoLoi("Gặp lỗi khi tải dữ liệu: " + error.message);
-          setDangTaiDuLieu(false);
-        });
-    } else {
-      findByBook(tuKhoaTimKiem, maTheLoai)
-        .then((kq) => {
-          if (kq.ketQua && kq.ketQua.length > 0) {
-            setDanhSachQuyenSach(kq.ketQua);
-            setTongSoTrang(kq.tongSoTrang);
-            setDangTaiDuLieu(false);
-          } else {
-            setDanhSachQuyenSach([]);
-            setBaoLoi("Không có sách nào phù hợp với yêu cầu.");
-            setDangTaiDuLieu(false);
-          }
-        })
-        .catch((error) => {
-          setBaoLoi("Gặp lỗi khi tải dữ liệu: " + error.message);
-          setDangTaiDuLieu(false);
-        });
-    }
+    setTrangHienTai(1);
+  }, [tuKhoaTimKiem, maTheLoai]);
+
+  useEffect(() => {
+    setDangTaiDuLieu(true);
+    setBaoLoi(null);
+
+    const request = tuKhoaTimKiem === "" && maTheLoai === 0
+      ? getAllBook(trangHienTai - 1)
+      : findByBook(tuKhoaTimKiem, maTheLoai, trangHienTai - 1);
+
+    request
+      .then((kq) => {
+        if (kq.ketQua && kq.ketQua.length > 0) {
+          setDanhSachQuyenSach(kq.ketQua);
+          setTongSoTrang(kq.tongSoTrang);
+        } else {
+          setDanhSachQuyenSach([]);
+          setTongSoTrang(0);
+          setBaoLoi("Không có sách nào phù hợp với yêu cầu.");
+        }
+        setDangTaiDuLieu(false);
+      })
+      .catch((error) => {
+        setBaoLoi("Gặp lỗi khi tải dữ liệu: " + error.message);
+        setDangTaiDuLieu(false);
+      });
   }, [trangHienTai, tuKhoaTimKiem, maTheLoai]);
 
   const phanTrang = (trang: number) => setTrangHienTai(trang);
+  const tieuDeHienThi = tieuDe || (tuKhoaTimKiem ? `Kết quả tìm kiếm: "${tuKhoaTimKiem}"` : "Sản phẩm nổi bật");
 
   if (dangTaiDuLieu) {
     return (
       <div className="container py-5">
         <div className="section-header">
-          <h2>Sản phẩm nổi bật</h2>
+          <h2>{tieuDeHienThi}</h2>
         </div>
         <div className="row">
           {[1, 2, 3, 4].map((i) => (
@@ -105,19 +99,22 @@ function DanhSachSanPham({ tuKhoaTimKiem, maTheLoai }: DanhSachSanPhamProps) {
   return (
     <div className="container py-4" id="san-pham">
       <div className="section-header">
-        <h2>{tuKhoaTimKiem ? `Kết quả tìm kiếm: "${tuKhoaTimKiem}"` : "Sản phẩm nổi bật"}</h2>
+        <h2>{tieuDeHienThi}</h2>
       </div>
       <div className="row">
         {danhsachQuyenSach.map((sach) => (
           <SachProps key={sach.maSach} sach={sach} />
         ))}
       </div>
-      <PhanTrang
-        trangHienTai={trangHienTai}
-        tongSoTrang={tongSoTrang}
-        phanTrang={phanTrang}
-      />
+      {tongSoTrang > 1 && (
+        <PhanTrang
+          trangHienTai={trangHienTai}
+          tongSoTrang={tongSoTrang}
+          phanTrang={phanTrang}
+        />
+      )}
     </div>
   );
 }
+
 export default DanhSachSanPham;
