@@ -26,6 +26,7 @@ import DatLaiMatKhau from "./layouts/user/DatLaiMatKhau";
 import { RequireAuth } from "./layouts/utils/RequireAuth";
 import DanhSachYeuThich from "./layouts/user/DanhSachYeuThich";
 import TheLoaiPage from "./layouts/categories/TheLoaiPage";
+import DiaChiNguoiDung from "./layouts/user/DiaChiNguoiDung";
 
 
 function App() {
@@ -61,6 +62,7 @@ function App() {
               <Route path="/gio-hang" element={<GioHang />} />
               <Route path="/dat-hang-nhanh" element={<DatHangNhanh />} />
               <Route path="/profile" element={<RequireAuth><HoSoNguoiDung /></RequireAuth>} />
+              <Route path="/dia-chi" element={<RequireAuth><DiaChiNguoiDung /></RequireAuth>} />
               <Route path="/quen-mat-khau" element={<QuenMatKhau />} />
               <Route path="/dat-lai-mat-khau/:email/:token" element={<DatLaiMatKhau />} />
               <Route path="/yeu-thich" element={<RequireAuth><DanhSachYeuThich /></RequireAuth>} />

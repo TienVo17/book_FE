@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { getOneImageOfOneBook } from '../../api/HinhAnhApi';
 import { getDanhSachDiaChi } from '../../api/DiaChiApi';
 import { kiemTraCoupon } from '../../api/CouponApi';
+import { authRequest } from '../../api/Request';
 import { DiaChiModel } from '../../models/DiaChiModel';
 import { KetQuaKiemTraCoupon } from '../../models/CouponModel';
 import CartItemsTable from './CartItemsTable';
@@ -16,21 +17,50 @@ interface SanPhamGioHang {
     hinhAnh?: string;
 }
 
+interface CheckoutOrderItem {
+    maSach: number;
+    soLuong: number;
+}
+
+interface CheckoutOrderRequest {
+    items: CheckoutOrderItem[];
+    maDiaChiGiaoHang: number;
+    phuongThucThanhToan: 'COD' | 'VNPAY';
+}
+
+interface CheckoutOrderResponse {
+    maDonHang: number;
+    tongTien: number;
+    phuongThucThanhToan: 'COD' | 'VNPAY';
+    trangThaiThanhToan: number;
+    hoTen: string;
+    soDienThoai: string;
+    diaChiNhanHang: string;
+}
+
+interface VNPayUrlResponse {
+    paymentUrl: string;
+}
+
 function ThanhToan() {
     const [gioHang, setGioHang] = useState<SanPhamGioHang[]>([]);
-    const [donHang, setDonHang] = useState<any>();
+    const [donHang, setDonHang] = useState<CheckoutOrderResponse | null>(null);
     const [danhSachDiaChi, setDanhSachDiaChi] = useState<DiaChiModel[]>([]);
     const [diaChiDaChon, setDiaChiDaChon] = useState<number | null>(null);
+    const [phuongThucThanhToan, setPhuongThucThanhToan] = useState<'COD' | 'VNPAY'>('COD');
     const [maCoupon, setMaCoupon] = useState('');
     const [couponResult, setCouponResult] = useState<KetQuaKiemTraCoupon | null>(null);
     const [dangTao, setDangTao] = useState(false);
+    const [dangTaoLinkThanhToan, setDangTaoLinkThanhToan] = useState(false);
     const [buocHienTai, setBuocHienTai] = useState<'review' | 'payment'>('review');
     const navigate = useNavigate();
 
     useEffect(() => {
         const loadGioHangWithImages = async () => {
             const raw = localStorage.getItem('gioHang');
-            if (!raw) return;
+            if (!raw) {
+                return;
+            }
             const parsed: SanPhamGioHang[] = JSON.parse(raw);
             const withImages = await Promise.all(
                 parsed.map(async item => {
@@ -49,9 +79,15 @@ function ThanhToan() {
         getDanhSachDiaChi()
             .then(list => {
                 setDanhSachDiaChi(list);
-                if (list.length > 0) setDiaChiDaChon(list[0].maDiaChi!);
+                if (list.length > 0) {
+                    const macDinh = list.find(item => item.macDinh);
+                    setDiaChiDaChon((macDinh || list[0]).maDiaChi || null);
+                }
             })
-            .catch(console.error);
+            .catch(error => {
+                console.error(error);
+                toast.error('Không thể tải danh sách địa chỉ');
+            });
     }, []);
 
     const updateGioHang = (updated: SanPhamGioHang[]) => {
@@ -78,10 +114,12 @@ function ThanhToan() {
 
     const tongTienGoc = gioHang.reduce((t, item) => t + item.sachDto.giaBan * item.soLuong, 0);
     const soTienGiam = couponResult?.hopLe ? couponResult.soTienGiam : 0;
-    const tongThanhToan = tongTienGoc - soTienGiam;
+    const tongThanhToan = donHang?.tongTien ?? (tongTienGoc - soTienGiam);
 
     const handleApCoupon = async () => {
-        if (!maCoupon.trim()) return;
+        if (!maCoupon.trim()) {
+            return;
+        }
         try {
             const result = await kiemTraCoupon(maCoupon, tongTienGoc);
             setCouponResult(result);
@@ -96,45 +134,66 @@ function ThanhToan() {
     };
 
     const handleDatHang = async () => {
+        if (!diaChiDaChon) {
+            toast.error('Vui lòng chọn địa chỉ giao hàng');
+            return;
+        }
+        if (gioHang.length === 0) {
+            toast.error('Giỏ hàng trống');
+            return;
+        }
+
         setDangTao(true);
         try {
-            const orderItems = gioHang.map(item => ({ maSach: item.maSach, soLuong: item.soLuong }));
-            const response = await fetch('http://localhost:8080/api/don-hang/them', {
+            const payload: CheckoutOrderRequest = {
+                items: gioHang.map(item => ({ maSach: item.maSach, soLuong: item.soLuong })),
+                maDiaChiGiaoHang: diaChiDaChon,
+                phuongThucThanhToan,
+            };
+            const data = await authRequest<CheckoutOrderResponse>('http://localhost:8080/api/don-hang/them', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('jwt')}`,
-                },
-                body: JSON.stringify(orderItems),
+                body: JSON.stringify(payload),
             });
-            if (response.status === 401) {
-                toast.error('Phiên đăng nhập hết hạn');
-                navigate('/dang-nhap');
-                return;
-            }
-            const data = await response.json();
             setDonHang(data);
             setBuocHienTai('payment');
             localStorage.removeItem('gioHang');
+            setGioHang([]);
+            window.dispatchEvent(new Event('storage'));
             window.dispatchEvent(new Event('cartUpdated'));
-        } catch {
-            toast.error('Lỗi khi tạo đơn hàng');
+            if (data.phuongThucThanhToan === 'COD') {
+                toast.success('Đặt hàng COD thành công');
+            } else {
+                toast.success('Đơn hàng đã được tạo, tiếp tục thanh toán VNPay');
+            }
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Lỗi khi tạo đơn hàng';
+            if (message.toLowerCase().includes('đăng nhập')) {
+                toast.error(message);
+                navigate('/dang-nhap');
+                return;
+            }
+            toast.error(message);
         } finally {
             setDangTao(false);
         }
     };
 
-    const handleVNPay = () => {
-        fetch(`http://localhost:8080/api/don-hang/submitOrder?amount=${donHang.tongTien}&orderInfo=${donHang.maDonHang}`, {
-            method: 'GET',
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('jwt')}` },
-        })
-            .then(res => res.text())
-            .then(url => { window.location.href = url; })
-            .catch(err => console.error('Lỗi VNPay:', err));
+    const handleVNPay = async () => {
+        if (!donHang?.maDonHang) {
+            return;
+        }
+        setDangTaoLinkThanhToan(true);
+        try {
+            const response = await authRequest<VNPayUrlResponse>(`http://localhost:8080/api/don-hang/submitOrder?maDonHang=${donHang.maDonHang}`);
+            window.location.href = response.paymentUrl;
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Không thể tạo liên kết thanh toán';
+            toast.error(message);
+        } finally {
+            setDangTaoLinkThanhToan(false);
+        }
     };
 
-    // Step indicator
     const StepIndicator = () => (
         <div className="checkout-steps animate-fade-in">
             <div className={`checkout-step ${buocHienTai === 'review' ? 'active' : 'completed'}`}>
@@ -151,7 +210,6 @@ function ThanhToan() {
         </div>
     );
 
-    // Empty cart
     if (gioHang.length === 0 && buocHienTai === 'review') {
         return (
             <div className="container py-5">
@@ -170,8 +228,8 @@ function ThanhToan() {
         );
     }
 
-    // Step 2: Payment confirmation
     if (buocHienTai === 'payment') {
+        const laCod = donHang?.phuongThucThanhToan === 'COD';
         return (
             <div className="container py-5">
                 <StepIndicator />
@@ -179,21 +237,40 @@ function ThanhToan() {
                     <div className="col-md-6">
                         <div className="result-card result-card--success">
                             <i className="fas fa-check-circle result-icon"></i>
-                            <h3>Đặt hàng thành công!</h3>
+                            <h3>{laCod ? 'Đặt hàng COD thành công!' : 'Đơn hàng đã sẵn sàng để thanh toán!'}</h3>
                             <p>
                                 Mã đơn hàng: <strong style={{ color: 'var(--color-primary)' }}>#{donHang?.maDonHang}</strong>
                                 <br />
                                 Tổng tiền: <strong style={{ color: 'var(--color-accent)' }}>{donHang?.tongTien?.toLocaleString('vi-VN')}đ</strong>
+                                <br />
+                                Người nhận: <strong>{donHang?.hoTen}</strong>
+                                <br />
+                                Địa chỉ: <strong>{donHang?.diaChiNhanHang}</strong>
                             </p>
                             <div className="result-card-actions">
-                                <button className="btn-modern-accent" onClick={handleVNPay} style={{ padding: '0.75rem 2rem' }}>
-                                    Thanh toán VNPAY
-                                    <i className="fas fa-arrow-right"></i>
-                                </button>
-                                <Link to="/" className="btn-modern-outline" style={{ textDecoration: 'none' }}>
-                                    <i className="fas fa-home"></i>
-                                    Về trang chủ
-                                </Link>
+                                {laCod ? (
+                                    <>
+                                        <Link to="/order" className="btn-modern-accent" style={{ textDecoration: 'none' }}>
+                                            <i className="fas fa-receipt"></i>
+                                            Xem đơn hàng
+                                        </Link>
+                                        <Link to="/" className="btn-modern-outline" style={{ textDecoration: 'none' }}>
+                                            <i className="fas fa-home"></i>
+                                            Về trang chủ
+                                        </Link>
+                                    </>
+                                ) : (
+                                    <>
+                                        <button className="btn-modern-accent" onClick={handleVNPay} style={{ padding: '0.75rem 2rem' }} disabled={dangTaoLinkThanhToan}>
+                                            {dangTaoLinkThanhToan ? 'Đang tạo link thanh toán…' : 'Thanh toán VNPAY'}
+                                            <i className="fas fa-arrow-right"></i>
+                                        </button>
+                                        <Link to="/" className="btn-modern-outline" style={{ textDecoration: 'none' }}>
+                                            <i className="fas fa-home"></i>
+                                            Về trang chủ
+                                        </Link>
+                                    </>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -202,7 +279,6 @@ function ThanhToan() {
         );
     }
 
-    // Step 1: Review order
     return (
         <div className="container py-5 animate-fade-in">
             <StepIndicator />
@@ -224,6 +300,8 @@ function ThanhToan() {
                     danhSachDiaChi={danhSachDiaChi}
                     diaChiDaChon={diaChiDaChon}
                     onChonDiaChi={setDiaChiDaChon}
+                    phuongThucThanhToan={phuongThucThanhToan}
+                    onChonPhuongThucThanhToan={setPhuongThucThanhToan}
                     maCoupon={maCoupon}
                     onChangeCoupon={val => { setMaCoupon(val); setCouponResult(null); }}
                     onApCoupon={handleApCoupon}

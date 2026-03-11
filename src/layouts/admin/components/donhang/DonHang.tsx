@@ -7,6 +7,8 @@ interface DonHangItem {
     maDonHang: number;
     ngayTao: string;
     diaChiNhanHang: string;
+    phuongThucThanhToan?: 'COD' | 'VNPAY' | string;
+    tenPhuongThucThanhToan?: string;
     trangThaiThanhToan: number;
     trangThaiGiaoHang: number;
     tongTien: number;
@@ -198,6 +200,7 @@ function DonHang() {
                                         <th>Mã ĐH</th>
                                         <th>Ngày tạo</th>
                                         <th>Địa chỉ nhận hàng</th>
+                                        <th>PT thanh toán</th>
                                         <th>Thanh toán</th>
                                         <th>Giao hàng</th>
                                         <th style={{ textAlign: 'right' }}>Tổng tiền</th>
@@ -219,6 +222,11 @@ function DonHang() {
                                                     overflow: 'hidden'
                                                 }}>
                                                     {item.diaChiNhanHang || '—'}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span className="status-badge shipping">
+                                                    {item.phuongThucThanhToan === 'COD' ? 'COD' : item.phuongThucThanhToan === 'VNPAY' ? 'VNPAY' : item.tenPhuongThucThanhToan || '—'}
                                                 </span>
                                             </td>
                                             <td>
