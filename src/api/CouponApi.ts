@@ -4,10 +4,10 @@ import { CouponModel, KetQuaKiemTraCoupon } from '../models/CouponModel';
 const BASE = 'http://localhost:8080';
 
 // User-facing: kiểm tra mã giảm giá
-export async function kiemTraCoupon(ma: string, tongGioHang: number): Promise<KetQuaKiemTraCoupon> {
+export async function kiemTraCoupon(ma: string, tongTien: number): Promise<KetQuaKiemTraCoupon> {
   return authRequest<KetQuaKiemTraCoupon>(`${BASE}/api/coupon/kiem-tra`, {
     method: 'POST',
-    body: JSON.stringify({ ma, tongGioHang }),
+    body: JSON.stringify({ ma, tongTien }),
   });
 }
 

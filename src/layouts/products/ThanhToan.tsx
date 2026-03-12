@@ -26,11 +26,15 @@ interface CheckoutOrderRequest {
     items: CheckoutOrderItem[];
     maDiaChiGiaoHang: number;
     phuongThucThanhToan: 'COD' | 'VNPAY';
+    maCoupon?: string;
 }
 
 interface CheckoutOrderResponse {
     maDonHang: number;
     tongTien: number;
+    tongTienSanPham: number;
+    soTienGiam: number;
+    maCoupon?: string | null;
     phuongThucThanhToan: 'COD' | 'VNPAY';
     trangThaiThanhToan: number;
     hoTen: string;
@@ -113,8 +117,8 @@ function ThanhToan() {
     };
 
     const tongTienGoc = gioHang.reduce((t, item) => t + item.sachDto.giaBan * item.soLuong, 0);
-    const soTienGiam = couponResult?.hopLe ? couponResult.soTienGiam : 0;
-    const tongThanhToan = donHang?.tongTien ?? (tongTienGoc - soTienGiam);
+    const soTienGiam = donHang?.soTienGiam ?? (couponResult?.hopLe ? couponResult.soTienGiam : 0);
+    const tongThanhToan = donHang?.tongTien ?? (couponResult?.tongTienSauGiam ?? (tongTienGoc - soTienGiam));
 
     const handleApCoupon = async () => {
         if (!maCoupon.trim()) {
@@ -124,6 +128,7 @@ function ThanhToan() {
             const result = await kiemTraCoupon(maCoupon, tongTienGoc);
             setCouponResult(result);
             if (result.hopLe) {
+                setMaCoupon(result.maCoupon || maCoupon.trim().toUpperCase());
                 toast.success(`Giảm ${result.soTienGiam.toLocaleString()}đ`);
             } else {
                 toast.error(result.thongBao);
@@ -149,12 +154,25 @@ function ThanhToan() {
                 items: gioHang.map(item => ({ maSach: item.maSach, soLuong: item.soLuong })),
                 maDiaChiGiaoHang: diaChiDaChon,
                 phuongThucThanhToan,
+                maCoupon: couponResult?.hopLe ? (couponResult.maCoupon || maCoupon.trim().toUpperCase()) : undefined,
             };
             const data = await authRequest<CheckoutOrderResponse>('http://localhost:8080/api/don-hang/them', {
                 method: 'POST',
                 body: JSON.stringify(payload),
             });
             setDonHang(data);
+            if (data.maCoupon) {
+                setCouponResult({
+                    hopLe: true,
+                    soTienGiam: data.soTienGiam,
+                    tongTienSauGiam: data.tongTien,
+                    maCoupon: data.maCoupon,
+                    thongBao: `Đã áp dụng mã ${data.maCoupon}`,
+                });
+                setMaCoupon(data.maCoupon);
+            } else {
+                setCouponResult(null);
+            }
             setBuocHienTai('payment');
             localStorage.removeItem('gioHang');
             setGioHang([]);

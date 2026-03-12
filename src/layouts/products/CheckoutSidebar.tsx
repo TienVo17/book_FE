@@ -197,14 +197,14 @@ const CheckoutSidebar: React.FC<Props> = ({
             </div>
             <hr style={{ borderColor: 'var(--color-border)', opacity: 0.5 }} />
             <div className="d-flex justify-content-between mb-2">
-                <strong>Tổng backend:</strong>
+                <strong>Tổng thanh toán:</strong>
                 <span className="detail-price" style={{ fontSize: '1.1rem', fontVariantNumeric: 'tabular-nums' }}>
                     {tongThanhToan.toLocaleString('vi-VN')}đ
                 </span>
             </div>
             {soTienGiam > 0 && (
                 <small style={{ color: 'var(--color-text-muted)', display: 'block', marginBottom: '1rem' }}>
-                    Coupon chỉ hiển thị tạm ở UI. Backend vẫn chốt tiền cuối cùng.
+                    Backend sẽ kiểm tra lại coupon khi tạo đơn.
                 </small>
             )}
             <button

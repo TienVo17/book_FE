@@ -13,5 +13,8 @@ export interface CouponModel {
 export interface KetQuaKiemTraCoupon {
   hopLe: boolean;
   soTienGiam: number;
+  giaTriGiam?: number;
+  tongTienSauGiam?: number;
+  maCoupon?: string;
   thongBao: string;
 }
