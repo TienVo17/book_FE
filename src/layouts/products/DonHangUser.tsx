@@ -15,20 +15,63 @@ interface DonHangItem {
 function DonHangUser() {
     const [donHangList, setDonHangList] = useState<DonHangItem[]>([]);
     const [loading, setLoading] = useState(true);
+    const [dangHuy, setDangHuy] = useState<number | null>(null);
+
+    const taiDonHang = async () => {
+        try {
+            const response = await fetch('http://localhost:8080/api/don-hang/findAll?page=0', {
+                headers: { Authorization: `Bearer ${localStorage.getItem('jwt')}` },
+            });
+            if (!response.ok) throw new Error();
+            const data = await response.json();
+            setDonHangList(data.content || []);
+        } catch {
+            // giữ danh sách hiện tại nếu tải lỗi
+        }
+    };
 
     useEffect(() => {
         setLoading(true);
-        fetch('http://localhost:8080/api/don-hang/findAll?page=0', {
-            headers: { Authorization: `Bearer ${localStorage.getItem('jwt')}` },
-        })
-            .then(response => {
-                if (!response.ok) throw new Error();
-                return response.json();
-            })
-            .then(data => setDonHangList(data.content || []))
-            .catch(() => { })
-            .finally(() => setLoading(false));
+        taiDonHang().finally(() => setLoading(false));
     }, []);
+
+    const huyDon = async (maDonHang: number) => {
+        if (!window.confirm(`Bạn có chắc muốn hủy đơn hàng #${maDonHang}?`)) return;
+        setDangHuy(maDonHang);
+        try {
+            const response = await fetch(`http://localhost:8080/api/don-hang/huy/${maDonHang}`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${localStorage.getItem('jwt')}` },
+            });
+            if (!response.ok) {
+                const message = await response.text();
+                alert(message || 'Hủy đơn hàng thất bại.');
+                return;
+            }
+            await taiDonHang();
+        } catch {
+            alert('Không kết nối được máy chủ.');
+        } finally {
+            setDangHuy(null);
+        }
+    };
+
+    // User chỉ hủy được đơn đang chờ xử lý (0) và chưa thanh toán online (khớp quy tắc backend).
+    const coTheHuy = (item: DonHangItem) =>
+        item.trangThaiGiaoHang === 0 && item.trangThaiThanhToan !== 1;
+
+    const renderTrangThaiGiaoHang = (trangThai: number) => {
+        if (trangThai === 3) {
+            return <span className="status-badge" style={{ background: '#fee2e2', color: '#b91c1c' }}>Đã hủy</span>;
+        }
+        if (trangThai === 2) {
+            return <span className="status-badge delivered">Đã nhận hàng</span>;
+        }
+        if (trangThai === 1) {
+            return <span className="status-badge shipping">Đang giao</span>;
+        }
+        return <span className="status-badge pending">Đang xử lý</span>;
+    };
 
     const formatDate = (dateStr: string) => {
         try {
@@ -90,6 +133,7 @@ function DonHangUser() {
                                     <th>Thanh toán</th>
                                     <th>Giao hàng</th>
                                     <th style={{ textAlign: 'right' }}>Tổng tiền</th>
+                                    <th style={{ textAlign: 'center' }}>Thao tác</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -121,9 +165,7 @@ function DonHangUser() {
                                             </span>
                                         </td>
                                         <td>
-                                            <span className={`status-badge ${item.trangThaiGiaoHang === 2 ? 'delivered' : 'shipping'}`}>
-                                                {item.trangThaiGiaoHang === 2 ? 'Đã nhận hàng' : 'Đang xử lý'}
-                                            </span>
+                                            {renderTrangThaiGiaoHang(item.trangThaiGiaoHang)}
                                         </td>
                                         <td style={{
                                             textAlign: 'right',
@@ -132,6 +174,31 @@ function DonHangUser() {
                                             color: 'var(--color-accent)',
                                         }}>
                                             {item.tongTien?.toLocaleString('vi-VN')}đ
+                                        </td>
+                                        <td style={{ textAlign: 'center' }}>
+                                            {coTheHuy(item) ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => huyDon(item.maDonHang)}
+                                                    disabled={dangHuy === item.maDonHang}
+                                                    style={{
+                                                        border: '1px solid #dc3545',
+                                                        color: '#dc3545',
+                                                        background: 'transparent',
+                                                        borderRadius: '6px',
+                                                        padding: '4px 12px',
+                                                        fontSize: '0.82rem',
+                                                        fontWeight: 600,
+                                                        cursor: dangHuy === item.maDonHang ? 'not-allowed' : 'pointer',
+                                                        opacity: dangHuy === item.maDonHang ? 0.6 : 1,
+                                                        whiteSpace: 'nowrap',
+                                                    }}
+                                                >
+                                                    {dangHuy === item.maDonHang ? 'Đang hủy…' : 'Hủy đơn'}
+                                                </button>
+                                            ) : (
+                                                <span style={{ color: 'var(--color-text-muted)' }}>—</span>
+                                            )}
                                         </td>
                                     </tr>
                                 ))}

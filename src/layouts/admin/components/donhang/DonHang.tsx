@@ -235,18 +235,24 @@ function DonHang() {
                                                 </span>
                                             </td>
                                             <td>
-                                                <span className={`status-badge ${item.trangThaiGiaoHang === 2 ? 'delivered' : 'shipping'}`}>
-                                                    {item.trangThaiGiaoHang === 2 ? 'Đã nhận hàng' : 'Chưa nhận hàng'}
-                                                </span>
+                                                {item.trangThaiGiaoHang === 3 ? (
+                                                    <span className="status-badge" style={{ background: '#fee2e2', color: '#b91c1c' }}>Đã hủy</span>
+                                                ) : item.trangThaiGiaoHang === 2 ? (
+                                                    <span className="status-badge delivered">Đã nhận hàng</span>
+                                                ) : item.trangThaiGiaoHang === 1 ? (
+                                                    <span className="status-badge shipping">Đang giao</span>
+                                                ) : (
+                                                    <span className="status-badge pending">Chưa nhận hàng</span>
+                                                )}
                                             </td>
                                             <td style={{ textAlign: 'right', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
                                                 {item.tongTien?.toLocaleString('vi-VN')}đ
                                             </td>
                                             <td style={{ textAlign: 'center' }}>
-                                                {item.trangThaiGiaoHang !== 2 && (
+                                                {item.trangThaiGiaoHang !== 2 && item.trangThaiGiaoHang !== 3 && (
                                                     <button
                                                         className="order-action-btn success"
-                                                        title="Cập nhật: Đã nhận hàng"
+                                                        title="Cập nhật trạng thái giao hàng (tiến 1 bước)"
                                                         onClick={() => handleCapNhatGiaoHang(item.maDonHang)}
                                                         disabled={updating === item.maDonHang}
                                                     >
