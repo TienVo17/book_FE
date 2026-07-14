@@ -1,12 +1,41 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getBookById } from '../../../../api/SachApi';
 import { findImageByBook } from '../../../../api/HinhAnhApi';
-import { updateSachAdmin, uploadHinhAnhSach } from '../../../../api/AdminApi';
+import { dieuChinhTonKhoSach, updateSachAdmin, uploadHinhAnhSach } from '../../../../api/AdminApi';
+import { ApiRequestError } from '../../../../api/Request';
 import { getAdminTheLoai } from '../../../../api/TheLoaiApi';
 import SachModel from '../../../../models/SachModel';
 import UploadFile, { UploadFileValue } from '../UploadFile';
 import { TheLoaiAdminModel } from '../../../../models/TheLoaiModel';
+
+const MIN_STOCK_DELTA = -2147483648;
+const MAX_STOCK_DELTA = 2147483647;
+const SIGNED_INTEGER_PATTERN = /^[+-]?\d+$/;
+
+type StockDeltaValidation =
+  | { isValid: true; value: number }
+  | { isValid: false; message: string };
+
+function validateStockDelta(input: string): StockDeltaValidation {
+  const normalizedInput = input.trim();
+  if (!normalizedInput) {
+    return { isValid: false, message: 'Vui lòng nhập số lượng cần điều chỉnh.' };
+  }
+  if (!SIGNED_INTEGER_PATTERN.test(normalizedInput)) {
+    return { isValid: false, message: 'Số lượng thay đổi phải là số nguyên, ví dụ 5 hoặc -3.' };
+  }
+
+  const value = Number(normalizedInput);
+  if (!Number.isSafeInteger(value) || value < MIN_STOCK_DELTA || value > MAX_STOCK_DELTA) {
+    return { isValid: false, message: 'Số lượng thay đổi nằm ngoài phạm vi cho phép.' };
+  }
+  if (value === 0) {
+    return { isValid: false, message: 'Số lượng thay đổi phải khác 0.' };
+  }
+
+  return { isValid: true, value };
+}
 
 const emptySach: SachModel = {
   maSach: 0,
@@ -43,6 +72,12 @@ const CapNhatSach: React.FC = () => {
   const [existingImageUrls, setExistingImageUrls] = useState<string[]>([]);
   const [uploadValue, setUploadValue] = useState<UploadFileValue>({ existingUrls: [], newFiles: [] });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [stockDelta, setStockDelta] = useState('');
+  const [stockDeltaError, setStockDeltaError] = useState('');
+  const [stockDeltaSuccess, setStockDeltaSuccess] = useState('');
+  const [isAdjustingStock, setIsAdjustingStock] = useState(false);
+  const [mustReloadStock, setMustReloadStock] = useState(false);
+  const actionInFlight = useRef(false);
 
   useEffect(() => {
     getAdminTheLoai().then(setDanhSachTheLoai).catch(console.error);
@@ -117,6 +152,11 @@ const CapNhatSach: React.FC = () => {
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (actionInFlight.current || mustReloadStock) {
+      return;
+    }
+
+    actionInFlight.current = true;
     setIsSubmitting(true);
 
     try {
@@ -135,7 +175,77 @@ const CapNhatSach: React.FC = () => {
       const errorMessage = error instanceof Error ? error.message : 'Có lỗi xảy ra khi cập nhật sách';
       alert(errorMessage);
     } finally {
+      actionInFlight.current = false;
       setIsSubmitting(false);
+    }
+  };
+
+  const handleStockAdjustment = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (actionInFlight.current || mustReloadStock) {
+      return;
+    }
+
+    setStockDeltaError('');
+    setStockDeltaSuccess('');
+
+    const validation = validateStockDelta(stockDelta);
+    if (!validation.isValid) {
+      setStockDeltaError(validation.message);
+      return;
+    }
+    if (!Number.isSafeInteger(sach.maSach) || sach.maSach <= 0) {
+      setStockDeltaError('Không xác định được sách cần điều chỉnh tồn kho.');
+      return;
+    }
+
+    actionInFlight.current = true;
+    setIsAdjustingStock(true);
+
+    try {
+      const response = await dieuChinhTonKhoSach(sach.maSach, {
+        soLuongThayDoi: validation.value,
+      });
+      setSach((prev) => ({ ...prev, soLuong: response.soLuongTon }));
+      setStockDelta('');
+      setStockDeltaSuccess(`Điều chỉnh tồn kho thành công. Tồn hiện tại: ${response.soLuongTon}.`);
+    } catch (error) {
+      if (error instanceof ApiRequestError) {
+        setStockDeltaError(error.message);
+      } else {
+        setMustReloadStock(true);
+        setStockDeltaError(
+          'Không xác định được yêu cầu đã được áp dụng hay chưa. Hãy tải lại tồn kho trước khi thử lại.',
+        );
+      }
+    } finally {
+      actionInFlight.current = false;
+      setIsAdjustingStock(false);
+    }
+  };
+
+  const handleReloadStock = async () => {
+    if (actionInFlight.current || !Number.isSafeInteger(sach.maSach) || sach.maSach <= 0) {
+      return;
+    }
+
+    actionInFlight.current = true;
+    setIsAdjustingStock(true);
+    setStockDeltaError('');
+    setStockDeltaSuccess('');
+    try {
+      const refreshedSach = await getBookById(sach.maSach);
+      if (!refreshedSach || !Number.isInteger(refreshedSach.soLuong) || (refreshedSach.soLuong ?? -1) < 0) {
+        throw new Error('Phản hồi tồn kho từ máy chủ không hợp lệ.');
+      }
+      setSach((prev) => ({ ...prev, soLuong: refreshedSach.soLuong }));
+      setMustReloadStock(false);
+      setStockDeltaSuccess(`Đã tải lại tồn kho. Tồn hiện tại: ${refreshedSach.soLuong}.`);
+    } catch {
+      setStockDeltaError('Không thể tải lại tồn kho. Vui lòng kiểm tra kết nối và thử lại.');
+    } finally {
+      actionInFlight.current = false;
+      setIsAdjustingStock(false);
     }
   };
 
@@ -146,6 +256,78 @@ const CapNhatSach: React.FC = () => {
         <li className="breadcrumb-item"><a href="/quan-ly">Cập nhật sách</a></li>
         <li className="breadcrumb-item active">Cập nhật sách</li>
       </ol>
+
+      <div className="card mb-4">
+        <div className="card-header">
+          <i className="fas fa-boxes me-1"></i>
+          Điều chỉnh tồn kho
+        </div>
+        <div className="card-body">
+          <form onSubmit={handleStockAdjustment} noValidate>
+            <div className="row align-items-end">
+              <div className="col-md-4 mb-3">
+                <label className="form-label" htmlFor="current-stock">Tồn hiện tại</label>
+                <input
+                  id="current-stock"
+                  className="form-control"
+                  type="number"
+                  value={sach.soLuong ?? 0}
+                  readOnly
+                  aria-readonly="true"
+                />
+              </div>
+              <div className="col-md-5 mb-3">
+                <label className="form-label" htmlFor="stock-delta">Số lượng thay đổi</label>
+                <input
+                  id="stock-delta"
+                  className={`form-control${stockDeltaError ? ' is-invalid' : ''}`}
+                  type="text"
+                  value={stockDelta}
+                  onChange={(event) => {
+                    setStockDelta(event.target.value);
+                    setStockDeltaError('');
+                    setStockDeltaSuccess('');
+                  }}
+                  aria-describedby="stock-delta-help stock-delta-feedback"
+                  aria-invalid={Boolean(stockDeltaError)}
+                  disabled={isAdjustingStock || isSubmitting || mustReloadStock}
+                  placeholder="Ví dụ: 5 hoặc -3"
+                />
+                <div id="stock-delta-help" className="form-text">
+                  Nhập số dương để thêm tồn, số âm để giảm tồn.
+                </div>
+              </div>
+              <div className="col-md-3 mb-3">
+                <button
+                  type="submit"
+                  className="btn btn-primary w-100"
+                  disabled={isAdjustingStock || isSubmitting || mustReloadStock || !stockDelta.trim()}
+                >
+                  {isAdjustingStock ? 'Đang điều chỉnh...' : 'Điều chỉnh tồn kho'}
+                </button>
+              </div>
+            </div>
+            <div id="stock-delta-feedback" aria-live="polite">
+              {stockDeltaError && (
+                <div className="alert alert-danger mb-0" role="alert">{stockDeltaError}</div>
+              )}
+              {stockDeltaSuccess && (
+                <div className="alert alert-success mb-0" role="status">{stockDeltaSuccess}</div>
+              )}
+              {mustReloadStock && (
+                <button
+                  type="button"
+                  className="btn btn-warning mt-3"
+                  onClick={handleReloadStock}
+                  disabled={isAdjustingStock || isSubmitting}
+                >
+                  {isAdjustingStock ? 'Đang tải lại...' : 'Tải lại tồn kho'}
+                </button>
+              )}
+            </div>
+          </form>
+        </div>
+      </div>
 
       <div className="card mb-4">
         <div className="card-header">
@@ -167,10 +349,6 @@ const CapNhatSach: React.FC = () => {
                 <div className="mb-3">
                   <label className="form-label">Giá niêm yết</label>
                   <input className="form-control" type="number" value={sach.giaNiemYet} onChange={(e) => setSach({ ...sach, giaNiemYet: parseFloat(e.target.value) || 0 })} required />
-                </div>
-                <div className="mb-3">
-                  <label className="form-label">Số lượng tồn</label>
-                  <input className="form-control" type="number" value={sach.soLuong} onChange={(e) => setSach({ ...sach, soLuong: parseInt(e.target.value, 10) || 0 })} required />
                 </div>
                 <div className="mb-3">
                   <label className="form-label">Mô tả ngắn</label>
@@ -253,11 +431,11 @@ const CapNhatSach: React.FC = () => {
             </div>
 
             <div className="text-center mt-3">
-              <button type="submit" className="btn btn-primary me-2" disabled={isSubmitting}>
+              <button type="submit" className="btn btn-primary me-2" disabled={isSubmitting || isAdjustingStock || mustReloadStock}>
                 <i className="fas fa-save me-2"></i>
                 {isSubmitting ? 'Đang cập nhật...' : 'Lưu sách'}
               </button>
-              <button type="reset" className="btn btn-secondary" disabled={isSubmitting} onClick={() => {
+              <button type="reset" className="btn btn-secondary" disabled={isSubmitting || isAdjustingStock || mustReloadStock} onClick={() => {
                 setUploadValue({ existingUrls: existingImageUrls, newFiles: [] });
               }}>
                 <i className="fas fa-undo me-2"></i>

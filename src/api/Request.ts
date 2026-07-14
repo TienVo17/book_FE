@@ -95,6 +95,13 @@ export function getValidJwtOrThrow(): string {
   return token;
 }
 
+export class ApiRequestError extends Error {
+  constructor(message: string, public readonly status: number) {
+    super(message);
+    this.name = 'ApiRequestError';
+  }
+}
+
 export async function authRequest<T = unknown>(url: string, options: RequestInit = {}): Promise<T> {
   const token = getValidJwtOrThrow();
   const headers: Record<string, string> = {
@@ -110,7 +117,7 @@ export async function authRequest<T = unknown>(url: string, options: RequestInit
     if (response.status === 401 || response.status === 403) {
       clearAuth();
     }
-    throw new Error(getApiMessage(body, `Request failed: ${response.status}`));
+    throw new ApiRequestError(getApiMessage(body, `Request failed: ${response.status}`), response.status);
   }
 
   return body as T;
