@@ -219,7 +219,7 @@ const ChiTietSanPham: React.FC = () => {
                 <i className="fas fa-bolt"></i>
                 Mua ngay
               </button>
-              <button className="btn-modern-primary" onClick={xuLyThemVaoGioHang} style={{ padding: "0.7rem 2rem" }}>
+              <button className="btn-modern-outline-primary" onClick={xuLyThemVaoGioHang} style={{ padding: "0.7rem 1.5rem" }}>
                 <i className="fas fa-shopping-cart"></i>
                 Thêm vào giỏ hàng
               </button>
