@@ -176,10 +176,9 @@ const DanhGiaSanPham: React.FC<DanhGiaSanPhamProps> = ({ maSach }) => {
         </div>
       </div>
 
-      <h3 className="mb-4">
-        <i className="fas fa-comments me-2"></i>
-        Đánh giá từ khách hàng
-      </h3><div className="00000000000000000000000000"></div>
+      <div className="section-header">
+        <h2>Đánh giá từ khách hàng</h2>
+      </div>
       <div className="review-list">
         {danhSachDanhGia.map((danhGia) => (
           <div key={danhGia.maDanhGia} className="review-item card mb-3">
