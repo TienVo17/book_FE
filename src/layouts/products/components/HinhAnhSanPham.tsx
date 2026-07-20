@@ -54,7 +54,11 @@ const HinhAnhSanPham: React.FC<HinhAnhSanPhamProps> = ({ maSach, className, styl
   return (
     <div className={`row ${className}`} style={style}>
       <div className="col-12">
-        <Carousel showArrows={true} showIndicators={true}>
+        <Carousel
+          showArrows={danhSachAnh.length > 1}
+          showIndicators={danhSachAnh.length > 1}
+          showStatus={false}
+        >
           {danhSachAnh.map((hinhAnh, index) => (
             <div key={index}>
               <AnhSach
