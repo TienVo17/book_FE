@@ -3,6 +3,7 @@ import HinhAnhModel from "../../../models/HinhAnhModel";
 import { getAllImageOfOneBook } from "../../../api/HinhAnhApi";
 import { Carousel } from "react-responsive-carousel";
 import "react-responsive-carousel/lib/styles/carousel.min.css";
+import AnhSach from "../../utils/AnhSach";
 
 interface HinhAnhSanPhamProps {
   maSach: number;
@@ -56,7 +57,7 @@ const HinhAnhSanPham: React.FC<HinhAnhSanPhamProps> = ({ maSach, className, styl
         <Carousel showArrows={true} showIndicators={true}>
           {danhSachAnh.map((hinhAnh, index) => (
             <div key={index}>
-              <img
+              <AnhSach
                 src={hinhAnh.urlHinh}
                 alt={`${hinhAnh.tenHinhAnh}`}
                 style={{ maxWidth: "250px" }}

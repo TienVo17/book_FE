@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { getOneImageOfOneBook } from "../../api/HinhAnhApi";
 import dinhDangSo from "../utils/DinhDangSo";
+import AnhSach from "../utils/AnhSach";
 
 interface SanPhamGioHang {
   maSach: number;
@@ -75,7 +76,7 @@ function GioHang() {
           <div className="col-lg-8">
             {gioHang.map((item, index) => (
               <div className="cart-item d-flex gap-3 align-items-center" key={item.maSach} style={{ animationDelay: `${index * 80}ms` }}>
-                <img
+                <AnhSach
                   src={item.hinhAnh || item.sachDto.hinhAnh}
                   alt={item.sachDto.tenSach}
                   className="cart-item-img"

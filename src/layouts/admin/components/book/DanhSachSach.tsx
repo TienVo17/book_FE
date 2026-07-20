@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import SachModel from '../../../../models/SachModel';
 import { useNavigate } from 'react-router-dom';
 import { xoaSach, findAll } from "../../../../api/SachApi";
+import AnhSach from "../../../utils/AnhSach";
 
 export default function DanhSachSach() {
   const [danhSachSach, setDanhSachSach] = useState<SachModel[]>([]);
@@ -161,7 +162,7 @@ export default function DanhSachSach() {
                     </td>
                     <td style={{ textAlign: 'center' }}>{sach.soLuong}</td>
                     <td>
-                      <img
+                      <AnhSach
                         width={60}
                         height={75}
                         src={sach.danhSachAnh?.at(0)?.urlHinh}

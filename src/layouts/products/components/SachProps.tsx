@@ -6,6 +6,7 @@ import { Link } from "react-router-dom";
 import { renderStars } from "./DanhGiaSanPham";
 import dinhDangSo from "../../utils/DinhDangSo";
 import { themVaoGioHang } from "../../utils/GioHangUtils";
+import AnhSach from "../../utils/AnhSach";
 import { themYeuThich, xoaYeuThich } from "../../../api/YeuThichApi";
 import { toast } from "react-toastify";
 
@@ -85,11 +86,7 @@ const SachProps: React.FC<SachPropsInterface> = (props) => {
       <div className="product-card">
         <Link to={`/sach/${props.sach.maSach}`}>
           <div className="product-card-img-wrapper">
-            <img
-              src={duLieuAnh}
-              alt={props.sach.tenSach}
-              loading="lazy"
-            />
+            <AnhSach src={duLieuAnh} alt={props.sach.tenSach} />
           </div>
         </Link>
         <div className="product-card-body">

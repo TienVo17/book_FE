@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import AnhSach from '../utils/AnhSach';
 
 interface SanPhamGioHang {
     maSach: number;
@@ -24,7 +25,7 @@ const CartItemsTable: React.FC<Props> = ({ gioHang, onIncrease, onDecrease, onCh
                 key={item.maSach}
                 style={{ animationDelay: `${index * 80}ms` }}
             >
-                <img
+                <AnhSach
                     src={item.hinhAnh || item.sachDto.hinhAnh}
                     alt={item.sachDto.tenSach}
                     className="cart-item-img"

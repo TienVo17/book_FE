@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { getDanhSachYeuThich, xoaYeuThich, type YeuThichItem } from '../../api/YeuThichApi';
 import { toast } from 'react-toastify';
 import dinhDangSo from '../utils/DinhDangSo';
+import AnhSach from '../utils/AnhSach';
 
 const DanhSachYeuThich: React.FC = () => {
   const [danhSach, setDanhSach] = useState<YeuThichItem[]>([]);
@@ -59,7 +60,7 @@ const DanhSachYeuThich: React.FC = () => {
             <div className="product-card">
               <Link to={`/sach/${item.maSach}`}>
                 <div className="product-card-img-wrapper">
-                  <img src={item.hinhAnh} alt={item.tenSach} loading="lazy" />
+                  <AnhSach src={item.hinhAnh} alt={item.tenSach} />
                 </div>
               </Link>
               <div className="product-card-body">
