@@ -258,8 +258,8 @@
 .search-modern input {
   border: 1.5px solid var(--color-border);
   border-radius: var(--radius-xl);
-  padding: 0.45rem 1rem;
-  padding-right: 2.5rem;
+  padding: 0.6rem 1rem;
+  padding-right: 2.75rem;
   font-size: 0.88rem;
   width: 220px;
   /* Ô tìm kiếm nở ra khi focus nên width phải nằm trong transition. */
@@ -278,12 +278,12 @@
 
 .search-modern .search-btn {
   position: absolute;
-  right: 4px;
+  right: 3px;
   background: var(--color-primary);
   border: none;
   color: white;
-  width: 34px;
-  height: 34px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -599,8 +599,8 @@
 
 /* Icon buttons on cards */
 .btn-icon {
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   display: inline-flex;
   align-items: center;
@@ -1969,6 +1969,59 @@
 .role-card-label {
   font-weight: 500;
   font-size: 0.9rem;
+}
+
+/* ===== Touch Targets ===== */
+/* Fingers need roughly 44px; these controls sat well under it. */
+.navbar-toggler {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.navbar-modern .nav-link {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.cart-icon {
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-modern-primary,
+.btn-modern-accent,
+.btn-modern-outline,
+.btn-modern-outline-primary {
+  min-height: 44px;
+}
+
+.pagination-modern .page-btn,
+.footer-modern .social-icon {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.footer-modern .form-control,
+.footer-modern .btn {
+  min-height: 44px;
+}
+
+.form-check-input,
+input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  margin-top: 0;
+}
+
+.form-check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
 }
 
 /* ===== Star Rating Display ===== */
