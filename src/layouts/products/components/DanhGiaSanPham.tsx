@@ -53,6 +53,18 @@ const DanhGiaSanPham: React.FC<DanhGiaSanPhamProps> = ({ maSach }) => {
   const [dangGuiDanhGia, setDangGuiDanhGia] = useState(false);
   const navigate = useNavigate();
 
+  // Chỉ mời viết đánh giá khi token còn hạn, tránh để khách gõ xong mới bị chặn.
+  const daDangNhap = (() => {
+    const jwt = localStorage.getItem("jwt");
+    if (!jwt) return false;
+    try {
+      const { exp } = jwtDecode<{ exp?: number }>(jwt);
+      return exp != null && exp * 1000 > Date.now();
+    } catch {
+      return false;
+    }
+  })();
+
   useEffect(() => {
     getAllReviewOfOneBook(maSach)
       .then((danhGia) => {
@@ -92,6 +104,21 @@ const DanhGiaSanPham: React.FC<DanhGiaSanPhamProps> = ({ maSach }) => {
 
   return (
     <div className="review-section my-4">
+      {!daDangNhap ? (
+        <div className="review-login-prompt">
+          <div>
+            <strong>Bạn đã đọc cuốn này?</strong>
+            <p>Đăng nhập để chia sẻ cảm nhận với người mua khác.</p>
+          </div>
+          <button
+            type="button"
+            className="btn-modern-outline-primary"
+            onClick={() => navigate("/dang-nhap")}
+          >
+            Đăng nhập để đánh giá
+          </button>
+        </div>
+      ) : (
       <div className="card mb-4">
         <div className="card-body">
           <h4 className="mb-3">Đánh giá sản phẩm</h4>
@@ -144,7 +171,8 @@ const DanhGiaSanPham: React.FC<DanhGiaSanPhamProps> = ({ maSach }) => {
                   })
                   .then((response) => {
                     if(!response){
-                      alert("Đăng nhập để đánh giá");
+                      toast.info("Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.");
+                      return;
                     }
                     getAllReviewOfOneBook(maSach)
                       .then((danhGia) => {
@@ -175,6 +203,7 @@ const DanhGiaSanPham: React.FC<DanhGiaSanPhamProps> = ({ maSach }) => {
           </form>
         </div>
       </div>
+      )}
 
       <div className="section-header">
         <h2>Đánh giá từ khách hàng</h2>
