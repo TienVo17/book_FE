@@ -48,7 +48,7 @@ function DanhSachSanPham({ tuKhoaTimKiem, maTheLoai, tieuDe }: DanhSachSanPhamPr
   }, [trangHienTai, tuKhoaTimKiem, maTheLoai]);
 
   const phanTrang = (trang: number) => setTrangHienTai(trang);
-  const tieuDeHienThi = tieuDe || (tuKhoaTimKiem ? `Kết quả tìm kiếm: "${tuKhoaTimKiem}"` : "Sản phẩm nổi bật");
+  const tieuDeHienThi = tieuDe || (tuKhoaTimKiem ? `Kết quả tìm kiếm: "${tuKhoaTimKiem}"` : "Tất cả sách");
 
   if (dangTaiDuLieu) {
     return (
