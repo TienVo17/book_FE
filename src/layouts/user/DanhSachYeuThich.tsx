@@ -56,7 +56,7 @@ const DanhSachYeuThich: React.FC = () => {
       <div className="section-header"><h2>Sản phẩm yêu thích</h2></div>
       <div className="row">
         {danhSach.map(item => (
-          <div key={item.maSach} className="col-lg-3 col-md-4 col-sm-6 mb-4">
+          <div key={item.maSach} className="col-lg-3 col-md-4 col-6 mb-4">
             <div className="product-card">
               <Link to={`/sach/${item.maSach}`}>
                 <div className="product-card-img-wrapper">

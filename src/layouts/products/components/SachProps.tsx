@@ -59,7 +59,7 @@ const SachProps: React.FC<SachPropsInterface> = (props) => {
 
   if (dangTaiDuLieu) {
     return (
-      <div className="col-lg-3 col-md-4 col-sm-6 mb-4">
+      <div className="col-lg-3 col-md-4 col-6 mb-4">
         <div className="product-card">
           <div className="skeleton skeleton-img"></div>
           <div className="product-card-body">
@@ -82,7 +82,7 @@ const SachProps: React.FC<SachPropsInterface> = (props) => {
   }
 
   return (
-    <div className="col-lg-3 col-md-4 col-sm-6 mb-4">
+    <div className="col-lg-3 col-md-4 col-6 mb-4">
       <div className="product-card">
         <Link to={`/sach/${props.sach.maSach}`}>
           <div className="product-card-img-wrapper">

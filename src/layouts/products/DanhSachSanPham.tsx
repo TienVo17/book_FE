@@ -58,7 +58,7 @@ function DanhSachSanPham({ tuKhoaTimKiem, maTheLoai, tieuDe }: DanhSachSanPhamPr
         </div>
         <div className="row">
           {[1, 2, 3, 4].map((i) => (
-            <div className="col-lg-3 col-md-4 col-sm-6 mb-4" key={i}>
+            <div className="col-lg-3 col-md-4 col-6 mb-4" key={i}>
               <div className="product-card">
                 <div className="skeleton skeleton-img"></div>
                 <div className="product-card-body">
