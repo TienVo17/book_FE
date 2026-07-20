@@ -587,7 +587,7 @@
   align-items: center;
   gap: 2px;
   margin-bottom: 0.4rem;
-  color: #FBBF24;
+  color: var(--color-star);
   font-size: 0.8rem;
 }
 
@@ -1961,10 +1961,14 @@
 }
 
 /* ===== Star Rating Display ===== */
+.stars {
+  color: var(--color-star);
+}
+
 .star-rating {
   display: inline-flex;
   gap: 2px;
-  color: #FBBF24;
+  color: var(--color-star);
   font-size: 0.85rem;
 }
 
