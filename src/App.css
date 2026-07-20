@@ -960,7 +960,7 @@
 
 /* ===== Section Headers ===== */
 .section-header {
-  text-align: center;
+  text-align: left;
   margin-bottom: 2rem;
 }
 
@@ -976,8 +976,7 @@
   content: '';
   position: absolute;
   bottom: -8px;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 0;
   width: 40px;
   height: 3px;
   background: var(--color-primary);
