@@ -21,11 +21,11 @@ export const renderStars = (rating: number) => {
   return (
     <div className="stars d-inline-block">
       {[...Array(fullStars)].map((_, index) => (
-        <i key={`full-${index}`} className="fas fa-star text-warning"></i>
+        <i key={`full-${index}`} className="fas fa-star"></i>
       ))}
-      {halfStar && <i className="fas fa-star-half-alt text-warning"></i>}
+      {halfStar && <i className="fas fa-star-half-alt"></i>}
       {[...Array(emptyStars)].map((_, index) => (
-        <i key={`empty-${index}`} className="far fa-star text-warning"></i>
+        <i key={`empty-${index}`} className="far fa-star"></i>
       ))}
     </div>
   );
@@ -218,7 +218,9 @@ const DanhGiaSanPham: React.FC<DanhGiaSanPhamProps> = ({ maSach }) => {
                   <span className="fw-bold">Khách hàng</span>
                 </div>
                 <small className="text-muted">
-                  {format(new Date(), 'dd/MM/yyyy HH:mm', { locale: vi })}
+                  {danhGia.timestamp
+                    ? format(new Date(danhGia.timestamp), 'dd/MM/yyyy HH:mm', { locale: vi })
+                    : ''}
                 </small>
               </div>
               <div className="mb-2">
