@@ -777,6 +777,17 @@
   background: transparent;
 }
 
+/* outline is removed above, so keyboard focus needs a visible stand-in. */
+.qty-control input:focus-visible {
+  background: rgba(59, 130, 246, 0.08);
+  box-shadow: inset 0 0 0 2px var(--color-primary);
+}
+
+.qty-control button:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
 /* ===== Shopping Cart ===== */
 .cart-item {
   background: var(--color-surface);
