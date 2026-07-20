@@ -14,7 +14,7 @@ function Navbar({ tuKhoaTimKiem, setTuKhoaTimKiem }: NavbarProps) {
   const [tuKhoaTamThoi, setTuKhoaTamThoi] = useState("");
   const [soLuongGioHang, setSoLuongGioHang] = useState(0);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [openNavDropdown, setOpenNavDropdown] = useState<"theLoai" | "quyDinh" | null>(null);
+  const [openNavDropdown, setOpenNavDropdown] = useState<"theLoai" | null>(null);
   const [scrolled, setScrolled] = useState(false);
   const navigate = useNavigate();
   const [jwt, setJwt] = useState(localStorage.getItem("jwt") || "");
@@ -106,7 +106,7 @@ function Navbar({ tuKhoaTimKiem, setTuKhoaTimKiem }: NavbarProps) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isDropdownOpen, openNavDropdown]);
 
-  const toggleNavDropdown = (dropdown: "theLoai" | "quyDinh") => {
+  const toggleNavDropdown = (dropdown: "theLoai") => {
     setOpenNavDropdown((current) => current === dropdown ? null : dropdown);
   };
 
@@ -159,28 +159,6 @@ function Navbar({ tuKhoaTimKiem, setTuKhoaTimKiem }: NavbarProps) {
                 {theLoaiList.length === 0 && (
                   <li><span className="dropdown-item text-muted">Đang tải...</span></li>
                 )}
-              </ul>
-            </li>
-            <li className="nav-item dropdown">
-              <button
-                className={`nav-link dropdown-toggle nav-dropdown-toggle ${openNavDropdown === "quyDinh" ? "show active" : ""}`}
-                type="button"
-                id="navbarDropdown2"
-                aria-expanded={openNavDropdown === "quyDinh"}
-                onClick={() => toggleNavDropdown("quyDinh")}
-              >
-                Quy định
-              </button>
-              <ul className={`dropdown-menu dropdown-modern ${openNavDropdown === "quyDinh" ? "show" : ""}`} aria-labelledby="navbarDropdown2">
-                <li>
-                  <button className="dropdown-item" type="button">Quy định 1</button>
-                </li>
-                <li>
-                  <button className="dropdown-item" type="button">Quy định 2</button>
-                </li>
-                <li>
-                  <button className="dropdown-item" type="button">Quy định 3</button>
-                </li>
               </ul>
             </li>
             <li className="nav-item">
