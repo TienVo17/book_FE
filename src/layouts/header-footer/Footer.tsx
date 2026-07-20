@@ -8,10 +8,10 @@ function Footer() {
         <div className="row">
           {/* Brand */}
           <div className="col-lg-3 col-md-6 mb-4">
-            <h5 style={{ fontSize: "1.3rem", textTransform: "none", letterSpacing: "-0.3px" }}>
+            <h3 style={{ fontSize: "1.3rem", textTransform: "none", letterSpacing: "-0.3px" }}>
               <i className="fas fa-book-open me-2" style={{ color: "var(--color-primary-light)" }}></i>
               BookStore
-            </h5>
+            </h3>
             <p style={{ fontSize: "0.88rem", lineHeight: 1.7 }}>
               Nơi mang đến hàng ngàn đầu sách hay với giá ưu đãi nhất. Giao hàng toàn quốc.
             </p>
@@ -33,7 +33,7 @@ function Footer() {
 
           {/* Services */}
           <div className="col-lg-2 col-md-6 mb-4">
-            <h5>Dịch vụ</h5>
+            <h3>Dịch vụ</h3>
             <ul className="list-unstyled mb-0">
               <li className="mb-2"><a href="#!">Điều khoản sử dụng</a></li>
               <li className="mb-2"><a href="#!">Chính sách bảo mật</a></li>
@@ -44,7 +44,7 @@ function Footer() {
 
           {/* Support */}
           <div className="col-lg-2 col-md-6 mb-4">
-            <h5>Hỗ trợ</h5>
+            <h3>Hỗ trợ</h3>
             <ul className="list-unstyled mb-0">
               <li className="mb-2"><a href="#!">Đổi trả - Hoàn tiền</a></li>
               <li className="mb-2"><a href="#!">Bảo hành - Bồi hoàn</a></li>
@@ -55,7 +55,7 @@ function Footer() {
 
           {/* Account */}
           <div className="col-lg-2 col-md-6 mb-4">
-            <h5>Tài khoản</h5>
+            <h3>Tài khoản</h3>
             <ul className="list-unstyled mb-0">
               <li className="mb-2">
                 <NavLink to="/dang-nhap">Đăng nhập</NavLink>
@@ -70,7 +70,7 @@ function Footer() {
 
           {/* Newsletter */}
           <div className="col-lg-3 col-md-12 mb-4">
-            <h5>Đăng ký nhận tin</h5>
+            <h3>Đăng ký nhận tin</h3>
             <p style={{ fontSize: "0.85rem" }}>Nhận thông tin ưu đãi và sách mới nhất.</p>
             <form className="d-flex gap-2">
               <input

@@ -43,7 +43,7 @@ const DanhSachYeuThich: React.FC = () => {
     return (
       <div className="container py-5 text-center">
         <i className="fas fa-heart" style={{ fontSize: '3rem', color: 'var(--color-text-muted)', marginBottom: '1rem', display: 'block' }}></i>
-        <h5 style={{ color: 'var(--color-text-secondary)' }}>Chưa có sản phẩm yêu thích</h5>
+        <p style={{ color: 'var(--color-text-secondary)', fontWeight: 600 }}>Chưa có sản phẩm yêu thích</p>
         <Link to="/" className="btn-modern-primary mt-3" style={{ display: 'inline-flex', padding: '0.6rem 1.5rem' }}>
           Khám phá sách
         </Link>
@@ -65,7 +65,7 @@ const DanhSachYeuThich: React.FC = () => {
               </Link>
               <div className="product-card-body">
                 <Link to={`/sach/${item.maSach}`} style={{ textDecoration: 'none' }}>
-                  <h5 className="product-card-title">{item.tenSach}</h5>
+                  <h3 className="product-card-title">{item.tenSach}</h3>
                 </Link>
                 <div className="product-card-price">
                   <span className="price-current">{dinhDangSo(item.giaBan)} đ</span>

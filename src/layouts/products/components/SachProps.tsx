@@ -94,7 +94,7 @@ const SachProps: React.FC<SachPropsInterface> = (props) => {
             {renderStars(props.sach.trungBinhXepHang ? props.sach.trungBinhXepHang : 0)}
           </div>
           <Link to={`/sach/${props.sach.maSach}`} style={{ textDecoration: "none" }}>
-            <h5 className="product-card-title">{props.sach.tenSach}</h5>
+            <h3 className="product-card-title">{props.sach.tenSach}</h3>
           </Link>
           <div className="product-card-price">
             <span className="price-current">{dinhDangSo(props.sach.giaBan)} đ</span>
