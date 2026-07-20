@@ -8,7 +8,7 @@ function Banner() {
     <section className="hero-section">
       <div className="container">
         <div className="row align-items-center">
-          <div className="col-lg-7">
+          <div className="col-12 hero-content">
             <h1 className="hero-title">
               Khám phá thế giới
               <br />
@@ -27,20 +27,6 @@ function Banner() {
               Khám phá ngay
               <i className="fas fa-arrow-right"></i>
             </button>
-          </div>
-          <div className="col-lg-5 d-none d-lg-flex justify-content-center" style={{ position: "relative" }}>
-            <div style={{
-              width: 280, height: 280,
-              background: "rgba(59,130,246,0.12)",
-              borderRadius: "50%",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              animation: "float 4s ease-in-out infinite"
-            }}>
-              <i className="fas fa-book-reader" style={{
-                fontSize: "6rem",
-                color: "rgba(255,255,255,0.7)",
-              }}></i>
-            </div>
           </div>
         </div>
       </div>

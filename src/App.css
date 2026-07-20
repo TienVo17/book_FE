@@ -412,6 +412,11 @@
   pointer-events: none;
 }
 
+/* Chữ giữ độ dài dòng dễ đọc thay vì trải hết chiều ngang. */
+.hero-content {
+  max-width: 620px;
+}
+
 .hero-title {
   font-family: var(--font-heading);
   font-size: 2.6rem;
