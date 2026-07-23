@@ -32,7 +32,7 @@ const SachProps: React.FC<SachPropsInterface> = (props) => {
         setDangTaiDuLieu(false);
         setBaoLoi(error.message);
       });
-  }, []);
+  }, [maSach]);
 
   const handleToggleYeuThich = async (e: React.MouseEvent) => {
     e.preventDefault();

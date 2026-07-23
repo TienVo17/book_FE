@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import DanhGiaModel from '../../../../models/DanhGiaModel';
 
 export default function DanhSachBinhLuan() {
@@ -8,11 +8,7 @@ export default function DanhSachBinhLuan() {
   const [trangHienTai, setTrangHienTai] = useState(1);
   const [tongSoTrang, setTongSoTrang] = useState(0);
 
-  useEffect(() => {
-    loadData();
-  }, [trangHienTai]);
-
-  const loadData = () => {
+  const loadData = useCallback(() => {
     setDangTaiDuLieu(true);
     fetch(`http://localhost:8080/api/admin/danh-gia/findAll?page=${trangHienTai - 1}`, {
       method: 'GET',
@@ -37,7 +33,11 @@ export default function DanhSachBinhLuan() {
         setBaoLoi('Có lỗi xảy ra khi tải dữ liệu!');
         setDangTaiDuLieu(false);
       });
-  };
+  }, [trangHienTai]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleToggleActive = async (maDanhGia: number, isActive: boolean) => {
     const action = isActive ? 'ẩn' : 'hiện';

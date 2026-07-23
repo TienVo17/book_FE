@@ -1,8 +1,6 @@
 import React from "react";
-import { useNavigate } from "react-router-dom";
 
 function Banner() {
-  const navigate = useNavigate();
 
   return (
     <section className="hero-section">

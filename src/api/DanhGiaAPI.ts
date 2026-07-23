@@ -1,7 +1,5 @@
-import React from "react";
 import DanhGiaModel from "../models/DanhGiaModel";
 import { my_request } from "./Request";
-import { jwtDecode } from "jwt-decode";
 
 async function getAllReviewOfBook(duongDan: string): Promise<DanhGiaModel[]> {
   const ketQua: DanhGiaModel[] = [];

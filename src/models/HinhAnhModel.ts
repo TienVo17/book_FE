@@ -1,4 +1,4 @@
-﻿class HinhAnhModel {
+class HinhAnhModel {
   maHinhAnh: number;
   tenHinhAnh?: string;
   icon?: boolean;

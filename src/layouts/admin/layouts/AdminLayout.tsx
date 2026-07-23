@@ -1,7 +1,7 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import AdminSidebar from '../components/AdminSidebar';
-import SachForm_Admin from '../components/book/SachForm';
+import SachFormAdmin from '../components/book/SachForm';
 import DanhSachSach from '../components/book/DanhSachSach';
 import CapNhatSach from "../components/book/CapNhatSach";
 import UserComponent from "../components/user";
@@ -19,7 +19,7 @@ const AdminLayout: React.FC = () => {
         <Routes>
           <Route path="dashboard" element={<ThongKeDashboard />} />
           <Route path="danh-sach-sach" element={<DanhSachSach />} />
-          <Route path="them-sach" element={<SachForm_Admin />} />
+          <Route path="them-sach" element={<SachFormAdmin />} />
           <Route path="cap-nhat-sach/:maSach" element={<CapNhatSach />} />
           <Route path="danh-sach-nguoi-dung" element={<UserComponent />} />
           <Route path="danh-sach-binh-luan" element={<DanhSachBinhLuan />} />
