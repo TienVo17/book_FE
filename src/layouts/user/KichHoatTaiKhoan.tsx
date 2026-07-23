@@ -1,8 +1,6 @@
 import { useEffect, useState } from "react";
 
 function KichHoatTaiKhoan() {
-  const [email, setEmail] = useState<string>("");
-  const [maKichHoat, setMaKichHoat] = useState<string>("");
   const [daKichHoat, setDaKichHoat] = useState<boolean>(false);
   const [thongBao, setThongBao] = useState<string>("");
 
@@ -13,8 +11,6 @@ function KichHoatTaiKhoan() {
     const maKichHoatFromUrl = queryParams.get("maKichHoat");
 
     if (emailFromUrl && maKichHoatFromUrl) {
-      setEmail(emailFromUrl);
-      setMaKichHoat(maKichHoatFromUrl);
       thucHienKichHoat(emailFromUrl, maKichHoatFromUrl);
     }
   }, []);

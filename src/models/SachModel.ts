@@ -1,3 +1,6 @@
+import HinhAnhModel from "./HinhAnhModel";
+import type { TheLoaiModel } from "./TheLoaiModel";
+
 export interface SachThongTinChiTietModel {
   congTyPhatHanh?: string;
   nhaXuatBan?: string;
@@ -9,9 +12,6 @@ export interface SachThongTinChiTietModel {
   trongLuongGram?: number;
   phienBan?: string;
 }
-
-import HinhAnhModel from "./HinhAnhModel";
-import type { TheLoaiModel } from "./TheLoaiModel";
 
 class SachModel {
   maSach: number;

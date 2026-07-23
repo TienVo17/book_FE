@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import SachModel from '../../../../models/SachModel';
 import { useNavigate } from 'react-router-dom';
 import { xoaSach, findAll } from "../../../../api/SachApi";
@@ -14,16 +14,7 @@ export default function DanhSachSach() {
   const [searchTerm, setSearchTerm] = useState('');
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const jwt = localStorage.getItem('jwt') || '';
-    if (jwt) {
-      const decodedJwt = JSON.parse(atob(jwt.split('.')[1]));
-      setUserInfo(decodedJwt);
-    }
-    loadData();
-  }, [trangHienTai]);
-
-  const loadData = () => {
+  const loadData = useCallback(() => {
     setDangTaiDuLieu(true);
     findAll(trangHienTai - 1)
       .then((kq) => {
@@ -35,7 +26,16 @@ export default function DanhSachSach() {
         setBaoLoi(error.message);
         setDangTaiDuLieu(false);
       });
-  };
+  }, [trangHienTai]);
+
+  useEffect(() => {
+    const jwt = localStorage.getItem('jwt') || '';
+    if (jwt) {
+      const decodedJwt = JSON.parse(atob(jwt.split('.')[1]));
+      setUserInfo(decodedJwt);
+    }
+    loadData();
+  }, [loadData]);
 
   const handleToggleActive = async (maSach: number, isActive: number) => {
     const action = isActive ? 'đóng bán' : 'mở bán';

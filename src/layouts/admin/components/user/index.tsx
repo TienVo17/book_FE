@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import NguoiDungModel from "../../../../models/NguoiDungModel";
 import { findAll } from "../../../../api/UserApi";
 
@@ -14,12 +14,7 @@ export default function UserComponent() {
   const [quyenList, setQuyenList] = useState<any[]>([]);
   const [selectedQuyen, setSelectedQuyen] = useState<any[]>([]);
 
-  useEffect(() => {
-    loadData();
-    loadQuyenList();
-  }, [trangHienTai]);
-
-  const loadData = () => {
+  const loadData = useCallback(() => {
     setDangTaiDuLieu(true);
     findAll(trangHienTai - 1)
       .then((kq) => {
@@ -31,7 +26,12 @@ export default function UserComponent() {
         setBaoLoi(error.message);
         setDangTaiDuLieu(false);
       });
-  };
+  }, [trangHienTai]);
+
+  useEffect(() => {
+    loadData();
+    loadQuyenList();
+  }, [loadData]);
 
   const loadQuyenList = () => {
     fetch("http://localhost:8080/api/admin/quyen/findAll", {

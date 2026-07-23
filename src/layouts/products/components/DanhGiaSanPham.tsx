@@ -31,16 +31,6 @@ export const renderStars = (rating: number) => {
   );
 };
 
-const renderStarOptions = () => {
-  return [5, 4, 3, 2, 1].map((rating) => (
-    <option key={rating} value={rating}>
-      {rating} sao
-    </option>
-  ));
-};
-
-
-
 const DanhGiaSanPham: React.FC<DanhGiaSanPhamProps> = ({ maSach }) => {
   const [danhSachDanhGia, setDanhSachDanhGia] = useState<DanhGiaModel[]>([]);
   const [dangTaiDuLieu, setDangTaiDuLieu] = useState(true);
@@ -50,7 +40,6 @@ const DanhGiaSanPham: React.FC<DanhGiaSanPhamProps> = ({ maSach }) => {
     nhanXet: "",
     maSach:0
   });
-  const [dangGuiDanhGia, setDangGuiDanhGia] = useState(false);
   const navigate = useNavigate();
 
   // Chỉ mời viết đánh giá khi token còn hạn, tránh để khách gõ xong mới bị chặn.
@@ -189,16 +178,8 @@ const DanhGiaSanPham: React.FC<DanhGiaSanPhamProps> = ({ maSach }) => {
                       
                   });  
               }}
-              disabled={dangGuiDanhGia}
             >
-              {dangGuiDanhGia ? (
-                <>
-                  <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                  Đang gửi...
-                </>
-              ) : (
-                <>Gửi đánh giá</>
-              )}
+              Gửi đánh giá
             </button>
           </form>
         </div>
