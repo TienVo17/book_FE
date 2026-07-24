@@ -104,11 +104,12 @@ export class ApiRequestError extends Error {
 
 export async function authRequest<T = unknown>(url: string, options: RequestInit = {}): Promise<T> {
   const token = getValidJwtOrThrow();
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...((options.headers as Record<string, string>) || {}),
-  };
-  headers.Authorization = `Bearer ${token}`;
+  const headers = new Headers(options.headers);
+  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
+  if (!isFormData && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+  headers.set('Authorization', `Bearer ${token}`);
 
   const response = await fetch(url, { ...options, headers });
   const body = await parseResponseBody(response);

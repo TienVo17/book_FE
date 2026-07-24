@@ -1,5 +1,8 @@
 import SachModel from "../models/SachModel";
 import { my_request } from "./Request";
+import { apiUrl } from './ApiUrl';
+
+const ADMIN_BOOKS_PATH = '/api/admin/sach';
 
 interface KetQuaInterface {
   ketQua: SachModel[];
@@ -49,15 +52,15 @@ async function laySach(duongDan: string): Promise<KetQuaInterface> {
 }
 
 export async function getAllBook(trangHienTai: number): Promise<KetQuaInterface> {
-  return laySach(`http://localhost:8080/api/sach?page=${trangHienTai}`);
+  return laySach(apiUrl(`/api/sach?page=${trangHienTai}`));
 }
 
 export async function get3NewBook(): Promise<KetQuaInterface> {
-  return laySach("http://localhost:8080/api/sach?page=0");
+  return laySach(apiUrl('/api/sach?page=0'));
 }
 
 export async function findByBook(tuKhoaTimKiem: string, maTheLoai: number, trangHienTai: number = 0): Promise<KetQuaInterface> {
-  let duongDan: string = `http://localhost:8080/api/sach?page=${trangHienTai}`;
+  let duongDan: string = apiUrl(`/api/sach?page=${trangHienTai}`);
   if (tuKhoaTimKiem !== "") {
     duongDan += `&tensach=${encodeURIComponent(tuKhoaTimKiem)}`;
   }
@@ -68,7 +71,7 @@ export async function findByBook(tuKhoaTimKiem: string, maTheLoai: number, trang
 }
 
 export async function getBookById(maSach: number): Promise<SachModel | null> {
-  const duongDan = `http://localhost:8080/api/sach/${maSach}`;
+  const duongDan = apiUrl(`/api/sach/${maSach}`);
 
   try {
     const response = await fetch(duongDan);
@@ -89,7 +92,7 @@ export async function getBookById(maSach: number): Promise<SachModel | null> {
 }
 
 export async function xoaSach(maSach: number): Promise<boolean> {
-  const duongDan = `http://localhost:8080/api/admin/sach/delete/${maSach}`;
+  const duongDan = apiUrl(`${ADMIN_BOOKS_PATH}/delete/${maSach}`);
   const token = localStorage.getItem('jwt');
 
   if (!token) {
@@ -112,8 +115,7 @@ export async function xoaSach(maSach: number): Promise<boolean> {
   }
 }
 
-const url = 'http://localhost:8080';
-const endpoint = url + "/api/admin/sach";
+const endpoint = apiUrl(ADMIN_BOOKS_PATH);
 export async function findAll(trangHienTai: number): Promise<KetQuaInterface> {
   const ketQua: SachModel[] = [];
   const response = await my_request<SachPageResponse>(endpoint + "?page=" + trangHienTai);
@@ -129,13 +131,13 @@ export async function findAll(trangHienTai: number): Promise<KetQuaInterface> {
 }
 
 export async function getSachBanChay(limit: number = 8): Promise<SachModel[]> {
-  return my_request<SachModel[]>(`http://localhost:8080/api/sach/ban-chay?limit=${limit}`);
+  return my_request<SachModel[]>(apiUrl(`/api/sach/ban-chay?limit=${limit}`));
 }
 
 export async function getSachMoiNhat(limit: number = 8): Promise<SachModel[]> {
-  return my_request<SachModel[]>(`http://localhost:8080/api/sach/moi-nhat?limit=${limit}`);
+  return my_request<SachModel[]>(apiUrl(`/api/sach/moi-nhat?limit=${limit}`));
 }
 
 export async function getSachLienQuan(maSach: number, limit: number = 6): Promise<SachModel[]> {
-  return my_request<SachModel[]>(`http://localhost:8080/api/sach/${maSach}/lien-quan?limit=${limit}`);
+  return my_request<SachModel[]>(apiUrl(`/api/sach/${maSach}/lien-quan?limit=${limit}`));
 }

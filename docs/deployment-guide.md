@@ -34,24 +34,19 @@ Generates optimized static files in `build/` folder.
 
 **Build**:
 ```bash
-docker build -t book-fe:latest .
+docker build \
+  --build-arg REACT_APP_API_BASE_URL=http://localhost:8080 \
+  -t book-fe:latest .
 ```
+
+`REACT_APP_API_BASE_URL` is embedded in the static bundle. It must be an origin reachable by the user's browser, not a Docker-only hostname.
 
 **Run** (standalone, for testing):
 ```bash
-docker run -p 3000:3000 \
-  -e REACT_APP_API_BASE_URL=http://localhost:8080 \
-  book-fe:latest
+docker run -p 3000:3000 book-fe:latest
 ```
 
-Access on http://localhost:3000.
-
-**Or with environment file**:
-```bash
-docker run -p 3000:3000 \
-  --env-file .env.production \
-  book-fe:latest
-```
+Access on http://localhost:3000. Runtime `docker run -e` or `--env-file` values cannot change an already-built Create React App bundle.
 
 ### Docker Compose (Full Stack)
 
@@ -86,7 +81,8 @@ services:
     build:
       context: ./book_FE
       args:
-        REACT_APP_API_BASE_URL: http://backend:8080
+        # Browser reaches the backend through the published host port.
+        REACT_APP_API_BASE_URL: http://localhost:8080
     ports:
       - "3000:3000"
     depends_on:
@@ -111,58 +107,47 @@ docker-compose down
 
 ## Build Arguments & Environment Variables
 
-### Build-Time Variables (Docker ARG)
+### Build-Time Variable (Docker ARG)
 
-Set during `docker build`:
+The Dockerfile consumes the value before `npm run build`:
 
 ```dockerfile
 ARG REACT_APP_API_BASE_URL=http://localhost:8080
-ARG REACT_APP_ENV=development
+ENV REACT_APP_API_BASE_URL=${REACT_APP_API_BASE_URL}
 ```
 
-**Usage in Dockerfile**:
+**Usage**:
 ```bash
 docker build \
   --build-arg REACT_APP_API_BASE_URL=https://api.example.com \
-  --build-arg REACT_APP_ENV=production \
   -t book-fe:latest .
 ```
 
-### Runtime Variables (.env files)
+The value must be a credential-free HTTP(S) origin with no path, query, or fragment.
 
-Create environment files in project root:
+### Local `.env` Files
 
-**.env.development** (for local dev):
+Create React App reads `.env*` files when `npm start` or `npm run build` begins. These are build/start inputs, not runtime configuration for an nginx container.
+
+**.env.development.local** (optional local override):
 ```
 REACT_APP_API_BASE_URL=http://localhost:8080
-REACT_APP_ENV=development
-REACT_APP_LOG_LEVEL=debug
 ```
 
-**.env.production** (for production):
+**.env.production.local** (optional local production-build override):
 ```
 REACT_APP_API_BASE_URL=https://api.bookstore.com
-REACT_APP_ENV=production
-REACT_APP_LOG_LEVEL=error
 ```
 
-**.env.example** (commit to repo):
-```
-REACT_APP_API_BASE_URL=http://localhost:8080
-REACT_APP_ENV=development
-REACT_APP_LOG_LEVEL=debug
-```
+The repository ignores local and non-example `.env` files. Do not commit environment-specific values.
 
-**Never commit .env files** — add to .gitignore (already present).
-
-### Using Environment Variables in Code
+### Using the Central Resolver
 
 ```typescript
-// src/api/SachApi.ts
-const BASE = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8080';
+import { apiUrl } from './ApiUrl';
 
 export async function listBooks(): Promise<SachModel[]> {
-  return my_request(`${BASE}/sach/list`);
+  return my_request(apiUrl('/api/sach?page=0'));
 }
 ```
 
@@ -187,6 +172,8 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 COPY . .
+ARG REACT_APP_API_BASE_URL=http://localhost:8080
+ENV REACT_APP_API_BASE_URL=${REACT_APP_API_BASE_URL}
 RUN npm run build
 
 # Serve stage
@@ -218,6 +205,8 @@ CMD ["nginx", "-g", "daemon off;"]
 - Fast startup and deployment
 
 ## nginx Configuration
+
+The active `REACT_APP_API_BASE_URL` model sends browser requests directly to an absolute backend origin, so nginx only serves the SPA. The proxy examples below describe an optional same-origin architecture and are not used by the current Vercel or absolute-origin Docker flow.
 
 Located in `nginx.conf`:
 
@@ -295,19 +284,19 @@ npm start
 
 ### Scenario 2: Docker Development
 
-**Build**:
+**Build for a backend published on the host**:
 ```bash
-docker build -t book-fe:dev .
+docker build \
+  --build-arg REACT_APP_API_BASE_URL=http://localhost:8080 \
+  -t book-fe:dev .
 ```
 
-**Run with local backend**:
+**Run**:
 ```bash
-docker run -p 3000:3000 \
-  -e REACT_APP_API_BASE_URL=http://host.docker.internal:8080 \
-  book-fe:dev
+docker run -p 3000:3000 book-fe:dev
 ```
 
-Note: Use `host.docker.internal` to access host machine services from inside container.
+The API request originates in the browser, so it uses the host-published backend URL. `host.docker.internal` and Docker service names are not needed by the static frontend bundle.
 
 ### Scenario 3: Docker Compose (Local Integration)
 
@@ -327,16 +316,16 @@ docker-compose logs -f frontend
 
 ### Scenario 4: Kubernetes Deployment
 
-**Create ConfigMap for environment**:
-```yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: book-fe-config
-data:
-  REACT_APP_API_BASE_URL: "https://api.bookstore.com"
-  REACT_APP_ENV: "production"
+Build and publish the image with the public backend origin first:
+
+```bash
+docker build \
+  --build-arg REACT_APP_API_BASE_URL=https://api.bookstore.com \
+  -t registry.example.com/book-fe:latest .
+docker push registry.example.com/book-fe:latest
 ```
+
+Kubernetes runtime environment variables cannot modify the compiled API origin.
 
 **Deployment manifest**:
 ```yaml
@@ -359,9 +348,6 @@ spec:
         image: book-fe:latest
         ports:
         - containerPort: 3000
-        envFrom:
-        - configMapRef:
-            name: book-fe-config
         livenessProbe:
           httpGet:
             path: /
@@ -413,11 +399,6 @@ npm run build
 ### Step 2: Build Docker Image
 
 ```bash
-# Production build
-REACT_APP_API_BASE_URL=https://api.bookstore.com \
-docker build -t book-fe:v1.0.0 .
-
-# Or with build args
 docker build \
   --build-arg REACT_APP_API_BASE_URL=https://api.bookstore.com \
   -t book-fe:v1.0.0 .
@@ -468,8 +449,8 @@ curl http://localhost:3000
 # Check health (should return HTML)
 curl -I http://localhost:3000
 
-# Check API connectivity (should reach backend)
-curl -I http://localhost:3000/api/sach/list
+# Check API connectivity against the browser-reachable backend
+curl -I "http://localhost:8080/api/sach?page=0"
 ```
 
 ## Monitoring & Logs
@@ -520,21 +501,22 @@ kubectl describe deployment book-fe
 **Symptoms**: CORS errors, network requests failing, "http://localhost:8080 refused".
 
 **Causes**:
-1. Backend not running or on different port
-2. REACT_APP_API_BASE_URL not set correctly
-3. Docker container can't reach backend (networking issue)
+1. Backend not running or on a different public origin
+2. `REACT_APP_API_BASE_URL` was missing or incorrect when the bundle was built
+3. Backend CORS does not allow the frontend origin
 
 **Solutions**:
 ```bash
-# Check backend is running
-curl http://localhost:8080/sach/list
+# Check the browser-reachable backend health route
+curl http://localhost:8080/api/sach?page=0
 
-# Verify REACT_APP_API_BASE_URL in built app
-docker exec book-fe sh -c 'grep REACT_APP_API_BASE_URL /usr/share/nginx/html/*.js | head -1'
-
-# In Docker Compose, ensure backend service name is correct
-# Use http://backend:8080 not http://localhost:8080
+# Rebuild with the correct browser-reachable origin
+docker build \
+  --build-arg REACT_APP_API_BASE_URL=http://localhost:8080 \
+  -t book-fe:latest .
 ```
+
+Inspect the browser Network panel to confirm requests use the expected origin. Docker-only names such as `backend` are not resolvable by the user's browser.
 
 ### Port already in use
 
@@ -569,7 +551,9 @@ npm install
 npm run build
 ```
 
-### nginx: "connection refused" to backend
+### Optional same-origin nginx proxy: "connection refused"
+
+This section applies only if nginx was intentionally customized to proxy API requests instead of using the current absolute `REACT_APP_API_BASE_URL` model.
 
 **Symptoms**: nginx 502 Bad Gateway errors.
 
@@ -724,11 +708,11 @@ jobs:
       - name: Install dependencies
         run: npm install
       
-      - name: Build
-        run: REACT_APP_API_BASE_URL=${{ secrets.PROD_API_URL }} npm run build
-      
       - name: Build Docker image
-        run: docker build -t book-fe:latest .
+        run: |
+          docker build \
+            --build-arg REACT_APP_API_BASE_URL=${{ vars.PROD_API_URL }} \
+            -t book-fe:latest .
       
       - name: Push to registry
         run: |

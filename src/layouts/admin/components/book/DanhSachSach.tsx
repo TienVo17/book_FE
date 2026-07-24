@@ -3,6 +3,7 @@ import SachModel from '../../../../models/SachModel';
 import { useNavigate } from 'react-router-dom';
 import { xoaSach, findAll } from "../../../../api/SachApi";
 import AnhSach from "../../../utils/AnhSach";
+import { apiUrl } from '../../../../api/ApiUrl';
 
 export default function DanhSachSach() {
   const [danhSachSach, setDanhSachSach] = useState<SachModel[]>([]);
@@ -42,7 +43,7 @@ export default function DanhSachSach() {
     if (!window.confirm(`Bạn có muốn ${action} sách này?`)) return;
     try {
       const endpoint = isActive ? 'unactive' : 'active';
-      await fetch(`http://localhost:8080/api/admin/sach/${endpoint}/${maSach}`, {
+      await fetch(apiUrl(`/api/admin/sach/${endpoint}/${maSach}`), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('jwt')}`,

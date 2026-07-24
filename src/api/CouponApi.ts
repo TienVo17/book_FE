@@ -1,7 +1,9 @@
 import { authRequest } from './Request';
 import { CouponModel, KetQuaKiemTraCoupon } from '../models/CouponModel';
 
-const BASE = 'http://localhost:8080';
+import { apiUrl } from './ApiUrl';
+
+const BASE = apiUrl('');
 
 // User-facing: kiểm tra mã giảm giá
 export async function kiemTraCoupon(ma: string, tongTien: number): Promise<KetQuaKiemTraCoupon> {

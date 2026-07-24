@@ -1,6 +1,8 @@
 import { authRequest, getApiMessage, parseResponseBody } from './Request';
 
-const BASE = 'http://localhost:8080';
+import { apiUrl } from './ApiUrl';
+
+const BASE = apiUrl('');
 
 async function postJson(url: string, body: Record<string, string>) {
   const response = await fetch(url, {

@@ -39,11 +39,11 @@ No manual `vercel --prod` command is required for the normal release flow.
 
 ## Environment Variables
 
-The frontend should use the following Vercel build-time variable when the production backend is available:
+The frontend resolves every backend request from the following Vercel build-time variable:
 
-- `REACT_APP_API_BASE_URL`
+- `REACT_APP_API_BASE_URL` — credential-free backend HTTP(S) origin with no path, query, or fragment, for example `https://api.example.com`
 
-Store values in Vercel project settings. Do not commit production values or credentials to the repository. Changing a build-time variable requires a new deployment.
+Whitespace and trailing slashes are removed before requests are constructed. When the variable is absent, local development falls back to `http://localhost:8080`; production builds therefore require an appropriate backend origin to make backend-dependent features available. Store values in Vercel project settings. Do not commit production values or credentials to the repository. Changing a build-time variable requires a new deployment.
 
 ## Health Check
 
@@ -66,6 +66,6 @@ Prefer a reviewed Git rollback:
 
 For an urgent service restoration, promote a known-good deployment from the Vercel dashboard, then follow with a Git revert so `master` remains the source of truth.
 
-## Current Runtime Limitation
+## Backend Connectivity
 
-The application still contains API requests targeting `http://localhost:8080`. The static frontend can deploy successfully, but backend-dependent features will not work for remote users until those calls use `REACT_APP_API_BASE_URL` and the backend permits the Vercel origin through CORS.
+A production build needs `REACT_APP_API_BASE_URL` to point to the deployed backend, and that backend must permit the Vercel origin through CORS. This document does not assert that either configuration has been applied.

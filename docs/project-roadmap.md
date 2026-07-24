@@ -1,7 +1,8 @@
 # Project Roadmap
 
 **Version**: 1.0  
-**Last Updated**: 2026-07-08  
+**Last Updated**: 2026-07-24
+
 **Current Phase**: MVP (Active)
 
 ## Phase Overview
@@ -33,12 +34,10 @@
 ### Known Issues (Tracked)
 
 1. **Auth guard redundancy** — 3 separate guard implementations; only 1 wired
-2. **Hardcoded API URL** — No env-based configuration
-3. **Mixed API patterns** — Some pages bypass api/ modules and call fetch directly
-4. **Nginx proxy mismatch** — Non-`/api/` paths not proxied correctly
-5. **Cart shape divergence** — Two different GioHangItem interfaces
-6. **Dead code** — Test.tsx, RequireAdmin.tsx, ProtectedRoute.tsx
-7. **No cart sync** — Cart only client-side; lost on browser clear
+2. **Mixed API patterns** — Some pages bypass api/ modules and call fetch directly
+3. **Cart shape divergence** — Two different GioHangItem interfaces
+4. **Dead code** — Test.tsx, RequireAdmin.tsx, ProtectedRoute.tsx
+5. **No cart sync** — Cart only client-side; lost on browser clear
 
 ## Phase V1.1: Code Quality & Refactoring
 
@@ -50,23 +49,19 @@
 
 **Objective**: Externalize hardcoded URLs and configuration.
 
-**Tasks**:
-- [ ] Create .env.development, .env.production, .env.example
-- [ ] Add .env to .gitignore (already present)
-- [ ] Update API modules to use `process.env.REACT_APP_API_BASE_URL`
-- [ ] Update nginx.conf to accept REACT_APP_API_BASE_URL as ENV var
-- [ ] Add build script for different environments
-- [ ] Update Docker build to pass API URL as build arg
+**Status**: Completed 2026-07-24.
 
-**Files to Modify**:
-- `src/api/*.ts` — Replace hardcoded BASE with env var
-- `.env.example` — Create with REACT_APP_API_BASE_URL=http://localhost:8080
-- `Dockerfile` — Add ARG REACT_APP_API_BASE_URL
+**Delivered**:
+- [x] Centralized URL resolution in `src/api/ApiUrl.ts`
+- [x] Migrated API modules and direct request sites to `REACT_APP_API_BASE_URL`
+- [x] Added source-level regression tests for loopback request hosts
+- [x] Ignored local `.env` inputs
+- [x] Added Docker build argument wiring
 
 **Acceptance Criteria**:
-- Builds successfully with different API_BASE_URL values
-- Frontend can connect to backend on different domains (localhost, staging, prod)
-- No hardcoded URLs in compiled bundle (verify via build output)
+- Builds successfully with a browser-reachable API origin supplied at build time
+- Local development falls back to `http://localhost:8080`
+- No loopback request host remains outside the deliberate resolver fallback
 
 ### V1.1.2: Consolidate Auth Guards
 

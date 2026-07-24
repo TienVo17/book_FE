@@ -1,23 +1,22 @@
 import { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
+import { apiUrl } from '../../api/ApiUrl';
 
 function KichHoatTaiKhoan() {
+  const { email, maKichHoat } = useParams<{ email: string; maKichHoat: string }>();
   const [daKichHoat, setDaKichHoat] = useState<boolean>(false);
   const [thongBao, setThongBao] = useState<string>("");
 
   useEffect(() => {
-    // Lấy các tham số từ URL
-    const queryParams = new URLSearchParams(window.location.search);
-    const emailFromUrl = queryParams.get("email");
-    const maKichHoatFromUrl = queryParams.get("maKichHoat");
-
-    if (emailFromUrl && maKichHoatFromUrl) {
-      thucHienKichHoat(emailFromUrl, maKichHoatFromUrl);
+    if (email && maKichHoat) {
+      void thucHienKichHoat(email, maKichHoat);
     }
-  }, []);
+  }, [email, maKichHoat]);
 
-  const thucHienKichHoat = async (email: string, maKichHoat: string) => {
+  const thucHienKichHoat = async (activationEmail: string, activationCode: string) => {
     try {
-      const url = `http://localhost:8080/tai-khoan/kich-hoat?email=${email}&maKichHoat=${maKichHoat}`;
+      const query = new URLSearchParams({ email: activationEmail, maKichHoat: activationCode });
+      const url = apiUrl(`/tai-khoan/kich-hoat?${query.toString()}`);
       const response = await fetch(url, { method: "GET" });
 
       if (response.ok) {

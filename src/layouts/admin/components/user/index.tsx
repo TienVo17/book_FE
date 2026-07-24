@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import NguoiDungModel from "../../../../models/NguoiDungModel";
 import { findAll } from "../../../../api/UserApi";
+import { apiUrl } from '../../../../api/ApiUrl';
 
 export default function UserComponent() {
   const [userList, setUserList] = useState<NguoiDungModel[]>([]);
@@ -34,7 +35,7 @@ export default function UserComponent() {
   }, [loadData]);
 
   const loadQuyenList = () => {
-    fetch("http://localhost:8080/api/admin/quyen/findAll", {
+    fetch(apiUrl('/api/admin/quyen/findAll'), {
       method: "GET",
       headers: {
         "Authorization": `Bearer ${localStorage.getItem('jwt')}`,
@@ -68,7 +69,7 @@ export default function UserComponent() {
 
   const handleSaveQuyen = async () => {
     try {
-      const response = await fetch("http://localhost:8080/api/admin/user/phan-quyen", {
+      const response = await fetch(apiUrl('/api/admin/user/phan-quyen'), {
         method: "POST",
         body: JSON.stringify({ userId, quyenIds: selectedQuyen }),
         headers: {

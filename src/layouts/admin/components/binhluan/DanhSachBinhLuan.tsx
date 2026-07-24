@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import DanhGiaModel from '../../../../models/DanhGiaModel';
+import { apiUrl } from '../../../../api/ApiUrl';
 
 export default function DanhSachBinhLuan() {
   const [binhLuanList, setBinhLuanList] = useState<any[]>([]);
@@ -10,7 +11,7 @@ export default function DanhSachBinhLuan() {
 
   const loadData = useCallback(() => {
     setDangTaiDuLieu(true);
-    fetch(`http://localhost:8080/api/admin/danh-gia/findAll?page=${trangHienTai - 1}`, {
+    fetch(apiUrl(`/api/admin/danh-gia/findAll?page=${trangHienTai - 1}`), {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('jwt')}`,
@@ -44,7 +45,7 @@ export default function DanhSachBinhLuan() {
     if (!window.confirm(`Bạn muốn ${action} bình luận này?`)) return;
     try {
       const endpoint = isActive ? 'unactive' : 'active';
-      await fetch(`http://localhost:8080/api/admin/danh-gia/${endpoint}/${maDanhGia}`, {
+      await fetch(apiUrl(`/api/admin/danh-gia/${endpoint}/${maDanhGia}`), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('jwt')}`,

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { apiUrl } from '../../api/ApiUrl';
 
 interface FormData {
   hoTen: string;
@@ -26,7 +27,7 @@ const DatHangNhanh: React.FC = () => {
     try {
       const gioHang = JSON.parse(localStorage.getItem('gioHang') || '[]');
 
-      const response = await fetch('http://localhost:8080/tai-khoan/dang-ky', {
+      const response = await fetch(apiUrl('/tai-khoan/dang-ky'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

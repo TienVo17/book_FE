@@ -9,6 +9,7 @@ import { DiaChiModel } from '../../models/DiaChiModel';
 import { KetQuaKiemTraCoupon } from '../../models/CouponModel';
 import CartItemsTable from './CartItemsTable';
 import CheckoutSidebar from './CheckoutSidebar';
+import { apiUrl } from '../../api/ApiUrl';
 
 interface SanPhamGioHang {
     maSach: number;
@@ -156,7 +157,7 @@ function ThanhToan() {
                 phuongThucThanhToan,
                 maCoupon: couponResult?.hopLe ? (couponResult.maCoupon || maCoupon.trim().toUpperCase()) : undefined,
             };
-            const data = await authRequest<CheckoutOrderResponse>('http://localhost:8080/api/don-hang/them', {
+            const data = await authRequest<CheckoutOrderResponse>(apiUrl('/api/don-hang/them'), {
                 method: 'POST',
                 body: JSON.stringify(payload),
             });
@@ -202,7 +203,7 @@ function ThanhToan() {
         }
         setDangTaoLinkThanhToan(true);
         try {
-            const response = await authRequest<VNPayUrlResponse>(`http://localhost:8080/api/don-hang/submitOrder?maDonHang=${donHang.maDonHang}`);
+            const response = await authRequest<VNPayUrlResponse>(apiUrl(`/api/don-hang/submitOrder?maDonHang=${donHang.maDonHang}`));
             window.location.href = response.paymentUrl;
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Không thể tạo liên kết thanh toán';

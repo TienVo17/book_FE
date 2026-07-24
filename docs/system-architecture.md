@@ -35,7 +35,8 @@ Web Bán Sách is a **stateless, client-side single-page application (SPA)** tha
              │
         ┌────────────────────────────────┐
         │   Spring Boot Backend API      │
-        │   (http://localhost:8080)      │
+        │ REACT_APP_API_BASE_URL origin │
+        │ (local: http://localhost:8080) │
         ├────────────────────────────────┤
         │   Controllers (REST endpoints) │
         │   - /sach/*, /tai-khoan/*      │
@@ -90,14 +91,15 @@ User navigates to /sach/:maSach
 ChiTietSanPham.tsx mounts
     ↓
 useEffect(() => { 
-  SachApi.getBookDetail(maSach)  // Calls my_request (no auth)
+  SachApi.getBookById(maSach)  // Calls my_request (no auth)
 })
     ↓
 api/SachApi.ts
     ↓
 Request.ts::my_request (GET)
     ↓
-Fetch to http://localhost:8080/sach/{id}
+Fetch to {REACT_APP_API_BASE_URL}/api/sach/{id}
+(or local fallback origin)
     ↓
 Backend returns SachModel (with nested images, categories, reviews)
     ↓
@@ -113,13 +115,13 @@ User clicks "Add to Wishlist"
     ↓
 DanhSachYeuThich.tsx
     ↓
-YeuThichApi.addToWishlist(bookId)
+YeuThichApi.themYeuThich(bookId)
     ↓
 api/YeuThichApi.ts
     ↓
 Request.ts::authRequest (GET/POST)
     ↓
-Fetch to http://localhost:8080/yeu-thich
+Fetch to {REACT_APP_API_BASE_URL}/api/yeu-thich/{bookId}
 Header: Authorization: Bearer {jwt}
     ↓
 Backend validates JWT, updates wishlist
@@ -182,11 +184,11 @@ Backend returns orderId + VNPay payment URL
     ↓
 VNPay processes payment
     ↓
-VNPay redirects to /xu-ly-kq-thanh-toan?code=00&orderId=...
+VNPay redirects to /xu-ly-kq-thanh-toan?...
     ↓
 KetQuaThanhToan.tsx
     ↓
-fetch to /don-hang/{orderId}/chi-tiet (raw fetch, not via api/)
+fetch(apiUrl('/api/don-hang/vnpay-payment') + window.location.search)
     ↓
 Render payment result (success/failure)
     ↓
@@ -265,12 +267,12 @@ navigate(-1)  (back to list)
 ```typescript
 // src/api/SachApi.ts
 export async function listBooks(page: number): Promise<SachModel[]> {
-  return my_request(`${BASE}/sach/list?page=${page}`);
+  return my_request(apiUrl(`/api/sach?page=${page}`));
 }
 
 // Component
 useEffect(() => {
-  SachApi.listBooks(1).then(setBooks).catch(handleError);
+  SachApi.listBooks(0).then(setBooks).catch(handleError);
 }, []);
 ```
 
@@ -282,9 +284,9 @@ useEffect(() => {
 ### Pattern 2: Raw Fetch (Discouraged, but present in codebase)
 
 ```typescript
-// Inside page component (e.g., DonHangUser.tsx)
+// Inside a page component
 useEffect(() => {
-  fetch('http://localhost:8080/don-hang/nguoi-dung', {
+  fetch(apiUrl('/api/don-hang/findAll'), {
     headers: { 'Authorization': `Bearer ${localStorage.getItem('jwt')}` }
   })
     .then(r => r.json())
@@ -294,10 +296,9 @@ useEffect(() => {
 ```
 
 **Issues**:
-- Duplicates Bearer logic (authRequest does this)
-- Hardcoded URL
+- Duplicates Bearer logic (`authRequest` does this)
 - Error handling varies per component
-- Difficult to refactor if backend URL changes
+- Makes authentication behavior harder to update centrally
 
 **Action**: Gradually move these to api/ modules (see [roadmap](./project-roadmap.md)).
 
@@ -374,7 +375,7 @@ try {
 
 - **No secrets in frontend**: API key, DB credentials stay backend-only
 - **.env files**: Never committed; add to .gitignore
-- **Deployment**: Environment variables set at build/runtime (Docker, CI/CD)
+- **Deployment**: CRA environment values are supplied before `npm start` or `npm run build`; runtime container variables cannot change an existing bundle
 
 ## Known Limitations
 
@@ -391,21 +392,11 @@ try {
 
 **Mitigation**: Use only `Adminroute` for protected routes. Consolidate in future refactor.
 
-### 2. Hardcoded API Base URL
+### 2. Build-Time API Base URL
 
-**Issue**: `http://localhost:8080` hardcoded in every API module.
+Backend request sites use `src/api/ApiUrl.ts`. It accepts a credential-free HTTP(S) origin from `REACT_APP_API_BASE_URL`, normalizes it, and falls back to `http://localhost:8080` for local development.
 
-```typescript
-// src/api/SachApi.ts
-const BASE = 'http://localhost:8080';
-```
-
-**Impact**: 
-- Cannot switch to different backend without code change
-- Production deployments must use localhost:8080
-- Environment-based configuration missing
-
-**Mitigation**: Add .env files and use `process.env.REACT_APP_API_BASE_URL`.
+Create React App embeds this value in the static bundle during `npm run build`. Vercel or Docker production builds must therefore provide the deployed backend origin before the build starts; changing a runtime container variable does not update an existing bundle.
 
 ### 3. Mixed Data-Access Patterns
 
@@ -421,26 +412,11 @@ Pages affected: DonHangUser, DonHang (admin), DanhSachBinhLuan, KetQuaThanhToan,
 
 **Mitigation**: Gradually move these to api/ modules.
 
-### 4. Nginx Proxy Path Mismatch
+### 4. Browser-Reachable Docker API Origin
 
-**Issue**: nginx.conf proxies `/api/` to backend, but frontend hits non-`/api/` paths.
+**Constraint**: The static bundle calls the absolute origin embedded through `REACT_APP_API_BASE_URL`; nginx does not proxy those requests. The value must therefore be reachable by the user's browser, not only from the frontend container.
 
-```javascript
-// Frontend hardcodes
-fetch('http://localhost:8080/tai-khoan/dang-nhap')
-fetch('http://localhost:8080/nguoi-dung/search/existsBy*')
-
-// But nginx config
-location /api/ {
-  proxy_pass http://backend:8080;
-}
-
-// Results in: Frontend bypasses nginx proxy, hits backend directly
-```
-
-**Impact**: In Docker Compose, frontend cannot reach backend if backend is isolated (e.g., no external port).
-
-**Mitigation**: Prefix all backend paths with `/api/` or update nginx to proxy all requests.
+For local Docker Compose, the default `http://localhost:8080` works while the backend publishes port 8080 to the host. A value such as `http://backend:8080` is invalid for browser clients because `backend` is only a Docker network hostname. Production Docker builds must embed the public HTTPS backend origin with `--build-arg REACT_APP_API_BASE_URL=...`.
 
 ### 5. Two Divergent Cart-Item Shapes
 
@@ -489,17 +465,6 @@ Files not wired into any route or component:
 - `src/models/Book.ts`: Legacy English-named model
 
 **Mitigation**: Remove or refactor in future cleanup pass.
-
-### 8. No Environment Configuration
-
-**Issue**: Build/deployment configuration not externalized.
-
-**Impact**: 
-- Cannot change API URL per environment (dev/staging/prod)
-- Need to rebuild for each deployment target
-- No feature flags or config overrides
-
-**Mitigation**: Add .env.development, .env.production; reference via `process.env.REACT_APP_*`.
 
 ## Performance Considerations
 

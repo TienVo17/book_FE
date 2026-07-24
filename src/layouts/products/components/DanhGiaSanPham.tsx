@@ -6,6 +6,7 @@ import { vi } from 'date-fns/locale';
 import { toast } from "react-toastify";
 import { useNavigate } from 'react-router-dom';
 import { jwtDecode } from "jwt-decode";
+import { apiUrl } from '../../../api/ApiUrl';
 
 
 
@@ -143,7 +144,7 @@ const DanhGiaSanPham: React.FC<DanhGiaSanPhamProps> = ({ maSach }) => {
               className="btn btn-primary"
               onClick={async ()=>{
                 danhGiaMoi.maSach = maSach;
-                await fetch("http://localhost:8080/api/danh-gia/them-danh-gia-v1", {
+                await fetch(apiUrl('/api/danh-gia/them-danh-gia-v1'), {
                   method: "POST",
                   headers: {
                       "Authorization": `Bearer ${localStorage.getItem('jwt')}`,

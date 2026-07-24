@@ -15,8 +15,8 @@ This document defines coding conventions, architectural patterns, and best pract
 
 ```typescript
 // ✓ Good: Explicit types
-function fetchBooks(categoryId: string, limit: number): Promise<SachModel[]> {
-  return authRequest(`/sach/list?category=${categoryId}&limit=${limit}`);
+function fetchBooks(page: number): Promise<SachModel[]> {
+  return my_request(apiUrl(`/api/sach?page=${page}`));
 }
 
 // ✗ Avoid: Implicit any
@@ -142,14 +142,14 @@ export function useProductDetail(productId: string) {
 
 ```typescript
 // src/api/SachApi.ts
-const BASE = 'http://localhost:8080';
+import { apiUrl } from './ApiUrl';
 
 export async function getBookDetail(bookId: string): Promise<SachModel> {
-  return my_request(`${BASE}/sach/${bookId}`);
+  return my_request(apiUrl(`/api/sach/${bookId}`));
 }
 
 export async function getWishlist(): Promise<SachModel[]> {
-  return authRequest(`${BASE}/yeu-thich`);
+  return authRequest(apiUrl('/api/yeu-thich'));
 }
 ```
 
@@ -423,11 +423,11 @@ Several pages bypass `src/api/` modules and call `fetch()` directly:
 
 **Action**: Refactor to use api/ modules. Low priority but improves consistency.
 
-### Hardcoded Base URL
+### API Base URL
 
-All API modules hardcode `http://localhost:8080`. No env-based configuration.
+All backend request sites resolve URLs through `src/api/ApiUrl.ts`. `REACT_APP_API_BASE_URL` must be a credential-free HTTP(S) origin; local development falls back to `http://localhost:8080`.
 
-**Action**: Add .env.development, .env.production and use `process.env.REACT_APP_API_BASE_URL`.
+Because Create React App substitutes `REACT_APP_*` values at build time, production deployments must configure the backend origin before running `npm run build`.
 
 ### Cart Shape Divergence
 

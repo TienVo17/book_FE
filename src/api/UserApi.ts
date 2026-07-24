@@ -1,7 +1,9 @@
 import NguoiDungModel from "../models/NguoiDungModel";
 import {my_request} from "./Request";
 
-var url = 'http://localhost:8080';
+import { apiUrl } from './ApiUrl';
+
+const url = apiUrl('');
 var endpoint = url + "/api/admin/user";
 
 interface KetQuaInterface {

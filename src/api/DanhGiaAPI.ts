@@ -1,5 +1,6 @@
 import DanhGiaModel from "../models/DanhGiaModel";
 import { my_request } from "./Request";
+import { apiUrl } from './ApiUrl';
 
 async function getAllReviewOfBook(duongDan: string): Promise<DanhGiaModel[]> {
   const ketQua: DanhGiaModel[] = [];
@@ -28,7 +29,7 @@ export async function getAllReviewOfOneBook(
   maSach: number
 ): Promise<DanhGiaModel[]> {
   // Xác định endpoint
-  const duongDan: string = `http://localhost:8080/api/danh-gia/findAll?maSach=${maSach}`;
+  const duongDan: string = apiUrl(`/api/danh-gia/findAll?maSach=${maSach}`);
 
   return getAllReviewOfBook(duongDan); // Call the correct function with the string
 }
@@ -37,7 +38,7 @@ export async function getOneReviewOfOneBook(
   maSach: number
 ): Promise<DanhGiaModel[]> {
   // Xác định endpoint
-  const duongDan: string = `http://localhost:8080/sach/${maSach}/listDanhGia?sort=maDanhGia,asc&page=0&size=1`;
+  const duongDan: string = apiUrl(`/sach/${maSach}/listDanhGia?sort=maDanhGia,asc&page=0&size=1`);
 
   return getAllReviewOfBook(duongDan); // Call the correct function with the string
 }
@@ -62,7 +63,7 @@ export async function themDanhGiaMoi(
       token
     });
 
-    const response = await fetch(`http://localhost:8080/api/danh-gia/them-danh-gia-v1`, {
+    const response = await fetch(apiUrl('/api/danh-gia/them-danh-gia-v1'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

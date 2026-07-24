@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
+import { apiUrl } from '../../api/ApiUrl';
 
 const DangNhap = () => {
   const navigate = useNavigate();
@@ -16,7 +17,7 @@ const DangNhap = () => {
     const loginRequest = { username, password };
 
     try {
-      const response = await fetch("http://localhost:8080/tai-khoan/dang-nhap", {
+      const response = await fetch(apiUrl('/tai-khoan/dang-nhap'), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(loginRequest),

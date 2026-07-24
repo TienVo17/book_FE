@@ -167,7 +167,7 @@ Web Bán Sách is a React-based e-commerce frontend for an online bookstore, pro
 3. **No State Management Library**: Avoid Redux/Context; use localStorage + component state
 4. **Native Fetch**: No axios; use native browser Fetch API
 5. **Create React App**: Locked to react-scripts 5.0.1; eject only as last resort
-6. **Hardcoded Base URL**: All API calls to `http://localhost:8080` (env config not yet added)
+6. **API Base URL**: Backend request sites resolve from build-time `REACT_APP_API_BASE_URL`, with `http://localhost:8080` as the local-development fallback.
 
 ## Success Metrics
 
@@ -183,7 +183,7 @@ Web Bán Sách is a React-based e-commerce frontend for an online bookstore, pro
 ## Dependencies
 
 ### Backend
-- Spring Boot 3.x API at `http://localhost:8080`
+- Spring Boot 3.x API; local development defaults to `http://localhost:8080`, while deployed builds use `REACT_APP_API_BASE_URL`
 - Requires MySQL database for user, book, order, review data
 
 ### Frontend Runtime
@@ -201,7 +201,7 @@ Web Bán Sách is a React-based e-commerce frontend for an online bookstore, pro
 |------|------------|
 | XSS via localStorage JWT | CSP headers in nginx; sanitize user inputs |
 | Lost cart on localStorage clear | Sync cart to backend (future enhancement) |
-| Hardcoded URLs in production | Env-based configuration (roadmap item) |
+| Incorrect API origin in production | Validate `REACT_APP_API_BASE_URL` during the production build and verify backend CORS |
 | Mixed API patterns (fetch vs modules) | Standardize on api/ modules (code review) |
 
 ## Roadmap
@@ -214,7 +214,6 @@ Web Bán Sách is a React-based e-commerce frontend for an online bookstore, pro
 
 ### Future Phase
 - Server-side cart persistence
-- Env-based API URL configuration
 - Unify auth guards (consolidate 3 implementations)
 - Refresh token flow
 - Advanced filtering (price range, rating, author)
