@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
+import { apiUrl } from '../../../../api/ApiUrl';
 
 type FilterType = 'all' | 'chua_thanh_toan' | 'da_thanh_toan' | 'chua_giao' | 'da_giao';
 
@@ -14,7 +15,7 @@ interface DonHangItem {
     tongTien: number;
 }
 
-const BASE = 'http://localhost:8080';
+const BASE = apiUrl('');
 
 function DonHang() {
     const [donHangList, setDonHangList] = useState<DonHangItem[]>([]);

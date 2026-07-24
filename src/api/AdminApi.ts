@@ -2,7 +2,9 @@ import { authRequest, getValidJwtOrThrow } from './Request';
 import { ThongKeModel } from '../models/ThongKeModel';
 import SachModel from '../models/SachModel';
 
-const BASE = 'http://localhost:8080';
+import { apiUrl } from './ApiUrl';
+
+const BASE = apiUrl('');
 const MIN_JAVA_INTEGER = -2147483648;
 const MAX_JAVA_INTEGER = 2147483647;
 

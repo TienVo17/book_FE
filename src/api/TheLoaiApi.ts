@@ -1,7 +1,9 @@
 import { authRequest, my_request } from './Request';
 import { TheLoaiAdminModel, TheLoaiAdminUpsertPayload, TheLoaiModel } from '../models/TheLoaiModel';
 
-const BASE = 'http://localhost:8080';
+import { apiUrl } from './ApiUrl';
+
+const BASE = apiUrl('');
 
 export async function getAllTheLoai(): Promise<TheLoaiModel[]> {
   return my_request<TheLoaiModel[]>(`${BASE}/api/the-loai`);

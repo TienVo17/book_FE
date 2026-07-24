@@ -1,6 +1,8 @@
 import { authRequest } from './Request';
 
-const BASE = 'http://localhost:8080';
+import { apiUrl } from './ApiUrl';
+
+const BASE = apiUrl('');
 
 export interface YeuThichItem {
   maSach: number;

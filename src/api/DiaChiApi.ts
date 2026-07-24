@@ -1,7 +1,9 @@
 import { authRequest } from './Request';
 import { DiaChiModel } from '../models/DiaChiModel';
 
-const BASE = 'http://localhost:8080';
+import { apiUrl } from './ApiUrl';
+
+const BASE = apiUrl('');
 
 export async function getDanhSachDiaChi(): Promise<DiaChiModel[]> {
   return authRequest<DiaChiModel[]>(`${BASE}/api/dia-chi`);

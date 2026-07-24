@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { apiUrl } from '../../api/ApiUrl';
 
 interface DonHangItem {
     maDonHang: number;
@@ -19,7 +20,7 @@ function DonHangUser() {
 
     const taiDonHang = async () => {
         try {
-            const response = await fetch('http://localhost:8080/api/don-hang/findAll?page=0', {
+            const response = await fetch(apiUrl('/api/don-hang/findAll?page=0'), {
                 headers: { Authorization: `Bearer ${localStorage.getItem('jwt')}` },
             });
             if (!response.ok) throw new Error();
@@ -39,7 +40,7 @@ function DonHangUser() {
         if (!window.confirm(`Bạn có chắc muốn hủy đơn hàng #${maDonHang}?`)) return;
         setDangHuy(maDonHang);
         try {
-            const response = await fetch(`http://localhost:8080/api/don-hang/huy/${maDonHang}`, {
+            const response = await fetch(apiUrl(`/api/don-hang/huy/${maDonHang}`), {
                 method: 'POST',
                 headers: { Authorization: `Bearer ${localStorage.getItem('jwt')}` },
             });

@@ -1,6 +1,7 @@
 # Codebase Summary
 
-**Generated**: 2026-07-08  
+**Generated**: 2026-07-08
+**Updated**: 2026-07-24
 **Framework**: React 18.3 + TypeScript 4.9  
 **Build**: Create React App (react-scripts 5.0.1)
 
@@ -21,7 +22,7 @@ src/
 
 ### src/api/ — HTTP & Data Access
 
-Fetch-based API modules (no axios). All modules hardcode `http://localhost:8080` as BASE.
+Fetch-based API modules (no axios). Backend request sites use `src/api/ApiUrl.ts`, which resolves the credential-free HTTP(S) origin from `REACT_APP_API_BASE_URL` and falls back to `http://localhost:8080` for local development.
 
 | File | Exports | Purpose |
 |------|---------|---------|
@@ -261,7 +262,7 @@ Defines all routes using react-router-dom v6.
 - **Centralized API modules** in `src/api/`; modules export higher-level functions
 - **Request.ts helpers**: `my_request` (public GET), `authRequest` (authenticated, injects Bearer JWT)
 - **Auto-logout on 401/403**: authRequest clears localStorage.jwt and returns error
-- **Mixed patterns**: Some pages bypass api/ and call fetch directly with hardcoded URLs
+- **Mixed patterns**: Some pages bypass api/ modules and call `fetch()` directly, but still resolve backend URLs through `apiUrl(...)`
 
 ### State Management
 - **No Redux/Context**: All state client-side via component `useState` or localStorage
@@ -286,11 +287,9 @@ Defines all routes using react-router-dom v6.
 ## Known Code Issues (for future refactoring)
 
 1. **Three auth guards** (RequireAuth, Adminroute, RequireAdmin, ProtectedRoute); only one actively wired
-2. **Hardcoded `http://localhost:8080`** in all api/ modules and raw fetch calls
-3. **Mixed data-access patterns**: api/ modules vs raw fetch calls in page components
-4. **Divergent cart-item shapes**: GioHangModel.ts vs inline GioHangItem in GioHang.ts
-5. **Dead code**: Test.tsx, RequireAdmin.tsx, ProtectedRoute.tsx (unwired)
-6. **No env-based configuration**: No .env or environment variable support for API base URL
+2. **Mixed data-access patterns**: api/ modules vs raw fetch calls in page components
+3. **Divergent cart-item shapes**: GioHangModel.ts vs inline GioHangItem in GioHang.ts
+4. **Dead code**: Test.tsx, RequireAdmin.tsx, ProtectedRoute.tsx (unwired)
 
 ## Related Documentation
 

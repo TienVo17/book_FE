@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { NavLink } from "react-router-dom";
+import { apiUrl } from '../../api/ApiUrl';
 
 function DangKyNguoiDung() {
   const [tenDangNhap, setTenDangNhap] = useState("");
@@ -34,7 +35,7 @@ function DangKyNguoiDung() {
     if (isTenDangNhapValid && isEmailValid && isMatKhauValid && isMatKhauLapLaiValid) {
       setIsLoading(true);
       try {
-        const url = "http://localhost:8080/tai-khoan/dang-ky";
+        const url = apiUrl('/tai-khoan/dang-ky');
         const response = await fetch(url, {
           method: "POST",
           headers: { "Content-type": "application/json" },
@@ -57,7 +58,7 @@ function DangKyNguoiDung() {
   };
 
   const kiemTraTenDangNhapDaTonTai = async (tenDangNhap: string) => {
-    const url = `http://localhost:8080/nguoi-dung/search/existsByTenDangNhap?tenDangNhap=${tenDangNhap}`;
+    const url = apiUrl(`/nguoi-dung/search/existsByTenDangNhap?tenDangNhap=${tenDangNhap}`);
     try {
       const response = await fetch(url);
       const data = await response.text();
@@ -78,7 +79,7 @@ function DangKyNguoiDung() {
   };
 
   const kiemTraEmailDaTonTai = async (email: string) => {
-    const url = `http://localhost:8080/nguoi-dung/search/existsByEmail?email=${email}`;
+    const url = apiUrl(`/nguoi-dung/search/existsByEmail?email=${email}`);
     try {
       const response = await fetch(url);
       const data = await response.text();

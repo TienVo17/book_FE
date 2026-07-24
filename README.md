@@ -81,9 +81,8 @@ Key directories:
 See [System Architecture](./docs/system-architecture.md#known-limitations) for documented issues including:
 
 - **Auth guard inconsistencies**: Three separate guard implementations exist; only `AdminRoute` is wired
-- **Hardcoded API URLs**: No env-based configuration for `http://localhost:8080`
+- **API deployment configuration**: Production requires `REACT_APP_API_BASE_URL` to identify the deployed backend.
 - **Mixed data-access patterns**: Some pages bypass the API modules and call fetch directly
-- **Nginx proxy mismatch**: Frontend hardcodes localhost URLs instead of using relative/proxied paths
 
 ## Documentation
 
@@ -105,7 +104,7 @@ npm run eject  # Expose Create React App config (one-way)
 
 ## Backend
 
-Connects to Spring Boot API at `http://localhost:8080` (configurable in `src/api/` modules).
+Resolves Spring Boot API requests from the credential-free HTTP(S) origin in `REACT_APP_API_BASE_URL`; local development falls back to `http://localhost:8080`.
 
 For backend docs, see the paired repository at `../book_BE`.
 
