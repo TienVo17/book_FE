@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { NavLink } from "react-router-dom";
-import { apiUrl } from '../../api/ApiUrl';
+import { dangKy, emailDaTonTai, tenDangNhapDaTonTai } from '../../api/TaiKhoanApi';
 
 function DangKyNguoiDung() {
   const [tenDangNhap, setTenDangNhap] = useState("");
@@ -35,22 +35,15 @@ function DangKyNguoiDung() {
     if (isTenDangNhapValid && isEmailValid && isMatKhauValid && isMatKhauLapLaiValid) {
       setIsLoading(true);
       try {
-        const url = apiUrl('/tai-khoan/dang-ky');
-        const response = await fetch(url, {
-          method: "POST",
-          headers: { "Content-type": "application/json" },
-          body: JSON.stringify({
-            tenDangNhap, email, matKhau, hoDem, ten,
-            soDienThoai, diaChi, gioiTinh, daKichHoat: 0, maKichHoat: "",
-          }),
+        await dangKy({
+          tenDangNhap, email, matKhau, hoDem, ten,
+          soDienThoai, diaChi, gioiTinh, daKichHoat: 0, maKichHoat: "",
         });
-        if (response.ok) {
-          setThongBao("Đăng ký thành công, vui lòng kiểm tra email để kích hoạt!");
-        } else {
-          setThongBao("Đã xảy ra lỗi trong quá trình đăng ký tài khoản.");
-        }
+        setThongBao("Đăng ký thành công, vui lòng kiểm tra email để kích hoạt!");
       } catch (error) {
-        setThongBao("Đã xảy ra lỗi trong quá trình đăng ký tài khoản.");
+        setThongBao(error instanceof Error
+          ? error.message
+          : "Đã xảy ra lỗi trong quá trình đăng ký tài khoản.");
       } finally {
         setIsLoading(false);
       }
@@ -58,15 +51,12 @@ function DangKyNguoiDung() {
   };
 
   const kiemTraTenDangNhapDaTonTai = async (tenDangNhap: string) => {
-    const url = apiUrl(`/nguoi-dung/search/existsByTenDangNhap?tenDangNhap=${tenDangNhap}`);
     try {
-      const response = await fetch(url);
-      const data = await response.text();
-      if (data === "true") {
+      const exists = await tenDangNhapDaTonTai(tenDangNhap);
+      if (exists) {
         setErrorTenDangNhap("Tên đăng nhập này đã tồn tại");
-        return true;
       }
-      return false;
+      return exists;
     } catch (error) {
       return false;
     }
@@ -79,15 +69,12 @@ function DangKyNguoiDung() {
   };
 
   const kiemTraEmailDaTonTai = async (email: string) => {
-    const url = apiUrl(`/nguoi-dung/search/existsByEmail?email=${email}`);
     try {
-      const response = await fetch(url);
-      const data = await response.text();
-      if (data === "true") {
+      const exists = await emailDaTonTai(email);
+      if (exists) {
         setErrorEmail("Email này đã tồn tại");
-        return true;
       }
-      return false;
+      return exists;
     } catch (error) {
       return false;
     }

@@ -1,22 +1,15 @@
-import { authRequest, getApiMessage, parseResponseBody } from './Request';
+import { authRequest, publicRequest } from './Request';
 
 import { apiUrl } from './ApiUrl';
 
 const BASE = apiUrl('');
 
 async function postJson(url: string, body: Record<string, string>) {
-  const response = await fetch(url, {
+  return publicRequest(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
-
-  const payload = await parseResponseBody(response);
-  if (!response.ok) {
-    throw new Error(getApiMessage(payload, `Request failed: ${response.status}`));
-  }
-
-  return payload;
 }
 
 export async function getHoSo() {

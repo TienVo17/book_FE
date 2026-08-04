@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import DanhGiaModel from '../../../../models/DanhGiaModel';
-import { apiUrl } from '../../../../api/ApiUrl';
+import { getDanhGiaAdmin, setDanhGiaActive } from '../../../../api/DanhGiaAPI';
 
 export default function DanhSachBinhLuan() {
   const [binhLuanList, setBinhLuanList] = useState<any[]>([]);
@@ -11,14 +11,7 @@ export default function DanhSachBinhLuan() {
 
   const loadData = useCallback(() => {
     setDangTaiDuLieu(true);
-    fetch(apiUrl(`/api/admin/danh-gia/findAll?page=${trangHienTai - 1}`), {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('jwt')}`,
-        'Content-Type': 'application/json',
-      },
-    })
-      .then(response => response.json())
+    getDanhGiaAdmin(trangHienTai - 1)
       .then(response => {
         const sorted = (response.content as DanhGiaModel[]).sort((a, b) => {
           const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
@@ -44,14 +37,7 @@ export default function DanhSachBinhLuan() {
     const action = isActive ? 'ẩn' : 'hiện';
     if (!window.confirm(`Bạn muốn ${action} bình luận này?`)) return;
     try {
-      const endpoint = isActive ? 'unactive' : 'active';
-      await fetch(apiUrl(`/api/admin/danh-gia/${endpoint}/${maDanhGia}`), {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('jwt')}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      await setDanhGiaActive(maDanhGia, !isActive);
       loadData();
     } catch (error) {
       alert('Có lỗi xảy ra!');

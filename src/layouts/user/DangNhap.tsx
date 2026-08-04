@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { apiUrl } from '../../api/ApiUrl';
+import { dangNhap } from '../../api/TaiKhoanApi';
 
 const DangNhap = () => {
   const navigate = useNavigate();
@@ -14,30 +14,20 @@ const DangNhap = () => {
     setIsLoading(true);
     setError("");
 
-    const loginRequest = { username, password };
-
     try {
-      const response = await fetch(apiUrl('/tai-khoan/dang-nhap'), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(loginRequest),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        localStorage.setItem("jwt", data.jwt);
-        if (localStorage.getItem("nextPay") === "true") {
-          localStorage.removeItem("nextPay");
-          navigate("/thanh-toan");
-        } else {
-          navigate("/");
-        }
-        window.location.reload();
+      const data = await dangNhap(username, password);
+      localStorage.setItem("jwt", data.jwt);
+      if (localStorage.getItem("nextPay") === "true") {
+        localStorage.removeItem("nextPay");
+        navigate("/thanh-toan");
       } else {
-        throw new Error("Đăng nhập thất bại!");
+        navigate("/");
       }
+      window.location.reload();
     } catch (error) {
-      setError("Đăng nhập thất bại. Vui lòng kiểm tra lại tên đăng nhập và mật khẩu.");
+      setError(error instanceof Error
+        ? error.message
+        : "Đăng nhập thất bại. Vui lòng kiểm tra lại tên đăng nhập và mật khẩu.");
     } finally {
       setIsLoading(false);
     }

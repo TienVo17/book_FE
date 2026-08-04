@@ -39,4 +39,24 @@ describe('backend request source migration', () => {
 
     expect(filesWithForbiddenHost).toEqual([]);
   });
+
+  it('keeps direct fetch() calls exclusively inside the shared request module', () => {
+    const sourceDirectory = path.join(process.cwd(), 'src');
+    const requestPath = path.join(sourceDirectory, 'api', 'Request.ts');
+    // `fetch(` preceded by a word char (e.g. `prefetch(`) is not a call to the
+    // global; require a boundary before it.
+    const directFetchPattern = /(^|[^\w.])fetch\s*\(/;
+
+    const filesOutsideRequest = sourceFiles(sourceDirectory)
+      .filter((filePath) => path.resolve(filePath) !== path.resolve(requestPath))
+      .filter((filePath) => !testFilePattern.test(filePath));
+
+    const filesWithDirectFetch = filesOutsideRequest.filter((filePath) =>
+      directFetchPattern.test(fs.readFileSync(filePath, 'utf8')),
+    );
+
+    // Every app API call must go through publicRequest/authRequest so auth,
+    // error parsing and trace-id extraction stay in one place.
+    expect(filesWithDirectFetch).toEqual([]);
+  });
 });

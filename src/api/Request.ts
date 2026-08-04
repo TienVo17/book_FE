@@ -1,10 +1,5 @@
 export async function my_request<T = unknown>(duongDan: string): Promise<T> {
-  const response = await fetch(duongDan);
-  const body = await parseResponseBody(response);
-  if (!response.ok) {
-    throw new Error(getApiMessage(body, `Không thể truy cập ${duongDan}`));
-  }
-  return body as T;
+  return publicRequest<T>(duongDan);
 }
 
 interface JwtPayload {
@@ -95,11 +90,46 @@ export function getValidJwtOrThrow(): string {
   return token;
 }
 
+interface ApiErrorPayload {
+  status?: number;
+  code?: string;
+  message?: string;
+  path?: string;
+  traceId?: string;
+}
+
+function toApiError(response: Response, body: unknown, fallback: string): ApiRequestError {
+  const payload = body && typeof body === 'object' ? body as ApiErrorPayload : {};
+  const responseTraceId = response.headers.get('X-Trace-Id') || undefined;
+  return new ApiRequestError(
+    getApiMessage(body, fallback),
+    response.status,
+    typeof payload.code === 'string' ? payload.code : undefined,
+    typeof payload.traceId === 'string' ? payload.traceId : responseTraceId,
+    typeof payload.path === 'string' ? payload.path : undefined,
+  );
+}
+
 export class ApiRequestError extends Error {
-  constructor(message: string, public readonly status: number) {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly code?: string,
+    public readonly traceId?: string,
+    public readonly path?: string,
+  ) {
     super(message);
     this.name = 'ApiRequestError';
   }
+}
+
+export async function publicRequest<T = unknown>(url: string, options: RequestInit = {}): Promise<T> {
+  const response = await fetch(url, options);
+  const body = await parseResponseBody(response);
+  if (!response.ok) {
+    throw toApiError(response, body, `Không thể truy cập ${url}`);
+  }
+  return body as T;
 }
 
 export async function authRequest<T = unknown>(url: string, options: RequestInit = {}): Promise<T> {
@@ -118,7 +148,7 @@ export async function authRequest<T = unknown>(url: string, options: RequestInit
     if (response.status === 401 || response.status === 403) {
       clearAuth();
     }
-    throw new ApiRequestError(getApiMessage(body, `Request failed: ${response.status}`), response.status);
+    throw toApiError(response, body, `Request failed: ${response.status}`);
   }
 
   return body as T;

@@ -1,5 +1,5 @@
 import DanhGiaModel from "../models/DanhGiaModel";
-import { my_request } from "./Request";
+import { authRequest, my_request } from "./Request";
 import { apiUrl } from './ApiUrl';
 
 async function getAllReviewOfBook(duongDan: string): Promise<DanhGiaModel[]> {
@@ -48,47 +48,23 @@ export async function themDanhGiaMoi(
   diemXepHang: number,
   maNguoiDung: number
 ): Promise<boolean> {
-  const token = localStorage.getItem('jwt');
-  if (!token) {
-    throw new Error('Không tìm thấy token đăng nhập!');
-  }
+  await authRequest(apiUrl('/api/danh-gia/them-danh-gia-v1'), {
+    method: 'POST',
+    body: JSON.stringify({ maSach, nhanXet, diemXepHang, maNguoiDung }),
+  });
+  return true;
+}
 
-  try {
-    // Log request data để debug
-    console.log('Request data:', {
-      maSach,
-      nhanXet,
-      diemXepHang,
-      maNguoiDung,
-      token
-    });
+interface DanhGiaAdminPage {
+  content: DanhGiaModel[];
+  totalPages: number;
+}
 
-    const response = await fetch(apiUrl('/api/danh-gia/them-danh-gia-v1'), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        maSach,
-        nhanXet,
-        diemXepHang,
-        maNguoiDung
-      }),
-    });
+export function getDanhGiaAdmin(page: number): Promise<DanhGiaAdminPage> {
+  return authRequest(apiUrl(`/api/admin/danh-gia/findAll?page=${page}`));
+}
 
-    // Log response status và body
-    console.log('Response status:', response.status);
-    const responseText = await response.text();
-    console.log('Response body:', responseText);
-
-    if (!response.ok) {
-      throw new Error(`Lỗi ${response.status}: ${responseText}`);
-    }
-
-    return true;
-  } catch (error) {
-    console.error('Error in themDanhGiaMoi:', error);
-    throw error;
-  }
+export function setDanhGiaActive(maDanhGia: number, active: boolean): Promise<unknown> {
+  const endpoint = active ? 'active' : 'unactive';
+  return authRequest(apiUrl(`/api/admin/danh-gia/${endpoint}/${maDanhGia}`), { method: 'POST' });
 }

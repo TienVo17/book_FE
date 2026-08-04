@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import NguoiDungModel from "../../../../models/NguoiDungModel";
 import { findAll } from "../../../../api/UserApi";
-import { apiUrl } from '../../../../api/ApiUrl';
+import { getQuyenAdmin, phanQuyenNguoiDung } from '../../../../api/AdminUserApi';
 
 export default function UserComponent() {
   const [userList, setUserList] = useState<NguoiDungModel[]>([]);
@@ -35,16 +35,9 @@ export default function UserComponent() {
   }, [loadData]);
 
   const loadQuyenList = () => {
-    fetch(apiUrl('/api/admin/quyen/findAll'), {
-      method: "GET",
-      headers: {
-        "Authorization": `Bearer ${localStorage.getItem('jwt')}`,
-        'Content-Type': 'application/json',
-      },
-    })
-      .then(response => response.json())
+    getQuyenAdmin()
       .then(data => setQuyenList(data))
-      .catch(error => console.error("Lỗi:", error));
+      .catch(error => setBaoLoi(error instanceof Error ? error.message : "Không thể tải quyền."));
   };
 
   const handleOpenModal = (user: NguoiDungModel) => {
@@ -69,21 +62,11 @@ export default function UserComponent() {
 
   const handleSaveQuyen = async () => {
     try {
-      const response = await fetch(apiUrl('/api/admin/user/phan-quyen'), {
-        method: "POST",
-        body: JSON.stringify({ userId, quyenIds: selectedQuyen }),
-        headers: {
-          "Authorization": `Bearer ${localStorage.getItem('jwt')}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      if (response.status === 200) {
-        alert("Phân quyền thành công!");
-        setShowModal(false);
-      }
+      await phanQuyenNguoiDung(userId, selectedQuyen);
+      alert("Phân quyền thành công!");
+      setShowModal(false);
     } catch (error) {
-      console.error("Lỗi:", error);
-      alert("Có lỗi xảy ra!");
+      alert(error instanceof Error ? error.message : "Có lỗi xảy ra!");
     }
   };
 
