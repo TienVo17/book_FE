@@ -1,49 +1,55 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { getOneImageOfOneBook } from "../../api/HinhAnhApi";
 import dinhDangSo from "../utils/DinhDangSo";
 import AnhSach from "../utils/AnhSach";
+import { CartItem, readCart, updateQuantity, removeItem } from "../../api/CartStorage";
 
-interface SanPhamGioHang {
-  maSach: number;
-  sachDto: {
-    tenSach: string;
-    giaBan: number;
-    hinhAnh: string;
-  };
-  soLuong: number;
-  hinhAnh?: string;
-}
+type SanPhamGioHang = CartItem & { hinhAnh?: string };
 
 function GioHang() {
   const [gioHang, setGioHang] = useState<SanPhamGioHang[]>([]);
+  const imageLoadRevision = React.useRef(0);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const loadGioHangWithImages = async () => {
-      const gioHangData = localStorage.getItem("gioHang");
-      if (gioHangData) {
-        const parsedGioHang = JSON.parse(gioHangData);
-        const gioHangWithImages = await Promise.all(
-          parsedGioHang.map(async (item: SanPhamGioHang) => {
-            try {
-              const images = await getOneImageOfOneBook(item.maSach);
-              return { ...item, hinhAnh: images[0]?.urlHinh || "" };
-            } catch (error) {
-              return item;
-            }
-          })
-        );
-        setGioHang(gioHangWithImages);
-      }
-    };
-    loadGioHangWithImages();
+  const attachImages = useCallback(async (items: CartItem[]) => {
+    const revision = ++imageLoadRevision.current;
+    const withImages = await Promise.all(
+      items.map(async (item): Promise<SanPhamGioHang> => {
+        try {
+          const images = await getOneImageOfOneBook(item.maSach);
+          return { ...item, hinhAnh: images[0]?.urlHinh || "" };
+        } catch (error) {
+          return item;
+        }
+      })
+    );
+    if (revision === imageLoadRevision.current) {
+      setGioHang(withImages);
+    }
   }, []);
 
-  const updateGioHang = (newGioHang: SanPhamGioHang[]) => {
-    setGioHang(newGioHang);
-    localStorage.setItem("gioHang", JSON.stringify(newGioHang));
-    window.dispatchEvent(new Event("storage"));
+  useEffect(() => {
+    attachImages(readCart());
+
+    // Cross-tab reconciliation: reload (and re-fetch images) when another
+    // tab changes the cart. Same-tab mutations update local state directly
+    // (see syncLocal) so they don't need to listen to cartUpdated here.
+    const onExternalChange = () => attachImages(readCart());
+    window.addEventListener("storage", onExternalChange);
+    return () => {
+      imageLoadRevision.current += 1;
+      window.removeEventListener("storage", onExternalChange);
+    };
+  }, [attachImages]);
+
+  const syncLocal = (updated: CartItem[]) => {
+    setGioHang((prev) =>
+      updated.map((item) => {
+        const match = prev.find((p) => p.maSach === item.maSach);
+        return match ? { ...item, hinhAnh: match.hinhAnh } : item;
+      })
+    );
   };
 
   const tongTien = gioHang.reduce((total, item) => total + item.sachDto.giaBan * item.soLuong, 0);
@@ -92,9 +98,7 @@ function GioHang() {
                 <div className="qty-control">
                   <button onClick={() => {
                     if (item.soLuong > 1) {
-                      updateGioHang(gioHang.map(sp =>
-                        sp.maSach === item.maSach ? { ...sp, soLuong: sp.soLuong - 1 } : sp
-                      ));
+                      syncLocal(updateQuantity(item.maSach, item.soLuong - 1));
                     }
                   }}>-</button>
                   <input
@@ -104,16 +108,12 @@ function GioHang() {
                     onChange={(e) => {
                       const soLuongMoi = parseInt(e.target.value);
                       if (!isNaN(soLuongMoi) && soLuongMoi >= 1) {
-                        updateGioHang(gioHang.map(sp =>
-                          sp.maSach === item.maSach ? { ...sp, soLuong: soLuongMoi } : sp
-                        ));
+                        syncLocal(updateQuantity(item.maSach, soLuongMoi));
                       }
                     }}
                   />
                   <button onClick={() => {
-                    updateGioHang(gioHang.map(sp =>
-                      sp.maSach === item.maSach ? { ...sp, soLuong: sp.soLuong + 1 } : sp
-                    ));
+                    syncLocal(updateQuantity(item.maSach, item.soLuong + 1));
                   }}>+</button>
                 </div>
                 <div className="text-end" style={{ minWidth: 100 }}>
@@ -124,7 +124,7 @@ function GioHang() {
                 <button
                   className="btn-icon"
                   style={{ color: "var(--color-danger)", borderColor: "var(--color-danger)" }}
-                  onClick={() => updateGioHang(gioHang.filter((sp) => sp.maSach !== item.maSach))}
+                  onClick={() => syncLocal(removeItem(item.maSach))}
                   aria-label="Xóa sản phẩm"
                 >
                   <i className="fas fa-trash-alt"></i>

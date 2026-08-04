@@ -1,30 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { apiUrl } from '../../api/ApiUrl';
+import { getDonHangHistory, cancelDonHang, DonHangListItem } from '../../api/DonHangApi';
+import { ApiRequestError } from '../../api/Request';
 
-interface DonHangItem {
-    maDonHang: number;
-    ngayTao: string;
-    diaChiNhanHang: string;
-    phuongThucThanhToan?: 'COD' | 'VNPAY' | string;
-    tenPhuongThucThanhToan?: string;
-    trangThaiThanhToan: number;
-    trangThaiGiaoHang: number;
-    tongTien: number;
-}
+type DonHangItem = DonHangListItem;
 
 function DonHangUser() {
     const [donHangList, setDonHangList] = useState<DonHangItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [dangHuy, setDangHuy] = useState<number | null>(null);
+    // window.alert() is not reachable by assistive tech in a predictable way and
+    // disappears on dismiss; the inline alert keeps the failure re-readable.
+    const [loiHuy, setLoiHuy] = useState<string | null>(null);
 
     const taiDonHang = async () => {
         try {
-            const response = await fetch(apiUrl('/api/don-hang/findAll?page=0'), {
-                headers: { Authorization: `Bearer ${localStorage.getItem('jwt')}` },
-            });
-            if (!response.ok) throw new Error();
-            const data = await response.json();
+            const data = await getDonHangHistory(0);
             setDonHangList(data.content || []);
         } catch {
             // giữ danh sách hiện tại nếu tải lỗi
@@ -39,19 +30,15 @@ function DonHangUser() {
     const huyDon = async (maDonHang: number) => {
         if (!window.confirm(`Bạn có chắc muốn hủy đơn hàng #${maDonHang}?`)) return;
         setDangHuy(maDonHang);
+        setLoiHuy(null);
         try {
-            const response = await fetch(apiUrl(`/api/don-hang/huy/${maDonHang}`), {
-                method: 'POST',
-                headers: { Authorization: `Bearer ${localStorage.getItem('jwt')}` },
-            });
-            if (!response.ok) {
-                const message = await response.text();
-                alert(message || 'Hủy đơn hàng thất bại.');
-                return;
-            }
+            await cancelDonHang(maDonHang);
             await taiDonHang();
-        } catch {
-            alert('Không kết nối được máy chủ.');
+        } catch (error) {
+            const message = error instanceof ApiRequestError
+                ? error.message
+                : 'Không kết nối được máy chủ.';
+            setLoiHuy(message || 'Hủy đơn hàng thất bại.');
         } finally {
             setDangHuy(null);
         }
@@ -87,8 +74,8 @@ function DonHangUser() {
 
     if (loading) {
         return (
-            <div className="container py-5 text-center">
-                <span className="spinner-border text-primary"></span>
+            <div className="container py-5 text-center" role="status">
+                <span className="spinner-border text-primary" aria-hidden="true"></span>
                 <p className="mt-2" style={{ color: 'var(--color-text-muted)' }}>Đang tải đơn hàng…</p>
             </div>
         );
@@ -110,6 +97,15 @@ function DonHangUser() {
                     </span>
                 )}
             </h2>
+
+            <div aria-live="assertive">
+                {loiHuy && (
+                    <div role="alert" className="alert alert-danger">
+                        <i className="fas fa-exclamation-circle me-2" aria-hidden="true"></i>
+                        {loiHuy}
+                    </div>
+                )}
+            </div>
 
             {donHangList.length === 0 ? (
                 <div className="empty-state">
@@ -182,6 +178,8 @@ function DonHangUser() {
                                                     type="button"
                                                     onClick={() => huyDon(item.maDonHang)}
                                                     disabled={dangHuy === item.maDonHang}
+                                                    aria-label={`Hủy đơn hàng #${item.maDonHang}`}
+                                                    aria-busy={dangHuy === item.maDonHang}
                                                     style={{
                                                         border: '1px solid #dc3545',
                                                         color: '#dc3545',

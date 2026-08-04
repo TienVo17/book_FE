@@ -1,51 +1,39 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { getOneImageOfOneBook } from '../../api/HinhAnhApi';
 import { getDanhSachDiaChi } from '../../api/DiaChiApi';
 import { kiemTraCoupon } from '../../api/CouponApi';
-import { authRequest } from '../../api/Request';
+import { ApiRequestError } from '../../api/Request';
 import { DiaChiModel } from '../../models/DiaChiModel';
 import { KetQuaKiemTraCoupon } from '../../models/CouponModel';
 import CartItemsTable from './CartItemsTable';
 import CheckoutSidebar from './CheckoutSidebar';
-import { apiUrl } from '../../api/ApiUrl';
+import {
+    CartItem,
+    readCart,
+    updateQuantity,
+    removeItem,
+    clearCart,
+    getCartFingerprint,
+    getCartFingerprintForItems,
+} from '../../api/CartStorage';
+import {
+    createDonHang,
+    createVNPayPaymentUrl,
+    CheckoutOrderRequest,
+    CheckoutOrderResponse,
+} from '../../api/DonHangApi';
+import {
+    ensureIntent,
+    startNewIntent,
+    clearIntent,
+    CheckoutIntentStaleError,
+    CheckoutIntent,
+    buildCheckoutIntentFingerprint,
+} from '../../api/CheckoutIntent';
 
-interface SanPhamGioHang {
-    maSach: number;
-    sachDto: { tenSach: string; giaBan: number; hinhAnh: string };
-    soLuong: number;
-    hinhAnh?: string;
-}
-
-interface CheckoutOrderItem {
-    maSach: number;
-    soLuong: number;
-}
-
-interface CheckoutOrderRequest {
-    items: CheckoutOrderItem[];
-    maDiaChiGiaoHang: number;
-    phuongThucThanhToan: 'COD' | 'VNPAY';
-    maCoupon?: string;
-}
-
-interface CheckoutOrderResponse {
-    maDonHang: number;
-    tongTien: number;
-    tongTienSanPham: number;
-    soTienGiam: number;
-    maCoupon?: string | null;
-    phuongThucThanhToan: 'COD' | 'VNPAY';
-    trangThaiThanhToan: number;
-    hoTen: string;
-    soDienThoai: string;
-    diaChiNhanHang: string;
-}
-
-interface VNPayUrlResponse {
-    paymentUrl: string;
-}
+type SanPhamGioHang = CartItem & { hinhAnh?: string };
 
 function ThanhToan() {
     const [gioHang, setGioHang] = useState<SanPhamGioHang[]>([]);
@@ -58,17 +46,23 @@ function ThanhToan() {
     const [dangTao, setDangTao] = useState(false);
     const [dangTaoLinkThanhToan, setDangTaoLinkThanhToan] = useState(false);
     const [buocHienTai, setBuocHienTai] = useState<'review' | 'payment'>('review');
+    const [gioHangDaThayDoi, setGioHangDaThayDoi] = useState(false);
+    // Inline, programmatically associated error text. Toasts alone are not an
+    // accessible failure channel: they are transient and colour-coded only.
+    const [loiDatHang, setLoiDatHang] = useState<{ message: string; traceId?: string } | null>(null);
+    const dangGuiRef = useRef(false);
+    const imageLoadRevision = useRef(0);
     const navigate = useNavigate();
 
     useEffect(() => {
-        const loadGioHangWithImages = async () => {
-            const raw = localStorage.getItem('gioHang');
-            if (!raw) {
+        const loadGioHangWithImages = async (items: CartItem[]) => {
+            const revision = ++imageLoadRevision.current;
+            if (items.length === 0) {
+                setGioHang([]);
                 return;
             }
-            const parsed: SanPhamGioHang[] = JSON.parse(raw);
             const withImages = await Promise.all(
-                parsed.map(async item => {
+                items.map(async item => {
                     try {
                         const imgs = await getOneImageOfOneBook(item.maSach);
                         return { ...item, hinhAnh: imgs[0]?.urlHinh || '' };
@@ -77,10 +71,18 @@ function ThanhToan() {
                     }
                 })
             );
-            setGioHang(withImages);
+            if (revision === imageLoadRevision.current) {
+                setGioHang(withImages);
+            }
         };
 
-        loadGioHangWithImages();
+        loadGioHangWithImages(readCart());
+
+        // Cross-tab reconciliation: another tab may add/clear items while this
+        // review page is open; refresh from storage when that happens.
+        const onExternalChange = () => loadGioHangWithImages(readCart());
+        window.addEventListener('storage', onExternalChange);
+
         getDanhSachDiaChi()
             .then(list => {
                 setDanhSachDiaChi(list);
@@ -93,28 +95,37 @@ function ThanhToan() {
                 console.error(error);
                 toast.error('Không thể tải danh sách địa chỉ');
             });
+
+        return () => {
+            imageLoadRevision.current += 1;
+            window.removeEventListener('storage', onExternalChange);
+        };
     }, []);
 
-    const updateGioHang = (updated: SanPhamGioHang[]) => {
-        setGioHang(updated);
-        localStorage.setItem('gioHang', JSON.stringify(updated));
+    const syncLocal = (updated: CartItem[]) => {
+        setGioHang(prev => updated.map(item => {
+            const match = prev.find(p => p.maSach === item.maSach);
+            return match ? { ...item, hinhAnh: match.hinhAnh } : item;
+        }));
     };
 
-    const handleIncrease = (maSach: number) =>
-        updateGioHang(gioHang.map(sp => sp.maSach === maSach ? { ...sp, soLuong: sp.soLuong + 1 } : sp));
+    const handleIncrease = (maSach: number) => {
+        const target = gioHang.find(sp => sp.maSach === maSach);
+        if (!target) return;
+        syncLocal(updateQuantity(maSach, target.soLuong + 1));
+    };
 
-    const handleDecrease = (maSach: number) =>
-        updateGioHang(gioHang.map(sp =>
-            sp.maSach === maSach && sp.soLuong > 1 ? { ...sp, soLuong: sp.soLuong - 1 } : sp
-        ));
+    const handleDecrease = (maSach: number) => {
+        const target = gioHang.find(sp => sp.maSach === maSach);
+        if (!target || target.soLuong <= 1) return;
+        syncLocal(updateQuantity(maSach, target.soLuong - 1));
+    };
 
     const handleChangeQty = (maSach: number, qty: number) =>
-        updateGioHang(gioHang.map(sp => sp.maSach === maSach ? { ...sp, soLuong: qty } : sp));
+        syncLocal(updateQuantity(maSach, qty));
 
     const handleRemove = (maSach: number) => {
-        const updated = gioHang.filter(sp => sp.maSach !== maSach);
-        updateGioHang(updated);
-        window.dispatchEvent(new Event('storage'));
+        syncLocal(removeItem(maSach));
     };
 
     const tongTienGoc = gioHang.reduce((t, item) => t + item.sachDto.giaBan * item.soLuong, 0);
@@ -139,16 +150,66 @@ function ThanhToan() {
         }
     };
 
+    // One failure channel for both sighted and assistive-tech users: the toast
+    // stays for parity with the rest of the app, the inline alert is what makes
+    // the failure reachable and re-readable.
+    const baoLoiDatHang = (message: string, traceId?: string) => {
+        setLoiDatHang({ message, traceId });
+        toast.error(message);
+    };
+
     const handleDatHang = async () => {
+        // Guards against a double-click/rapid resubmit producing two client
+        // intents: this ref is checked and set synchronously, before the
+        // first `await`, so a second invocation triggered before re-render
+        // cannot slip past it.
+        if (dangGuiRef.current) {
+            return;
+        }
         if (!diaChiDaChon) {
-            toast.error('Vui lòng chọn địa chỉ giao hàng');
+            baoLoiDatHang('Vui lòng chọn địa chỉ giao hàng');
             return;
         }
         if (gioHang.length === 0) {
-            toast.error('Giỏ hàng trống');
+            baoLoiDatHang('Giỏ hàng trống');
             return;
         }
 
+        const cartFingerprintHienTai = getCartFingerprint();
+        const cartFingerprintDaXem = getCartFingerprintForItems(gioHang);
+        if (cartFingerprintDaXem !== cartFingerprintHienTai) {
+            setGioHang(readCart());
+            setGioHangDaThayDoi(true);
+            baoLoiDatHang('Giỏ hàng vừa thay đổi ở tab khác. Vui lòng kiểm tra lại trước khi đặt hàng.');
+            return;
+        }
+        setLoiDatHang(null);
+
+        const checkoutFingerprint = buildCheckoutIntentFingerprint({
+            cartFingerprint: cartFingerprintHienTai,
+            maDiaChiGiaoHang: diaChiDaChon,
+            phuongThucThanhToan,
+            maCoupon: couponResult?.hopLe ? (couponResult.maCoupon || maCoupon) : undefined,
+        });
+        let intent: CheckoutIntent;
+        try {
+            // Once the user has explicitly acknowledged a stale checkout
+            // (cart/address/payment/coupon), generate a new intent instead of
+            // reusing a key that represents a materially different request.
+            intent = gioHangDaThayDoi
+                ? startNewIntent(checkoutFingerprint)
+                : ensureIntent(checkoutFingerprint);
+        } catch (error) {
+            if (error instanceof CheckoutIntentStaleError) {
+                setGioHangDaThayDoi(true);
+                baoLoiDatHang('Thông tin đặt hàng đã thay đổi kể từ lần thử trước. Vui lòng kiểm tra lại rồi bấm đặt hàng lần nữa.');
+                return;
+            }
+            throw error;
+        }
+        setGioHangDaThayDoi(false);
+
+        dangGuiRef.current = true;
         setDangTao(true);
         try {
             const payload: CheckoutOrderRequest = {
@@ -157,10 +218,7 @@ function ThanhToan() {
                 phuongThucThanhToan,
                 maCoupon: couponResult?.hopLe ? (couponResult.maCoupon || maCoupon.trim().toUpperCase()) : undefined,
             };
-            const data = await authRequest<CheckoutOrderResponse>(apiUrl('/api/don-hang/them'), {
-                method: 'POST',
-                body: JSON.stringify(payload),
-            });
+            const data = await createDonHang(payload, intent.key);
             setDonHang(data);
             if (data.maCoupon) {
                 setCouponResult({
@@ -175,24 +233,40 @@ function ThanhToan() {
                 setCouponResult(null);
             }
             setBuocHienTai('payment');
-            localStorage.removeItem('gioHang');
+            // Only clear the cart and the pending intent once the order is
+            // actually committed by the server.
+            clearCart();
+            clearIntent();
             setGioHang([]);
-            window.dispatchEvent(new Event('storage'));
-            window.dispatchEvent(new Event('cartUpdated'));
             if (data.phuongThucThanhToan === 'COD') {
                 toast.success('Đặt hàng COD thành công');
             } else {
                 toast.success('Đơn hàng đã được tạo, tiếp tục thanh toán VNPay');
             }
         } catch (error) {
-            const message = error instanceof Error ? error.message : 'Lỗi khi tạo đơn hàng';
-            if (message.toLowerCase().includes('đăng nhập')) {
-                toast.error(message);
-                navigate('/dang-nhap');
-                return;
+            if (error instanceof ApiRequestError && error.status === 409) {
+                // Same key, materially different request: the server made no
+                // mutation. Surface a clear message and drop the poisoned
+                // intent so the next explicit submit gets a fresh key instead
+                // of retrying forever against the same conflict.
+                clearIntent();
+                baoLoiDatHang(
+                    error.message || 'Yêu cầu đặt hàng bị xung đột với một yêu cầu trước đó. Vui lòng kiểm tra lại giỏ hàng và thử lại.',
+                    error.traceId,
+                );
+            } else {
+                const message = error instanceof Error ? error.message : 'Lỗi khi tạo đơn hàng';
+                if (message.toLowerCase().includes('đăng nhập')) {
+                    toast.error(message);
+                    navigate('/dang-nhap');
+                    return;
+                }
+                // Network failure or lost response: no committed order, so
+                // the intent is kept and a retry reuses the same key.
+                baoLoiDatHang(message, error instanceof ApiRequestError ? error.traceId : undefined);
             }
-            toast.error(message);
         } finally {
+            dangGuiRef.current = false;
             setDangTao(false);
         }
     };
@@ -203,15 +277,35 @@ function ThanhToan() {
         }
         setDangTaoLinkThanhToan(true);
         try {
-            const response = await authRequest<VNPayUrlResponse>(apiUrl(`/api/don-hang/submitOrder?maDonHang=${donHang.maDonHang}`));
+            const response = await createVNPayPaymentUrl(donHang.maDonHang);
             window.location.href = response.paymentUrl;
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Không thể tạo liên kết thanh toán';
-            toast.error(message);
+            baoLoiDatHang(message, error instanceof ApiRequestError ? error.traceId : undefined);
         } finally {
             setDangTaoLinkThanhToan(false);
         }
     };
+
+    const ThongBaoLoi = () => (
+        <div aria-live="assertive">
+            {loiDatHang && (
+                <div
+                    role="alert"
+                    className="alert alert-danger"
+                    style={{ marginBottom: '1rem' }}
+                >
+                    <i className="fas fa-exclamation-circle me-2" aria-hidden="true"></i>
+                    {loiDatHang.message}
+                    {loiDatHang.traceId && (
+                        <div style={{ fontSize: '0.8rem', marginTop: '0.35rem' }}>
+                            Mã tra cứu hỗ trợ: <code>{loiDatHang.traceId}</code>
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
 
     const StepIndicator = () => (
         <div className="checkout-steps animate-fade-in">
@@ -252,6 +346,7 @@ function ThanhToan() {
         return (
             <div className="container py-5">
                 <StepIndicator />
+                <ThongBaoLoi />
                 <div className="row justify-content-center">
                     <div className="col-md-6">
                         <div className="result-card result-card--success">
@@ -301,10 +396,11 @@ function ThanhToan() {
     return (
         <div className="container py-5 animate-fade-in">
             <StepIndicator />
-            <h4 style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, marginBottom: '1.5rem' }}>
-                <i className="fas fa-clipboard-check me-2" style={{ color: 'var(--color-primary)' }}></i>
+            <h1 style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '1.5rem', marginBottom: '1.5rem' }}>
+                <i className="fas fa-clipboard-check me-2" style={{ color: 'var(--color-primary)' }} aria-hidden="true"></i>
                 Xác nhận đơn hàng
-            </h4>
+            </h1>
+            <ThongBaoLoi />
             <div className="row">
                 <div className="col-md-8">
                     <CartItemsTable

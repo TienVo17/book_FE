@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { apiUrl } from '../../api/ApiUrl';
+import { getVNPayCallbackResult } from '../../api/DonHangApi';
 
 function KetQuaThanhToan() {
     const [trangThai, setTrangThai] = useState<boolean>(false);
@@ -9,13 +9,7 @@ function KetQuaThanhToan() {
     useEffect(() => {
         const queryString = window.location.search;
 
-        fetch(apiUrl('/api/don-hang/vnpay-payment') + queryString, {
-            method: 'GET',
-            headers: {
-                Authorization: `Bearer ${localStorage.getItem('jwt')}`,
-            },
-        })
-            .then(response => response.text())
+        getVNPayCallbackResult(queryString)
             .then(data => {
                 setTrangThai(data === 'ordersuccess');
             })

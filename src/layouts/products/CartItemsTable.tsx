@@ -1,13 +1,9 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import AnhSach from '../utils/AnhSach';
+import { CartItem } from '../../api/CartStorage';
 
-interface SanPhamGioHang {
-    maSach: number;
-    sachDto: { tenSach: string; giaBan: number; hinhAnh: string };
-    soLuong: number;
-    hinhAnh?: string;
-}
+type SanPhamGioHang = CartItem & { hinhAnh?: string };
 
 interface Props {
     gioHang: SanPhamGioHang[];
@@ -19,8 +15,12 @@ interface Props {
 
 const CartItemsTable: React.FC<Props> = ({ gioHang, onIncrease, onDecrease, onChangeQty, onRemove }) => (
     <div>
+        <ul
+            aria-label="Sản phẩm trong giỏ hàng"
+            style={{ listStyle: 'none', margin: 0, padding: 0 }}
+        >
         {gioHang.map((item, index) => (
-            <div
+            <li
                 className="cart-item d-flex gap-3 align-items-center"
                 key={item.maSach}
                 style={{ animationDelay: `${index * 80}ms` }}
@@ -33,9 +33,12 @@ const CartItemsTable: React.FC<Props> = ({ gioHang, onIncrease, onDecrease, onCh
                     height={100}
                 />
                 <div className="flex-grow-1" style={{ minWidth: 0 }}>
-                    <h6 style={{
+                    {/* h2: the page h1 is "Xác nhận đơn hàng", so a h6 here would
+                        skip four heading levels and break the outline. */}
+                    <h2 style={{
                         fontFamily: 'var(--font-heading)',
                         fontWeight: 600,
+                        fontSize: '1rem',
                         marginBottom: 4,
                         display: '-webkit-box',
                         WebkitLineClamp: 2,
@@ -43,13 +46,19 @@ const CartItemsTable: React.FC<Props> = ({ gioHang, onIncrease, onDecrease, onCh
                         overflow: 'hidden',
                     }}>
                         {item.sachDto.tenSach}
-                    </h6>
+                    </h2>
                     <span style={{ color: 'var(--color-accent)', fontWeight: 600, fontSize: '0.93rem' }}>
                         {item.sachDto.giaBan.toLocaleString('vi-VN')}đ
                     </span>
                 </div>
                 <div className="qty-control">
-                    <button onClick={() => onDecrease(item.maSach)} aria-label="Giảm số lượng">−</button>
+                    <button
+                        type="button"
+                        onClick={() => onDecrease(item.maSach)}
+                        aria-label={`Giảm số lượng ${item.sachDto.tenSach}`}
+                    >
+                        −
+                    </button>
                     <input
                         type="number"
                         value={item.soLuong}
@@ -58,9 +67,15 @@ const CartItemsTable: React.FC<Props> = ({ gioHang, onIncrease, onDecrease, onCh
                             const val = parseInt(e.target.value);
                             if (!isNaN(val) && val >= 1) onChangeQty(item.maSach, val);
                         }}
-                        aria-label="Số lượng"
+                        aria-label={`Số lượng ${item.sachDto.tenSach}`}
                     />
-                    <button onClick={() => onIncrease(item.maSach)} aria-label="Tăng số lượng">+</button>
+                    <button
+                        type="button"
+                        onClick={() => onIncrease(item.maSach)}
+                        aria-label={`Tăng số lượng ${item.sachDto.tenSach}`}
+                    >
+                        +
+                    </button>
                 </div>
                 <div className="text-end" style={{ minWidth: 100 }}>
                     <div style={{
@@ -73,15 +88,17 @@ const CartItemsTable: React.FC<Props> = ({ gioHang, onIncrease, onDecrease, onCh
                     </div>
                 </div>
                 <button
+                    type="button"
                     className="btn-icon"
                     style={{ color: 'var(--color-danger)', borderColor: 'var(--color-danger)' }}
                     onClick={() => onRemove(item.maSach)}
-                    aria-label="Xóa sản phẩm"
+                    aria-label={`Xóa ${item.sachDto.tenSach} khỏi giỏ hàng`}
                 >
-                    <i className="fas fa-trash-alt"></i>
+                    <i className="fas fa-trash-alt" aria-hidden="true"></i>
                 </button>
-            </div>
+            </li>
         ))}
+        </ul>
         <div style={{ marginTop: '0.75rem' }}>
             <Link to="/" className="btn-modern-outline" style={{ textDecoration: 'none' }}>
                 <i className="fas fa-arrow-left"></i>
