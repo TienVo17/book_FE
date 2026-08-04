@@ -39,9 +39,11 @@ const CheckoutSidebar: React.FC<Props> = ({
     <div className="col-md-4">
         <div className="checkout-card animate-slide-in-right">
             <div className="checkout-card-header">
-                <h6><i className="fas fa-map-marker-alt me-2"></i>Địa chỉ giao hàng</h6>
+                <h2 className="checkout-card-title" id="checkout-address-heading">
+                    <i className="fas fa-map-marker-alt me-2" aria-hidden="true"></i>Địa chỉ giao hàng
+                </h2>
             </div>
-            <div className="checkout-card-body">
+            <div className="checkout-card-body" role="radiogroup" aria-labelledby="checkout-address-heading">
                 {danhSachDiaChi.length === 0 ? (
                     <p style={{ color: 'var(--color-text-muted)', fontSize: '0.88rem', marginBottom: 0 }}>
                         Chưa có địa chỉ. <Link to="/dia-chi">Thêm địa chỉ</Link>
@@ -75,7 +77,7 @@ const CheckoutSidebar: React.FC<Props> = ({
                     ))
                 )}
                 {danhSachDiaChi.length > 0 && diaChiDaChon === null && (
-                    <small style={{ color: 'var(--color-danger)', display: 'block', marginTop: '8px' }}>
+                    <small role="alert" style={{ color: 'var(--color-danger)', display: 'block', marginTop: '8px' }}>
                         Vui lòng chọn một địa chỉ giao hàng.
                     </small>
                 )}
@@ -84,9 +86,11 @@ const CheckoutSidebar: React.FC<Props> = ({
 
         <div className="checkout-card animate-slide-in-right" style={{ animationDelay: '50ms' }}>
             <div className="checkout-card-header">
-                <h6><i className="fas fa-wallet me-2"></i>Phương thức thanh toán</h6>
+                <h2 className="checkout-card-title" id="checkout-payment-heading">
+                    <i className="fas fa-wallet me-2" aria-hidden="true"></i>Phương thức thanh toán
+                </h2>
             </div>
-            <div className="checkout-card-body">
+            <div className="checkout-card-body" role="radiogroup" aria-labelledby="checkout-payment-heading">
                 <div
                     className={`address-radio${phuongThucThanhToan === 'COD' ? ' selected' : ''}`}
                     onClick={() => onChonPhuongThucThanhToan('COD')}
@@ -132,17 +136,20 @@ const CheckoutSidebar: React.FC<Props> = ({
 
         <div className="checkout-card animate-slide-in-right" style={{ animationDelay: '100ms' }}>
             <div className="checkout-card-header">
-                <h6><i className="fas fa-ticket-alt me-2"></i>Mã giảm giá</h6>
+                <h2 className="checkout-card-title"><i className="fas fa-ticket-alt me-2" aria-hidden="true"></i>Mã giảm giá</h2>
             </div>
             <div className="checkout-card-body">
                 <div style={{ display: 'flex', gap: '8px' }}>
+                    <label htmlFor="checkout-coupon" className="visually-hidden">Mã giảm giá</label>
                     <input
+                        id="checkout-coupon"
                         type="text"
                         placeholder="Nhập mã coupon…"
                         value={maCoupon}
                         onChange={e => onChangeCoupon(e.target.value)}
                         autoComplete="off"
                         spellCheck={false}
+                        aria-describedby="checkout-coupon-feedback"
                         style={{
                             flex: 1,
                             padding: '0.5rem 0.75rem',
@@ -159,26 +166,32 @@ const CheckoutSidebar: React.FC<Props> = ({
                         Áp dụng
                     </button>
                 </div>
-                {couponResult && (
-                    <small
-                        style={{
-                            marginTop: '6px',
-                            display: 'block',
-                            color: couponResult.hopLe ? 'var(--color-success)' : 'var(--color-danger)',
-                            fontSize: '0.82rem',
-                        }}
-                    >
-                        <i className={`fas fa-${couponResult.hopLe ? 'check-circle' : 'exclamation-circle'} me-1`}></i>
-                        {couponResult.thongBao}
-                    </small>
-                )}
+                <div id="checkout-coupon-feedback">
+                    {couponResult && (
+                        <small
+                            role={couponResult.hopLe ? 'status' : 'alert'}
+                            style={{
+                                marginTop: '6px',
+                                display: 'block',
+                                color: couponResult.hopLe ? 'var(--color-success)' : 'var(--color-danger)',
+                                fontSize: '0.82rem',
+                            }}
+                        >
+                            <i
+                                className={`fas fa-${couponResult.hopLe ? 'check-circle' : 'exclamation-circle'} me-1`}
+                                aria-hidden="true"
+                            ></i>
+                            {couponResult.thongBao}
+                        </small>
+                    )}
+                </div>
             </div>
         </div>
 
         <div className="cart-summary animate-slide-in-right" style={{ animationDelay: '200ms' }}>
-            <h5 style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, marginBottom: '1.2rem' }}>
+            <h2 className="checkout-card-title" style={{ fontWeight: 700, fontSize: '1.05rem', marginBottom: '1.2rem' }}>
                 Tóm tắt đơn hàng
-            </h5>
+            </h2>
             <div className="d-flex justify-content-between mb-2" style={{ fontSize: '0.93rem' }}>
                 <span style={{ color: 'var(--color-text-secondary)' }}>Tạm tính:</span>
                 <span style={{ fontVariantNumeric: 'tabular-nums' }}>{tongTienGoc.toLocaleString('vi-VN')}đ</span>
@@ -208,15 +221,17 @@ const CheckoutSidebar: React.FC<Props> = ({
                 </small>
             )}
             <button
+                type="button"
                 className="btn-modern-accent w-100"
                 style={{ padding: '0.75rem', justifyContent: 'center' }}
                 onClick={onDatHang}
                 disabled={dangTao || danhSachDiaChi.length === 0 || diaChiDaChon === null}
+                aria-busy={dangTao}
             >
                 {dangTao ? (
-                    <><span className="spinner-border spinner-border-sm me-2"></span>Đang xử lý…</>
+                    <><span className="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Đang xử lý…</>
                 ) : (
-                    <><i className="fas fa-check me-2"></i>{phuongThucThanhToan === 'COD' ? 'Đặt hàng COD' : 'Tạo đơn & thanh toán'}</>
+                    <><i className="fas fa-check me-2" aria-hidden="true"></i>{phuongThucThanhToan === 'COD' ? 'Đặt hàng COD' : 'Tạo đơn & thanh toán'}</>
                 )}
             </button>
         </div>

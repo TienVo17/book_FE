@@ -254,6 +254,9 @@
   position: relative;
   display: flex;
   align-items: center;
+  /* Flex children default to min-width:auto and refuse to shrink below their
+     content; without this the search box cannot yield space under zoom. */
+  min-width: 0;
 }
 
 .search-modern input {
@@ -263,6 +266,11 @@
   padding-right: 2.75rem;
   font-size: 0.88rem;
   width: 220px;
+  /* At 200% zoom the CSS viewport halves, so a fixed px width overflows the
+     navbar and pushes the page into horizontal scrolling. Cap it against the
+     viewport so it shrinks instead. */
+  max-width: 40vw;
+  min-width: 0;
   /* Ô tìm kiếm nở ra khi focus nên width phải nằm trong transition. */
   transition: var(--transition-normal), width var(--anim-normal) var(--ease-out);
   background: var(--color-bg);
@@ -271,6 +279,7 @@
 
 .search-modern input:focus {
   width: 300px;
+  max-width: 40vw;
   border-color: var(--color-primary);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
   outline: none;
@@ -755,6 +764,10 @@
 .qty-control button {
   width: 40px;
   height: 40px;
+  /* In the narrow cart row these buttons were being squeezed to 22.6px, below
+     the WCAG 2.2 24x24 minimum. Stop flex from shrinking them. */
+  flex: 0 0 auto;
+  min-width: 40px;
   border: none;
   background: var(--color-bg);
   color: var(--color-text);
@@ -924,7 +937,8 @@
   padding: 1.25rem 0;
   margin-top: 2.5rem;
   font-size: 0.85rem;
-  color: rgba(255, 255, 255, 0.4);
+  /* 0.4 alpha over the dark footer gave 3.8:1; 0.66 clears 4.5:1. */
+  color: rgba(255, 255, 255, 0.66);
 }
 
 /* ===== Modern Pagination ===== */
@@ -1977,11 +1991,58 @@
   font-size: 0.9rem;
 }
 
+/* Checkout card headings are h2 for a valid heading outline (the page h1 is
+   "Xác nhận đơn hàng"), but they must still look like small card labels. */
+.checkout-card-title {
+  font-family: var(--font-heading);
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+/* ===== Accessibility Primitives ===== */
+/* Label text that only assistive tech needs; never display:none, which would
+   remove it from the accessibility tree too. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Keyboard users need a focus ring everywhere, not only on the few controls
+   that happened to define one. :focus-visible keeps mouse clicks unchanged. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 3px solid var(--color-primary);
+  outline-offset: 2px;
+  /* Sticky headers/footers must not clip the ring. */
+  position: relative;
+  z-index: 1;
+}
+
 /* ===== Touch Targets ===== */
 /* Fingers need roughly 44px; these controls sat well under it. */
 .navbar-toggler {
   min-width: 44px;
   min-height: 44px;
+}
+
+/* WCAG 2.2 target size (minimum) is 24x24 CSS px; these table controls were 34px
+   but sat in dense rows, so keep them explicitly above the floor. */
+.order-action-btn,
+.filter-tab {
+  min-width: 24px;
+  min-height: 24px;
 }
 
 .navbar-modern .nav-link {
