@@ -200,9 +200,9 @@ Clear cart: localStorage.removeItem('gio-hang')
 ```
 Admin on /quan-ly/cap-nhat-sach/:maSach
     ↓
-CapNhatSach.tsx (guards via Adminroute)
+CapNhatSach.tsx (guarded by RouteGuard require="admin")
     ↓
-Adminroute checks: JWT expiry + (isAdmin || isStaff)
+RouteGuard checks: JWT validity/expiry + isAdmin === true
     ↓
 AdminApi.getBookDetail(maSach)  // Calls authRequest
     ↓
@@ -398,19 +398,16 @@ Backend request sites use `src/api/ApiUrl.ts`. It accepts a credential-free HTTP
 
 Create React App embeds this value in the static bundle during `npm run build`. Vercel or Docker production builds must therefore provide the deployed backend origin before the build starts; changing a runtime container variable does not update an existing bundle.
 
-### 3. Mixed Data-Access Patterns
+### 3. Single Data-Access Boundary (resolved)
 
-**Issue**: Some pages bypass api/ modules and call fetch directly.
+Every application API call now goes through a module in `src/api/`.
+`Request.ts` holds the only two `fetch()` call sites — `publicRequest` for
+public endpoints and `authRequest` for authenticated ones — so Bearer-token
+injection, error parsing and trace-id extraction live in one place.
 
-Pages affected: DonHangUser, DonHang (admin), DanhSachBinhLuan, KetQuaThanhToan, DatHangNhanh, DanhGiaSanPham (submit), Login/Register/Activation.
-
-**Impact**:
-- Inconsistent error handling
-- Bearer token injection duplicated
-- Difficult to refactor API structure
-- No central place to add middleware (caching, retry logic)
-
-**Mitigation**: Gradually move these to api/ modules.
+Errors surface as `ApiRequestError` with `status`, `code`, `traceId` and
+`path`; `401`/`403` clears the stored JWT. A source-scan test keeps new
+direct `fetch()` calls from reappearing outside `Request.ts`.
 
 ### 4. Browser-Reachable Docker API Origin
 

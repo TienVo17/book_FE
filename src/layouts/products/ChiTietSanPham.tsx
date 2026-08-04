@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import SachModel from "../../models/SachModel";
-import { getBookById, getSachLienQuan } from "../../api/SachApi";
+import { getBookByIdentifier, getSachLienQuan } from "../../api/SachApi";
+import { getSeoMeta } from "../../api/SeoApi";
+import { applySeoMeta, resetSeoMeta } from "../utils/SeoMeta";
 import HinhAnhSanPham from "./components/HinhAnhSanPham";
 import DanhGiaSanPham, { renderStars } from "./components/DanhGiaSanPham";
 import dinhDangSo from "../utils/DinhDangSo";
@@ -13,15 +15,11 @@ import SachProps from "./components/SachProps";
 
 const ChiTietSanPham: React.FC = () => {
   const navigate = useNavigate();
-  const { maSach } = useParams();
-  let maSachNumber = 0;
-
-  try {
-    maSachNumber = parseInt(maSach + "");
-    if (Number.isNaN(maSachNumber)) maSachNumber = 0;
-  } catch (error) {
-    maSachNumber = 0;
-  }
+  // The route param is an identifier: either a legacy numeric id or a canonical
+  // slug. The numeric book id is only known after the product loads, so
+  // id-based calls (reviews, wishlist, SEO) key off the loaded product.
+  const { maSach: identifier } = useParams();
+  const [maSachNumber, setMaSachNumber] = useState(0);
 
   const [sach, setSach] = useState<SachModel | null>(null);
   const [dangTaiDuLieu, setDangTaiDuLieu] = useState(true);
@@ -53,34 +51,86 @@ const ChiTietSanPham: React.FC = () => {
 
   const handleMuaNgay = () => {
     if (!sach) return;
-    const sanPhamMuaNgay = {
-      maSach: sach.maSach,
-      sachDto: {
-        tenSach: sach.tenSach,
-        giaBan: sach.giaBan,
-        hinhAnh: sach.danhSachAnh?.[0]?.urlHinh || "",
-      },
-      soLuong: soLuong,
-    };
-    localStorage.setItem("gioHang", JSON.stringify([sanPhamMuaNgay]));
-    if (localStorage.getItem("jwt")) {
-      navigate("/thanh-toan");
-    } else {
-      navigate("/dat-hang-nhanh");
+
+    // Unauthenticated: never mutate the cart before auth is validated. Send
+    // the user to login with an explicit return target to /thanh-toan
+    // (the existing "nextPay" flag, consumed by DangNhap after sign-in).
+    if (!localStorage.getItem("jwt")) {
+      localStorage.setItem("nextPay", "true");
+      navigate("/dang-nhap");
+      return;
     }
+
+    // Authenticated: merge the selected item into the existing cart,
+    // preserving other lines, then proceed to checkout.
+    themVaoGioHang(sach, soLuong);
+    navigate("/thanh-toan");
   };
 
   useEffect(() => {
-    getBookById(maSachNumber)
+    let huy = false;
+    setDangTaiDuLieu(true);
+    getBookByIdentifier(identifier ?? "")
       .then((sach) => {
+        if (huy) return;
         setSach(sach);
+        setMaSachNumber(sach?.maSach ?? 0);
         setDangTaiDuLieu(false);
       })
       .catch((error) => {
+        if (huy) return;
         setBaoLoi(error.message);
         setDangTaiDuLieu(false);
       });
-  }, [maSachNumber]);
+    return () => { huy = true; };
+  }, [identifier]);
+
+  // SEO metadata is keyed by the resolved numeric id, so a slug URL and a
+  // numeric URL produce the same canonical. Failures fall back to the visible
+  // product fields rather than leaving another page's metadata in place.
+  useEffect(() => {
+    if (!sach || maSachNumber <= 0) {
+      return;
+    }
+    let huy = false;
+    const duPhong = () => applySeoMeta({
+      title: sach.tenSach,
+      description: sach.moTaNgan || sach.moTa || undefined,
+      canonical: `${window.location.origin}/sach/${sach.slug || sach.maSach}`,
+      ogType: "book",
+    });
+
+    getSeoMeta(maSachNumber)
+      .then((meta) => {
+        if (huy) return;
+        if (!meta || !meta.title) {
+          duPhong();
+          return;
+        }
+        applySeoMeta({
+          title: meta.title,
+          description: meta.description || sach.moTaNgan || undefined,
+          canonical: meta.canonical,
+          ogTitle: meta.ogTitle,
+          ogDescription: meta.ogDescription,
+          ogImage: meta.ogImage || undefined,
+          ogType: meta.ogType || "book",
+          jsonLd: meta.jsonLd,
+        });
+      })
+      .catch(() => { if (!huy) duPhong(); });
+
+    return () => { huy = true; };
+  }, [sach, maSachNumber]);
+
+  // Clear the previous product's canonical/OG/JSON-LD as soon as the identifier
+  // changes. Navigating between products (e.g. a related-product card) reuses
+  // this component, so an unmount-only reset would leave the old product's
+  // metadata in the head for the whole load window of the new one.
+  useEffect(() => {
+    resetSeoMeta();
+    return resetSeoMeta;
+  }, [identifier]);
 
   useEffect(() => {
     if (maSachNumber > 0) {
@@ -173,7 +223,7 @@ const ChiTietSanPham: React.FC = () => {
 
             <div style={{ color: "var(--color-text-secondary)", fontSize: "0.93rem", lineHeight: 1.7, marginBottom: "1rem" }}>
               {sach.moTaNgan && <p>{sach.moTaNgan}</p>}
-              <div dangerouslySetInnerHTML={{ __html: moTaHienThi }} />
+              <div style={{ whiteSpace: "pre-wrap" }}>{moTaHienThi}</div>
             </div>
 
             {sach.thongTinChiTiet && (

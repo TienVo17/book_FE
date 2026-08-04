@@ -1,3 +1,25 @@
 # https://www.robotstxt.org/robotstxt.html
 User-agent: *
-Disallow:
+
+# Private, transactional and token-bearing routes. The app also emits
+# noindex,nofollow on these routes for crawlers that ignore robots.txt.
+Disallow: /quan-ly
+Disallow: /gio-hang
+Disallow: /thanh-toan
+Disallow: /order
+Disallow: /profile
+Disallow: /dia-chi
+Disallow: /yeu-thich
+Disallow: /xu-ly-kq-thanh-toan
+Disallow: /dang-nhap
+Disallow: /dang-ky
+Disallow: /quen-mat-khau
+Disallow: /dat-lai-mat-khau
+Disallow: /kich-hoat
+
+Allow: /
+
+# The sitemap is served by the backend, so its host differs per environment.
+# `npm run build` rewrites this line from REACT_APP_API_BASE_URL; the committed
+# value is the local default. See docs/deployment-guide.md.
+Sitemap: http://localhost:8080/sitemap.xml

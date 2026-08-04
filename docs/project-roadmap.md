@@ -63,27 +63,25 @@
 - Local development falls back to `http://localhost:8080`
 - No loopback request host remains outside the deliberate resolver fallback
 
-### V1.1.2: Consolidate Auth Guards
+### V1.1.2: Consolidate Auth Guards — DONE
 
-**Objective**: Replace 3 guard implementations with single, reusable guard.
+**Objective**: Replace 3 guard implementations with a single reusable guard.
 
 **Tasks**:
-- [ ] Create unified `ProtectedRoute.tsx` with role parameter
-- [ ] Remove `RequireAuth.tsx`, `RequireAdmin.tsx`, `Adminroute.tsx`
-- [ ] Update all route definitions to use new guard
-- [ ] Add expiry validation to all protected routes
-- [ ] Add auto-redirect to login on 401/403
+- [x] Create unified `RouteGuard.tsx` with a `require` parameter
+- [x] Remove `RequireAuth.tsx`, `RequireAdmin.tsx`, `Adminroute.tsx`, `ProtectedRoute.tsx`
+- [x] Update all route definitions to use the new guard
+- [x] Add expiry validation to all protected routes
 
-**Files to Modify**:
-- `src/layouts/utils/ProtectedRoute.tsx` — Rewrite
-- `src/App.tsx` — Update route definitions
-- `src/layouts/admin/layouts/AdminLayout.tsx` — Remove local guard
+**Files Modified**:
+- `src/layouts/utils/RouteGuard.tsx` — new single guard
+- `src/App.tsx` — route definitions
 
-**Acceptance Criteria**:
-- All protected routes redirect to login on expiry
-- Admin routes still check (isAdmin || isStaff) role
-- User routes only check presence
-- Guest routes prevent logged-in users from accessing
+**Outcome**:
+- Protected routes redirect to login when the JWT is missing, malformed or expired
+- Admin routes require `isAdmin === true`; a `STAFF`-only token is denied
+- `/thanh-toan` and `/order` are guarded (previously unguarded)
+- Covered by `RouteGuard.test.tsx` (7 routes × 6 token states)
 
 ### V1.1.3: Standardize API Patterns
 

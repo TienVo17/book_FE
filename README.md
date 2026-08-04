@@ -63,8 +63,10 @@ Key directories:
 ## Key Features
 
 - **Product Browsing**: Search, category filters, detailed product views with ratings
-- **Shopping Cart**: Client-side localStorage persistence (no server cart)
-- **Checkout**: Multi-step VNPay payment gateway integration
+- **Shopping Cart**: client-side localStorage persistence (no server cart), with
+  cross-tab reconciliation and a stale-cart check before checkout
+- **Checkout**: authenticated two-step flow (COD or VNPay sandbox) with an
+  idempotency key so a retry cannot duplicate an order
 - **Authentication**: JWT tokens (localStorage), login/register/password reset
 - **Admin Panel**: Book CRUD, user management, order tracking, review moderation
 - **Responsive Design**: Bootstrap Icons, mobile-friendly layouts
@@ -72,17 +74,29 @@ Key directories:
 
 ## Authentication & State
 
-- **JWT Storage**: Tokens stored in `localStorage.jwt` (no refresh-token flow)
-- **Client-Side State**: Cart and auth state in localStorage only (no Redux/Context)
-- **Auth Guards**: Routes protected by `RequireAuth` (presence-check) and `AdminRoute` (expiry + role check)
+- **JWT Storage**: token in `localStorage.jwt` (no refresh-token flow)
+- **Client-Side State**: cart and auth state in localStorage only (no Redux/Context)
+- **Auth Guards**: one `RouteGuard`. `require="user"` needs a valid non-expired JWT;
+  `require="admin"` also needs `isAdmin === true`. Guards are UX; the backend
+  authorizes every request independently.
+- **Cart**: local-only, owned by `src/api/CartStorage.ts` (the single writer for
+  `localStorage.gioHang`). The frontend does not call the server cart API.
+- **Checkout**: sends an `Idempotency-Key`, so a lost response can be retried
+  without creating a second order.
 
 ## Known Limitations
 
-See [System Architecture](./docs/system-architecture.md#known-limitations) for documented issues including:
+This is a portfolio demo running on test data — no real payments, no real
+customer data, and no SLA. See
+[System Architecture](./docs/system-architecture.md#known-limitations) for detail.
 
-- **Auth guard inconsistencies**: Three separate guard implementations exist; only `AdminRoute` is wired
-- **API deployment configuration**: Production requires `REACT_APP_API_BASE_URL` to identify the deployed backend.
-- **Mixed data-access patterns**: Some pages bypass the API modules and call fetch directly
+- **Bearer token in `localStorage`**: readable by any script on the page. Adequate
+  for a demo; a production go-live would need HttpOnly cookies plus CSRF defence.
+- **API deployment configuration**: `REACT_APP_API_BASE_URL` is embedded at build
+  time, so a production build must be given the deployed backend origin.
+- **SPA 404s**: unknown routes render a client `NotFound` screen, but the origin
+  still answers HTTP 200 because of the history fallback.
+- **VNPay**: sandbox contract only; a live callback has not been demonstrated.
 
 ## Documentation
 
