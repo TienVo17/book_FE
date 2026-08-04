@@ -36,22 +36,48 @@ function parseJsonSafely(text: string): unknown {
   }
 }
 
+/**
+ * Do dai toi da cua thong bao duoc phep hien thi. Stack trace va dump noi bo deu dai hon
+ * nhieu, nen gioi han nay chan chung ngay ca khi lot qua cac kiem tra khac.
+ */
+const MAX_MESSAGE_LENGTH = 200;
+
+/** Dau hieu cua chi tiet ky thuat noi bo — khong bao gio hien thi cho nguoi dung cuoi. */
+const INTERNAL_DETAIL_PATTERN =
+  /(\bat\s+[\w.$]+\([\w.]+:\d+\)|Exception|Throwable|SQLSTATE|java\.|org\.springframework|com\.example|jdbc:|SELECT\s|INSERT\s|UPDATE\s|\bstack\b)/i;
+
+function isSafeToDisplay(message: string): boolean {
+  return (
+    message.length > 0 &&
+    message.length <= MAX_MESSAGE_LENGTH &&
+    !message.includes('\n') &&
+    !INTERNAL_DETAIL_PATTERN.test(message)
+  );
+}
+
+/**
+ * Chi lay thong bao tu truong `message` cua hop dong ApiError ma backend cam ket, va chi khi
+ * no khong chua chi tiet ky thuat.
+ *
+ * Truoc day ham nay duyet moi gia tri chuoi trong response va hien thi cai dau tien tim duoc.
+ * Neu backend (hoac mot proxy/WAF phia truoc) tra ve stack trace hay thong tin noi bo, no se
+ * duoc in thang len man hinh nguoi dung. Mo rong be mat lo thong tin nay khong doi lai duoc
+ * loi ich nao — nguoi dung khong lam gi duoc voi mot stack trace.
+ */
 export function getApiMessage(body: unknown, fallback: string): string {
   if (typeof body === 'string') {
-    return body.trim() || fallback;
+    const trimmed = body.trim();
+    return isSafeToDisplay(trimmed) ? trimmed : fallback;
   }
 
   if (body && typeof body === 'object') {
     const payload = body as Record<string, unknown>;
     const directMessage = payload.message ?? payload.thongBao ?? payload.noiDung;
 
-    if (typeof directMessage === 'string' && directMessage.trim()) {
-      return directMessage.trim();
-    }
-
-    for (const value of Object.values(payload)) {
-      if (typeof value === 'string' && value.trim()) {
-        return value.trim();
+    if (typeof directMessage === 'string') {
+      const trimmed = directMessage.trim();
+      if (isSafeToDisplay(trimmed)) {
+        return trimmed;
       }
     }
   }

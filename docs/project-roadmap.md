@@ -336,7 +336,7 @@
 | Page Load Time (Lighthouse) | — | > 80 | > 85 |
 | Bundle Size (gzipped) | ~500KB | < 500KB | < 450KB |
 | TypeScript Strict Coverage | — | 100% | 100% |
-| Test Coverage | 0% | 0% (optional) | > 60% |
+| Test Coverage | 190 test trên 26 suite (chưa đo % dòng) | Giữ xanh các luồng tới hạn | > 60% |
 | Checkout Conversion | TBD | > 70% | > 75% |
 | Mobile Accessibility | — | > 85 | > 90 |
 

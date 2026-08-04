@@ -253,12 +253,12 @@ navigate(-1)  (back to list)
 }
 ```
 
-**Storage**: `localStorage.jwt` (plain text, XSS risk; mitigated by CSP in nginx.conf)
+**Storage**: `localStorage.jwt` (plain text). Token nằm trong localStorage nên script chạy được trong trang sẽ đọc được — đây là đánh đổi đã biết, chưa chuyển sang HttpOnly cookie. Giảm thiểu bằng hai lớp: mô tả sách render dưới dạng text thuần (không `dangerouslySetInnerHTML`), và CSP giới hạn `script-src` (khai báo trong `vercel.json` cho Vercel, `nginx.conf` cho Docker).
 
 **Usage**:
 - `Request.ts` reads it and injects as `Authorization: Bearer {jwt}`
-- `RequireAuth` guards check presence
-- `Adminroute` guard validates expiry + role before rendering protected routes
+- `RouteGuard` là guard duy nhất; kiểm tra token hợp lệ và chưa hết hạn, `require="admin"` yêu cầu thêm `isAdmin === true`
+- Guard phía client chỉ để điều hướng; quyền thực sự do backend quyết định trên từng request
 
 ## API Request Patterns
 
@@ -361,14 +361,15 @@ try {
 ### Authorization
 
 - **Role-based**: Users have roles (USER, ADMIN, STAFF) embedded in JWT claims
-- **Frontend guards**: `Adminroute` checks isAdmin || isStaff before rendering admin pages
+- **Frontend guards**: `RouteGuard` kiểm tra `isAdmin === true` cho khu vực quản trị (token chỉ có `STAFF` bị từ chối)
 - **Backend enforcement**: Spring Boot @PreAuthorize annotations on endpoints
 
 ### Network Security
 
 - **HTTPS only** (enforced in production)
 - **CORS**: Configured on backend (Spring Boot @CrossOrigin or global config)
-- **CSP headers**: Set in nginx.conf to mitigate XSS
+- **Security headers**: `vercel.json` (production trên Vercel) và `nginx.conf` (Docker) khai báo cùng một chính sách: CSP, `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`. Hai file phải được cập nhật đồng thời.
+- **CSP**: `script-src` chỉ cho phép self và `cdn.jsdelivr.net`. `img-src` để rộng (`https:`) vì ảnh sách do admin nhập URL tự do; ảnh không phải vector thực thi script nên đánh đổi này chấp nhận được.
 - **X-Real-IP header**: Proxied via nginx to backend for logging
 
 ### Secrets Management
