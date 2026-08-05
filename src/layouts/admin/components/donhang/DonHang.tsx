@@ -1,21 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
-import { apiUrl } from '../../../../api/ApiUrl';
+import { getDonHangHistory, capNhatTrangThaiGiaoHang, DonHangListItem } from '../../../../api/DonHangApi';
 
 type FilterType = 'all' | 'chua_thanh_toan' | 'da_thanh_toan' | 'chua_giao' | 'da_giao';
 
-interface DonHangItem {
-    maDonHang: number;
-    ngayTao: string;
-    diaChiNhanHang: string;
-    phuongThucThanhToan?: 'COD' | 'VNPAY' | string;
-    tenPhuongThucThanhToan?: string;
-    trangThaiThanhToan: number;
-    trangThaiGiaoHang: number;
-    tongTien: number;
-}
-
-const BASE = apiUrl('');
+type DonHangItem = DonHangListItem;
 
 function DonHang() {
     const [donHangList, setDonHangList] = useState<DonHangItem[]>([]);
@@ -26,19 +15,19 @@ function DonHang() {
     const [filter, setFilter] = useState<FilterType>('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [updating, setUpdating] = useState<number | null>(null);
+    // Toast-only failures are transient and colour-coded; keep an inline,
+    // re-readable alert alongside it for assistive tech.
+    const [loi, setLoi] = useState<string | null>(null);
 
     const fetchDonHang = useCallback(async (pageNum: number) => {
         setLoading(true);
         try {
-            const response = await fetch(`${BASE}/api/don-hang/findAll?page=${pageNum}`, {
-                headers: { Authorization: `Bearer ${localStorage.getItem('jwt')}` },
-            });
-            if (!response.ok) throw new Error('Lỗi tải dữ liệu');
-            const data = await response.json();
+            const data = await getDonHangHistory(pageNum);
             setDonHangList(data.content || []);
             setTotalPages(data.totalPages || 0);
             setTotalElements(data.totalElements || 0);
         } catch {
+            setLoi('Không thể tải danh sách đơn hàng');
             toast.error('Không thể tải danh sách đơn hàng');
         } finally {
             setLoading(false);
@@ -50,15 +39,13 @@ function DonHang() {
     const handleCapNhatGiaoHang = async (maDonHang: number) => {
         if (!window.confirm('Bạn có chắc muốn cập nhật trạng thái giao hàng?')) return;
         setUpdating(maDonHang);
+        setLoi(null);
         try {
-            const response = await fetch(`${BASE}/api/don-hang/cap-nhat-trang-thai-giao-hang/${maDonHang}`, {
-                method: 'POST',
-                headers: { Authorization: `Bearer ${localStorage.getItem('jwt')}` },
-            });
-            if (!response.ok) throw new Error();
+            await capNhatTrangThaiGiaoHang(maDonHang);
             toast.success('Đã cập nhật trạng thái');
             await fetchDonHang(page);
         } catch {
+            setLoi('Lỗi cập nhật trạng thái');
             toast.error('Lỗi cập nhật trạng thái');
         } finally {
             setUpdating(null);
@@ -160,7 +147,16 @@ function DonHang() {
                 </div>
             </div>
 
-            <div className="filter-tabs">
+            <div aria-live="assertive">
+                {loi && (
+                    <div role="alert" className="alert alert-danger">
+                        <i className="fas fa-exclamation-circle me-2" aria-hidden="true"></i>
+                        {loi}
+                    </div>
+                )}
+            </div>
+
+            <div className="filter-tabs" role="group" aria-label="Lọc đơn hàng theo trạng thái">
                 {([
                     ['all', 'Tất cả', filtered.length],
                     ['chua_thanh_toan', 'Chưa thanh toán', stats.chuaThanhToan],
@@ -170,8 +166,10 @@ function DonHang() {
                 ] as [FilterType, string, number][]).map(([key, label, count]) => (
                     <button
                         key={key}
+                        type="button"
                         className={`filter-tab${filter === key ? ' active' : ''}`}
                         onClick={() => setFilter(key)}
+                        aria-pressed={filter === key}
                     >
                         {label}
                         <span className="tab-count">{count}</span>
@@ -181,8 +179,8 @@ function DonHang() {
 
             {/* Table */}
             {loading ? (
-                <div className="text-center py-5">
-                    <span className="spinner-border text-primary"></span>
+                <div className="text-center py-5" role="status">
+                    <span className="spinner-border text-primary" aria-hidden="true"></span>
                     <p className="mt-2" style={{ color: 'var(--color-text-muted)' }}>Đang tải…</p>
                 </div>
             ) : filtered.length === 0 ? (
@@ -252,14 +250,17 @@ function DonHang() {
                                             <td style={{ textAlign: 'center' }}>
                                                 {item.trangThaiGiaoHang !== 2 && item.trangThaiGiaoHang !== 3 && (
                                                     <button
+                                                        type="button"
                                                         className="order-action-btn success"
                                                         title="Cập nhật trạng thái giao hàng (tiến 1 bước)"
+                                                        aria-label={`Cập nhật trạng thái giao hàng đơn #${item.maDonHang}`}
+                                                        aria-busy={updating === item.maDonHang}
                                                         onClick={() => handleCapNhatGiaoHang(item.maDonHang)}
                                                         disabled={updating === item.maDonHang}
                                                     >
                                                         {updating === item.maDonHang
-                                                            ? <span className="spinner-border spinner-border-sm"></span>
-                                                            : <i className="fas fa-check"></i>}
+                                                            ? <span className="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                                                            : <i className="fas fa-check" aria-hidden="true"></i>}
                                                     </button>
                                                 )}
                                             </td>

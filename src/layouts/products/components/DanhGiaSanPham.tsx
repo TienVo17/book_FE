@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import DanhGiaModel from "../../../models/DanhGiaModel";
-import { getAllReviewOfOneBook } from "../../../api/DanhGiaAPI";
+import { getAllReviewOfOneBook, themDanhGiaMoi } from "../../../api/DanhGiaAPI";
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { toast } from "react-toastify";
@@ -142,42 +142,14 @@ const DanhGiaSanPham: React.FC<DanhGiaSanPhamProps> = ({ maSach }) => {
             <button 
               type="submit" 
               className="btn btn-primary"
-              onClick={async ()=>{
-                danhGiaMoi.maSach = maSach;
-                await fetch(apiUrl('/api/danh-gia/them-danh-gia-v1'), {
-                  method: "POST",
-                  headers: {
-                      "Authorization": `Bearer ${localStorage.getItem('jwt')}`,
-                      'Content-Type': 'application/json' 
-                  },
-                  body: JSON.stringify(danhGiaMoi),
-              })
-                  .then( (response) => {
-                      if(response.status=== 401){
-                     
-                        return null;
-                      }
-                      return response.json();
-                  })
-                  .then((response) => {
-                    if(!response){
-                      toast.info("Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.");
-                      return;
-                    }
-                    getAllReviewOfOneBook(maSach)
-                      .then((danhGia) => {
-                        setDanhSachDanhGia(danhGia);
-                        setDangTaiDuLieu(false);
-                      })
-                      .catch((error) => {
-                        setDangTaiDuLieu(false);
-                        setBaoLoi(error.message);
-                      });
-                  })
-                  .catch((error) => {
-                      console.error("Lỗi:", error);
-                      
-                  });  
+              onClick={async () => {
+                try {
+                  await themDanhGiaMoi(maSach, danhGiaMoi.nhanXet, danhGiaMoi.diemXepHang, 0);
+                  setDanhSachDanhGia(await getAllReviewOfOneBook(maSach));
+                } catch (error) {
+                  const message = error instanceof Error ? error.message : "Không thể gửi đánh giá.";
+                  toast.error(message);
+                }
               }}
             >
               Gửi đánh giá

@@ -4,11 +4,12 @@ import Navbar from "./layouts/header-footer/Navbar";
 import Footer from "./layouts/header-footer/Footer";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import About from "./layouts/about/About";
+import RouteMetadata from "./layouts/utils/RouteMetadata";
+import NotFound from "./layouts/utils/NotFound";
 import ChiTietSanPham from "./layouts/products/ChiTietSanPham";
 import DangKyNguoiDung from "./layouts/user/DangKyNguoiDung";
 import KichHoatTaiKhoan from "./layouts/user/KichHoatTaiKhoan";
 import DangNhap from "./layouts/user/DangNhap";
-import Test from "./layouts/user/Test";
 import AdminLayout from "./layouts/admin/layouts/AdminLayout";
 import GioHang from "./layouts/products/GioHang";
 import HomePage from "./layouts/homepage/HomePage";
@@ -16,12 +17,10 @@ import { ToastContainer } from "react-toastify";
 import ThanhToan from "./layouts/products/ThanhToan";
 import KetQuaThanhToan from "./layouts/products/KetQuaThanhToan";
 import DonHangUser from "./layouts/products/DonHangUser";
-import AdminRoute from "./layouts/admin/components/route/Adminroute";
-import DatHangNhanh from "./layouts/products/DatHangNhanh";
 import HoSoNguoiDung from "./layouts/user/HoSoNguoiDung";
 import QuenMatKhau from "./layouts/user/QuenMatKhau";
 import DatLaiMatKhau from "./layouts/user/DatLaiMatKhau";
-import { RequireAuth } from "./layouts/utils/RequireAuth";
+import RouteGuard from "./layouts/utils/RouteGuard";
 import DanhSachYeuThich from "./layouts/user/DanhSachYeuThich";
 import TheLoaiPage from "./layouts/categories/TheLoaiPage";
 import DiaChiNguoiDung from "./layouts/user/DiaChiNguoiDung";
@@ -32,12 +31,13 @@ function App() {
 
   return (
     <BrowserRouter>
+      <RouteMetadata />
       <Routes>
-        {/* Chỉ cho phép ADMIN và STAFF truy cập vào /quan-ly */}
+        {/* Chỉ cho phép ADMIN truy cập vào /quan-ly */}
         <Route path="/quan-ly/*" element={
-          <AdminRoute>
+          <RouteGuard require="admin">
             <AdminLayout />
-          </AdminRoute>
+          </RouteGuard>
         } />
         <Route path="/*" element={
           <>
@@ -51,19 +51,21 @@ function App() {
               <Route path="/the-loai/:slug" element={<TheLoaiPage tuKhoaTimKiem={tuKhoaTimKiem} />} />
               <Route path="/sach/:maSach" element={<ChiTietSanPham />} />
               <Route path="/dang-ky" element={<DangKyNguoiDung />} />
-              <Route path="/thanh-toan" element={<ThanhToan />} />
+              <Route path="/thanh-toan" element={<RouteGuard require="user"><ThanhToan /></RouteGuard>} />
+              {/* VNPay browser return route stays public; it never trusts params without backend verification */}
               <Route path="/xu-ly-kq-thanh-toan" element={<KetQuaThanhToan />} />
-              <Route path="/order" element={<DonHangUser />} />
+              <Route path="/order" element={<RouteGuard require="user"><DonHangUser /></RouteGuard>} />
               <Route path="/kich-hoat/:email/:maKichHoat" element={<KichHoatTaiKhoan />} />
               <Route path="/dang-nhap" element={<DangNhap />} />
-              <Route path="/test" element={<Test />} />
               <Route path="/gio-hang" element={<GioHang />} />
-              <Route path="/dat-hang-nhanh" element={<DatHangNhanh />} />
-              <Route path="/profile" element={<RequireAuth><HoSoNguoiDung /></RequireAuth>} />
-              <Route path="/dia-chi" element={<RequireAuth><DiaChiNguoiDung /></RequireAuth>} />
+              <Route path="/profile" element={<RouteGuard require="user"><HoSoNguoiDung /></RouteGuard>} />
+              <Route path="/dia-chi" element={<RouteGuard require="user"><DiaChiNguoiDung /></RouteGuard>} />
               <Route path="/quen-mat-khau" element={<QuenMatKhau />} />
               <Route path="/dat-lai-mat-khau/:email/:token" element={<DatLaiMatKhau />} />
-              <Route path="/yeu-thich" element={<RequireAuth><DanhSachYeuThich /></RequireAuth>} />
+              <Route path="/yeu-thich" element={<RouteGuard require="user"><DanhSachYeuThich /></RouteGuard>} />
+              {/* Unknown SPA path: client-side UX only. The origin still answers
+                  200 because of the history fallback (documented limitation). */}
+              <Route path="*" element={<NotFound />} />
             </Routes>
             <Footer />
           </>

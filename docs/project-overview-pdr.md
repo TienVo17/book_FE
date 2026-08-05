@@ -49,7 +49,8 @@ Web Bán Sách is a React-based e-commerce frontend for an online bookstore, pro
 - Logout clears localStorage.jwt
 
 **Acceptance Criteria**:
-- JWT token includes user ID, email, roles (USER/ADMIN/STAFF)
+- JWT payload includes `sub`, `exp` and the `isUser`/`isAdmin`/`isStaff` claims.
+  Only `isAdmin` grants admin access; `isStaff` is retained for payload compatibility.
 - 401 response auto-clears token from localStorage
 - Address CRUD works without page refresh (modal or form)
 - Password reset link valid for 24 hours (backend enforced)
@@ -68,7 +69,7 @@ Web Bán Sách is a React-based e-commerce frontend for an online bookstore, pro
 - Two-step checkout:
   - Step 1: Review items, select shipping address, apply coupon
   - Step 2: Confirm order, redirect to VNPay payment gateway
-- Guest quick-order (DatHangNhanh) for unauthenticated users
+- Checkout requires authentication; there is no guest quick-order path
 - Order history page (authenticated users)
 - VNPay payment result page (ThanhToan result status)
 
@@ -81,10 +82,10 @@ Web Bán Sách is a React-based e-commerce frontend for an online bookstore, pro
 
 ### F4: Admin Panel
 
-**Description**: Admin/Staff users manage books, categories, coupons, orders, reviews, users.
+**Description**: `ADMIN` users manage books, categories, coupons, orders, reviews, users.
 
 **Acceptance Criteria**:
-- Access gated by isAdmin || isStaff role check + JWT expiry
+- Access gated by `isAdmin === true` + JWT expiry (a `STAFF`-only token is denied)
 - Nested routing under `/quan-ly/*` with sidebar navigation
 - Features:
   - **Dashboard**: Order count, revenue, top-selling books

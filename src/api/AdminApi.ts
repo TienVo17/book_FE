@@ -1,4 +1,4 @@
-import { authRequest, getValidJwtOrThrow } from './Request';
+import { authRequest } from './Request';
 import { ThongKeModel } from '../models/ThongKeModel';
 import SachModel from '../models/SachModel';
 
@@ -111,6 +111,11 @@ export async function getThongKe(): Promise<ThongKeModel> {
   return authRequest<ThongKeModel>(`${BASE}/api/admin/thong-ke`);
 }
 
+export async function setSachActive(maSach: number, active: boolean): Promise<unknown> {
+  const endpoint = active ? 'active' : 'unactive';
+  return authRequest(`${BASE}/api/admin/sach/${endpoint}/${maSach}`, { method: 'POST' });
+}
+
 export async function createSachAdmin(sach: SachModel): Promise<SachModel> {
   return authRequest<SachModel>(`${BASE}/api/admin/sach/insert`, {
     method: 'POST',
@@ -149,26 +154,14 @@ export async function dieuChinhTonKhoSach(
 }
 
 export async function uploadHinhAnhSach(maSach: number, files: File[]) {
-  const token = getValidJwtOrThrow();
   const formData = new FormData();
 
   files.forEach((file) => {
     formData.append('files', file);
   });
 
-  const response = await fetch(`${BASE}/api/admin/sach/${maSach}/hinh-anh`, {
+  return authRequest(`${BASE}/api/admin/sach/${maSach}/hinh-anh`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
     body: formData,
   });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    if (response.status === 401 || response.status === 403) {
-      localStorage.removeItem('jwt');
-    }
-    throw new Error(errorText || 'Upload hinh anh that bai');
-  }
-
-  return response.json();
 }

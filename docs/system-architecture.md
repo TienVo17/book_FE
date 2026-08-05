@@ -200,9 +200,9 @@ Clear cart: localStorage.removeItem('gio-hang')
 ```
 Admin on /quan-ly/cap-nhat-sach/:maSach
     ↓
-CapNhatSach.tsx (guards via Adminroute)
+CapNhatSach.tsx (guarded by RouteGuard require="admin")
     ↓
-Adminroute checks: JWT expiry + (isAdmin || isStaff)
+RouteGuard checks: JWT validity/expiry + isAdmin === true
     ↓
 AdminApi.getBookDetail(maSach)  // Calls authRequest
     ↓
@@ -253,12 +253,12 @@ navigate(-1)  (back to list)
 }
 ```
 
-**Storage**: `localStorage.jwt` (plain text, XSS risk; mitigated by CSP in nginx.conf)
+**Storage**: `localStorage.jwt` (plain text). Token nằm trong localStorage nên script chạy được trong trang sẽ đọc được — đây là đánh đổi đã biết, chưa chuyển sang HttpOnly cookie. Giảm thiểu bằng hai lớp: mô tả sách render dưới dạng text thuần (không `dangerouslySetInnerHTML`), và CSP giới hạn `script-src` (khai báo trong `vercel.json` cho Vercel, `nginx.conf` cho Docker).
 
 **Usage**:
 - `Request.ts` reads it and injects as `Authorization: Bearer {jwt}`
-- `RequireAuth` guards check presence
-- `Adminroute` guard validates expiry + role before rendering protected routes
+- `RouteGuard` là guard duy nhất; kiểm tra token hợp lệ và chưa hết hạn, `require="admin"` yêu cầu thêm `isAdmin === true`
+- Guard phía client chỉ để điều hướng; quyền thực sự do backend quyết định trên từng request
 
 ## API Request Patterns
 
@@ -361,14 +361,15 @@ try {
 ### Authorization
 
 - **Role-based**: Users have roles (USER, ADMIN, STAFF) embedded in JWT claims
-- **Frontend guards**: `Adminroute` checks isAdmin || isStaff before rendering admin pages
+- **Frontend guards**: `RouteGuard` kiểm tra `isAdmin === true` cho khu vực quản trị (token chỉ có `STAFF` bị từ chối)
 - **Backend enforcement**: Spring Boot @PreAuthorize annotations on endpoints
 
 ### Network Security
 
 - **HTTPS only** (enforced in production)
 - **CORS**: Configured on backend (Spring Boot @CrossOrigin or global config)
-- **CSP headers**: Set in nginx.conf to mitigate XSS
+- **Security headers**: `vercel.json` (production trên Vercel) và `nginx.conf` (Docker) khai báo cùng một chính sách: CSP, `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`. Hai file phải được cập nhật đồng thời.
+- **CSP**: `script-src` chỉ cho phép self và `cdn.jsdelivr.net`. `img-src` để rộng (`https:`) vì ảnh sách do admin nhập URL tự do; ảnh không phải vector thực thi script nên đánh đổi này chấp nhận được.
 - **X-Real-IP header**: Proxied via nginx to backend for logging
 
 ### Secrets Management
@@ -398,19 +399,16 @@ Backend request sites use `src/api/ApiUrl.ts`. It accepts a credential-free HTTP
 
 Create React App embeds this value in the static bundle during `npm run build`. Vercel or Docker production builds must therefore provide the deployed backend origin before the build starts; changing a runtime container variable does not update an existing bundle.
 
-### 3. Mixed Data-Access Patterns
+### 3. Single Data-Access Boundary (resolved)
 
-**Issue**: Some pages bypass api/ modules and call fetch directly.
+Every application API call now goes through a module in `src/api/`.
+`Request.ts` holds the only two `fetch()` call sites — `publicRequest` for
+public endpoints and `authRequest` for authenticated ones — so Bearer-token
+injection, error parsing and trace-id extraction live in one place.
 
-Pages affected: DonHangUser, DonHang (admin), DanhSachBinhLuan, KetQuaThanhToan, DatHangNhanh, DanhGiaSanPham (submit), Login/Register/Activation.
-
-**Impact**:
-- Inconsistent error handling
-- Bearer token injection duplicated
-- Difficult to refactor API structure
-- No central place to add middleware (caching, retry logic)
-
-**Mitigation**: Gradually move these to api/ modules.
+Errors surface as `ApiRequestError` with `status`, `code`, `traceId` and
+`path`; `401`/`403` clears the stored JWT. A source-scan test keeps new
+direct `fetch()` calls from reappearing outside `Request.ts`.
 
 ### 4. Browser-Reachable Docker API Origin
 

@@ -1,95 +1,65 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
-import SachModel from '../models/SachModel';
+import {
+  CartItem,
+  readCart,
+  addOrUpdateItem,
+  updateQuantity,
+  removeItem,
+} from './CartStorage';
 
-
-interface GioHangItem {
-  maSach: number;
-  sachDto: SachModel;
-  soLuong: number;
-  soLuongTon: number;
-  giaBan: number;
-}
-
+/**
+ * React hook wrapper around CartStorage. Kept for callers that prefer a
+ * stateful hook instead of calling CartStorage functions directly; all
+ * storage access goes through CartStorage so there is a single source of
+ * truth for the 'gioHang' key.
+ */
 export const useGioHang = () => {
-  const [gioHang, setGioHang] = useState<GioHangItem[]>([]);
+  const [gioHang, setGioHang] = useState<CartItem[]>(() => readCart());
 
   useEffect(() => {
-    const gioHangLocal = localStorage.getItem('gioHang');
-    if (gioHangLocal) {
-      try {
-        const parsedGioHang = JSON.parse(gioHangLocal);
-        setGioHang(parsedGioHang);
-      } catch (error) {
-        console.error('Lỗi khi đọc giỏ hàng:', error);
-        localStorage.removeItem('gioHang'); // Xóa dữ liệu không hợp lệ
-      }
-    }
+    const reload = () => setGioHang(readCart());
+    window.addEventListener('cartUpdated', reload);
+    window.addEventListener('storage', reload);
+    return () => {
+      window.removeEventListener('cartUpdated', reload);
+      window.removeEventListener('storage', reload);
+    };
   }, []);
 
-  const themVaoGio = (item: GioHangItem) => {
-    try {
-      setGioHang(gioHangHienTai => {
-        const gioHangLocal = JSON.parse(localStorage.getItem('gioHang') || '[]');
-        
-        const itemTonTai = gioHangLocal.find((x: GioHangItem) => x.maSach === item.maSach);
-        
-        let gioHangMoi;
-        if (itemTonTai) {
-          const soLuongMoi = itemTonTai.soLuong + item.soLuong;
-          
-          if (soLuongMoi > item.soLuongTon) {
-            toast.error(`Số lượng sách không đủ. Chỉ còn ${item.soLuongTon} cuốn.`);
-            return gioHangHienTai;
-          }
-          
-          gioHangMoi = gioHangLocal.map((x: GioHangItem) => 
-            x.maSach === item.maSach 
-              ? {...x, soLuong: soLuongMoi}
-              : x
-          );
-        } else {
-          if (item.soLuong > item.soLuongTon) {
-            toast.error(`Số lượng sách không đủ. Chỉ còn ${item.soLuongTon} cuốn.`);
-            return gioHangHienTai;
-          }
-          gioHangMoi = [...gioHangLocal, item];
-        }
-        
-        localStorage.setItem('gioHang', JSON.stringify(gioHangMoi));
-        window.dispatchEvent(new Event('storage'));
-        return gioHangMoi;
-      });
-    } catch (error) {
-      console.error('Lỗi khi thêm vào giỏ:', error);
-      toast.error('Có lỗi xảy ra khi thêm vào giỏ hàng');
+  const themVaoGio = useCallback((item: CartItem) => {
+    const outcome = addOrUpdateItem({
+      maSach: item.maSach,
+      sachDto: item.sachDto,
+      soLuong: item.soLuong,
+      soLuongTonKho: item.soLuongTonKho,
+    });
+    if (outcome.status === 'rejected-stock') {
+      toast.error(`Số lượng sách không đủ. Chỉ còn ${outcome.soLuongTonKho} cuốn.`);
+      return;
     }
-  };
+    setGioHang(outcome.cart);
+  }, []);
 
-  const xoaKhoiGio = (maSach: number) => {
-    setGioHang(gioHangHienTai => 
-      gioHangHienTai.filter(item => item.maSach !== maSach)
-    );
+  const xoaKhoiGio = useCallback((maSach: number) => {
+    setGioHang(removeItem(maSach));
     toast.success('Đã xóa sản phẩm!');
-  };
+  }, []);
 
-  const capNhatSoLuong = (maSach: number, soLuong: number) => {
+  const capNhatSoLuong = useCallback((maSach: number, soLuong: number) => {
     if (soLuong < 1) return;
-    
-    setGioHang(gioHangHienTai =>
-      gioHangHienTai.map(item =>
-        item.maSach === maSach ? {...item, soLuong} : item
-      )
-    );
-  };
+    setGioHang(updateQuantity(maSach, soLuong));
+  }, []);
 
-  const tinhTongTien = () => {
-    return gioHang.reduce((total, item) => total + (item.giaBan * item.soLuong), 0);
-  };
+  const tinhTongTien = useCallback(
+    () => gioHang.reduce((total, item) => total + item.sachDto.giaBan * item.soLuong, 0),
+    [gioHang],
+  );
 
-  const soLuongSanPham = () => {
-    return gioHang.reduce((total, item) => total + item.soLuong, 0);
-  };
+  const soLuongSanPham = useCallback(
+    () => gioHang.reduce((total, item) => total + item.soLuong, 0),
+    [gioHang],
+  );
 
   return {
     gioHang,
@@ -97,6 +67,6 @@ export const useGioHang = () => {
     xoaKhoiGio,
     capNhatSoLuong,
     tinhTongTien,
-    soLuongSanPham
+    soLuongSanPham,
   };
 };

@@ -3,7 +3,7 @@ import SachModel from '../../../../models/SachModel';
 import { useNavigate } from 'react-router-dom';
 import { xoaSach, findAll } from "../../../../api/SachApi";
 import AnhSach from "../../../utils/AnhSach";
-import { apiUrl } from '../../../../api/ApiUrl';
+import { setSachActive } from '../../../../api/AdminApi';
 
 export default function DanhSachSach() {
   const [danhSachSach, setDanhSachSach] = useState<SachModel[]>([]);
@@ -42,14 +42,7 @@ export default function DanhSachSach() {
     const action = isActive ? 'đóng bán' : 'mở bán';
     if (!window.confirm(`Bạn có muốn ${action} sách này?`)) return;
     try {
-      const endpoint = isActive ? 'unactive' : 'active';
-      await fetch(apiUrl(`/api/admin/sach/${endpoint}/${maSach}`), {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('jwt')}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      await setSachActive(maSach, !Boolean(isActive));
       loadData();
     } catch (error) {
       alert('Có lỗi xảy ra!');

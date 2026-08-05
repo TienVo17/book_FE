@@ -87,9 +87,8 @@ Organized by feature area. Each layout composes child components.
 | `CartItemsTable.tsx` | Cart items table (presentational sub-component) |
 | `CheckoutSidebar.tsx` | Cart summary sidebar (price, tax, total) |
 | `ThanhToan.tsx` | 2-step checkout page; order review → VNPay link generation |
-| `DatHangNhanh.tsx` | Guest quick-order form (no login required) |
-| `DonHangUser.tsx` | User order history page (raw fetch to `/don-hang/nguoi-dung`) |
-| `KetQuaThanhToan.tsx` | VNPay payment result handler (raw fetch) |
+| `DonHangUser.tsx` | User order history page (uses `api/DonHangApi.ts`) |
+| `KetQuaThanhToan.tsx` | VNPay payment result handler (uses `api/DonHangApi.ts`) |
 
 #### User (`layouts/user/`)
 
@@ -128,7 +127,8 @@ Organized by feature area. Each layout composes child components.
 
 **Routing Shell**:
 - `layouts/AdminLayout.tsx` — Nested admin routing container
-- `components/route/Adminroute.tsx` — Auth guard (checks isAdmin || isStaff + expiry); **actively used**
+- `layouts/utils/RouteGuard.tsx` — the single auth guard (JWT validity + expiry;
+  `require="admin"` also requires `isAdmin === true`). `isStaff` grants no admin access.
 - `layouts/RequireAdmin.tsx` — Alternate HOC guard (dead code, not wired)
 
 **Features**:
@@ -187,9 +187,8 @@ Defines all routes using react-router-dom v6.
 - `/dang-ky` (Register)
 - `/dang-nhap` (Login)
 - `/gio-hang` (Cart)
-- `/thanh-toan` (Checkout)
-- `/dat-hang-nhanh` (Guest quick-order)
-- `/order` (Guest order history?)
+- `/thanh-toan` (Checkout, authenticated)
+- `/order` (Order history, authenticated)
 - `/xu-ly-kq-thanh-toan` (VNPay result)
 - `/kich-hoat/:email/:maKichHoat` (Account activation)
 - `/quen-mat-khau` (Forgot password)

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { apiUrl } from '../../api/ApiUrl';
+import { kichHoat } from '../../api/TaiKhoanApi';
 
 function KichHoatTaiKhoan() {
   const { email, maKichHoat } = useParams<{ email: string; maKichHoat: string }>();
@@ -15,19 +15,12 @@ function KichHoatTaiKhoan() {
 
   const thucHienKichHoat = async (activationEmail: string, activationCode: string) => {
     try {
-      const query = new URLSearchParams({ email: activationEmail, maKichHoat: activationCode });
-      const url = apiUrl(`/tai-khoan/kich-hoat?${query.toString()}`);
-      const response = await fetch(url, { method: "GET" });
-
-      if (response.ok) {
-        setDaKichHoat(true);
-      } else {
-        const message = await response.text();
-        setThongBao(message || "Kích hoạt thất bại. Vui lòng thử lại.");
-      }
+      await kichHoat(activationEmail, activationCode);
+      setDaKichHoat(true);
     } catch (error) {
-      console.log("Lỗi khi kích hoạt: ", error);
-      setThongBao("Đã xảy ra lỗi khi kết nối. Vui lòng thử lại.");
+      setThongBao(error instanceof Error
+        ? error.message
+        : "Đã xảy ra lỗi khi kết nối. Vui lòng thử lại.");
     }
   };
 

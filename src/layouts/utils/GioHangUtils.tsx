@@ -1,48 +1,32 @@
 import SachModel from '../../models/SachModel';
 import { toast } from 'react-toastify';
+import { addOrUpdateItem } from '../../api/CartStorage';
 
 export const themVaoGioHang = (sach: SachModel, soLuong: number = 1) => {
     const soLuongTonKho = sach.soLuong || 0;
-    
+
     if (soLuong > soLuongTonKho) {
         toast.error(`Số lượng sách không đủ. Chỉ còn ${soLuongTonKho} cuốn.`);
         return;
     }
 
-    const gioHangHienTai = JSON.parse(localStorage.getItem('gioHang') || '[]');
-    
-    const sanPhamMoi = {
+    const outcome = addOrUpdateItem({
         maSach: sach.maSach,
         sachDto: {
-            tenSach: sach.tenSach,
-            giaBan: sach.giaBan,
-            hinhAnh: ''
+            tenSach: sach.tenSach || '',
+            giaBan: sach.giaBan || 0,
+            hinhAnh: '',
         },
-        soLuong: soLuong,
-        soLuongTonKho: soLuongTonKho
-    };
+        soLuong,
+        soLuongTonKho,
+    });
 
-    const sanPhamTonTai = gioHangHienTai.find((item: any) => item.maSach === sach.maSach);
-
-    let gioHangMoi;
-    if (sanPhamTonTai) {
-        const soLuongMoi = sanPhamTonTai.soLuong + soLuong;
-        
-        if (soLuongMoi > soLuongTonKho) {
-            toast.warning(`Số lượng vượt quá tồn kho. Trong giỏ đã có ${sanPhamTonTai.soLuong} cuốn, chỉ còn có thể thêm ${soLuongTonKho - sanPhamTonTai.soLuong} cuốn.`);
-            return;
-        }
-        
-        gioHangMoi = gioHangHienTai.map((item: any) => 
-            item.maSach === sach.maSach 
-                ? {...item, soLuong: soLuongMoi}
-                : item
+    if (outcome.status === 'rejected-stock') {
+        toast.warning(
+            `Số lượng vượt quá tồn kho. Trong giỏ đã có ${outcome.currentQuantity} cuốn, chỉ còn có thể thêm ${outcome.soLuongTonKho - outcome.currentQuantity} cuốn.`,
         );
-    } else {
-        gioHangMoi = [...gioHangHienTai, sanPhamMoi];
+        return;
     }
 
-    localStorage.setItem('gioHang', JSON.stringify(gioHangMoi));
-    window.dispatchEvent(new Event('storage'));
     toast.success('Đã thêm vào giỏ hàng!');
-}; 
+};

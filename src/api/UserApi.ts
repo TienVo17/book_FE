@@ -1,5 +1,5 @@
 import NguoiDungModel from "../models/NguoiDungModel";
-import {my_request} from "./Request";
+import {authRequest} from "./Request";
 
 import { apiUrl } from './ApiUrl';
 
@@ -18,8 +18,7 @@ export async function findAll(trangHienTai: number): Promise<KetQuaInterface> {
     const ketQua: NguoiDungModel[] = [];
 
     //Gọi phương thức request
-    const response = await my_request<{ content: NguoiDungModel[]; totalPages: number; totalElements: number }>(endpoint+"?page="+trangHienTai);
-    console.log(response);
+    const response = await authRequest<{ content: NguoiDungModel[]; totalPages: number; totalElements: number }>(endpoint+"?page="+trangHienTai);
     // Lấy ra json sách
     const responseData = response.content;
 

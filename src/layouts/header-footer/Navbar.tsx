@@ -4,6 +4,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { getAllTheLoai } from "../../api/TheLoaiApi";
 import { getJwtPayload } from "../../api/Request";
 import { TheLoaiModel } from "../../models/TheLoaiModel";
+import { readCart } from "../../api/CartStorage";
 
 interface NavbarProps {
   tuKhoaTimKiem: string;
@@ -36,11 +37,7 @@ function Navbar({ tuKhoaTimKiem, setTuKhoaTimKiem }: NavbarProps) {
 
   useEffect(() => {
     const loadSoLuongGioHang = () => {
-      const gioHang = JSON.parse(localStorage.getItem("gioHang") || "[]");
-      const tongSoLuong = gioHang.reduce(
-        (total: number, item: any) => total + item.soLuong,
-        0
-      );
+      const tongSoLuong = readCart().reduce((total, item) => total + item.soLuong, 0);
       setSoLuongGioHang(tongSoLuong);
     };
 
@@ -58,7 +55,9 @@ function Navbar({ tuKhoaTimKiem, setTuKhoaTimKiem }: NavbarProps) {
     if (jwt) {
       const decodedJwt = getJwtPayload(jwt);
       setUserInfo(decodedJwt);
-      setIsAdminorStaff(Boolean(decodedJwt?.isAdmin || decodedJwt?.isStaff));
+      // Admin CTA requires ADMIN only; isStaff is kept in the JWT payload for
+      // backward compatibility but must not grant admin UI access.
+      setIsAdminorStaff(Boolean(decodedJwt?.isAdmin));
       return;
     }
 

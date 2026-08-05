@@ -409,19 +409,24 @@ Before committing, ensure:
 
 Three separate guard implementations exist (RequireAuth, Adminroute, RequireAdmin, ProtectedRoute):
 - **RequireAuth**: Checks JWT presence only (no expiry verification)
-- **Adminroute**: Checks JWT expiry + (isAdmin || isStaff role) — **actively used**
+- **RouteGuard**: single guard for all protected routes. `require="user"` needs a
+  valid non-expired JWT; `require="admin"` additionally needs `isAdmin === true`.
+  The `isStaff` claim remains in the JWT payload for compatibility but grants no
+  admin access. Frontend guards are UX; the backend authorizes independently.
 - **RequireAdmin**: HOC variant (dead code, not wired)
 - **ProtectedRoute**: Inverse guard for guest-only routes (unused, not wired)
 
 **Action**: Consolidate into single guard with role parameter. See [roadmap](./project-roadmap.md).
 
-### Mixed Data-Access Patterns
+### Data-Access Boundary
 
-Several pages bypass `src/api/` modules and call `fetch()` directly:
-- DanhSachBinhLuan, DonHang, DatHangNhanh, KetQuaThanhToan, DonHangUser
-- Login/Register/Activation pages
+All application API calls go through `src/api/` modules. `Request.ts` owns the
+only two `fetch()` call sites (`publicRequest` and `authRequest`); every other
+module builds on them, so authentication, error parsing and trace-id extraction
+are handled in one place.
 
-**Action**: Refactor to use api/ modules. Low priority but improves consistency.
+Failures surface as `ApiRequestError` carrying `status`, `code`, `traceId` and
+`path`. A `401`/`403` clears the stored JWT.
 
 ### API Base URL
 

@@ -1,5 +1,5 @@
 import SachModel from "../models/SachModel";
-import { my_request } from "./Request";
+import { ApiRequestError, authRequest, my_request } from "./Request";
 import { apiUrl } from './ApiUrl';
 
 const ADMIN_BOOKS_PATH = '/api/admin/sach';
@@ -71,54 +71,55 @@ export async function findByBook(tuKhoaTimKiem: string, maTheLoai: number, trang
 }
 
 export async function getBookById(maSach: number): Promise<SachModel | null> {
-  const duongDan = apiUrl(`/api/sach/${maSach}`);
+  const sachData = await my_request<SachModel>(apiUrl(`/api/sach/${maSach}`));
+  return sachData ? mapSach(sachData) : null;
+}
 
+async function fetchBookOrNull(path: string): Promise<SachModel | null> {
   try {
-    const response = await fetch(duongDan);
-    if (!response.ok) {
-      throw new Error("Gap loi trong qua trinh goi API lay sach!");
-    }
-
-    const sachData = await response.json();
-    if (!sachData) {
-      throw new Error("Sach khong ton tai!");
-    }
-
-    return mapSach(sachData);
+    const sachData = await my_request<SachModel>(apiUrl(path));
+    return sachData ? mapSach(sachData) : null;
   } catch (error) {
-    console.error("Error", error);
-    return null;
+    // A miss is an expected outcome while resolving an ambiguous identifier.
+    if (error instanceof ApiRequestError && error.status === 404) {
+      return null;
+    }
+    throw error;
   }
 }
 
+/**
+ * Resolves a product from the `/sach/:identifier` route.
+ *
+ * An all-digits identifier is ambiguous: it is usually a legacy numeric deep
+ * link, but a title such as "1984" slugifies to the all-digit slug "1984",
+ * which the backend publishes as that book's canonical URL. So for digits we
+ * try the id first and fall back to a slug lookup, otherwise the site's own
+ * canonical link would 404. Non-numeric identifiers are always slugs.
+ */
+export async function getBookByIdentifier(identifier: string): Promise<SachModel | null> {
+  const value = (identifier ?? '').trim();
+  if (!value) {
+    return null;
+  }
+
+  if (!/^\d+$/.test(value)) {
+    return fetchBookOrNull(`/api/sach/slug/${encodeURIComponent(value)}`);
+  }
+
+  const byId = await fetchBookOrNull(`/api/sach/${value}`);
+  return byId ?? fetchBookOrNull(`/api/sach/slug/${encodeURIComponent(value)}`);
+}
+
 export async function xoaSach(maSach: number): Promise<boolean> {
-  const duongDan = apiUrl(`${ADMIN_BOOKS_PATH}/delete/${maSach}`);
-  const token = localStorage.getItem('jwt');
-
-  if (!token) {
-    console.error('Khong tim thay token xac thuc');
-    return false;
-  }
-
-  try {
-    const response = await fetch(duongDan, {
-      method: 'DELETE',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    });
-    return response.ok;
-  } catch (error) {
-    console.error('Error:', error);
-    return false;
-  }
+  await authRequest(apiUrl(`${ADMIN_BOOKS_PATH}/delete/${maSach}`), { method: 'DELETE' });
+  return true;
 }
 
 const endpoint = apiUrl(ADMIN_BOOKS_PATH);
 export async function findAll(trangHienTai: number): Promise<KetQuaInterface> {
   const ketQua: SachModel[] = [];
-  const response = await my_request<SachPageResponse>(endpoint + "?page=" + trangHienTai);
+  const response = await authRequest<SachPageResponse>(endpoint + "?page=" + trangHienTai);
   const responseData = response.content;
   const tongSoTrang: number = response.totalPages;
   const tongSoSach: number = response.totalElements;
