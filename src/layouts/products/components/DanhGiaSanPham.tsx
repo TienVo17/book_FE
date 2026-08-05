@@ -6,7 +6,6 @@ import { vi } from 'date-fns/locale';
 import { toast } from "react-toastify";
 import { useNavigate } from 'react-router-dom';
 import { jwtDecode } from "jwt-decode";
-import { apiUrl } from '../../../api/ApiUrl';
 
 
 
