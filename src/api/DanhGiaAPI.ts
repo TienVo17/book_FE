@@ -153,7 +153,7 @@ export type TrangThaiDanhGia = 'HIEN_THI' | 'DA_AN';
 /**
  * Dòng đánh giá như màn kiểm duyệt nhìn thấy — có danh tính thật, có chủ đích.
  *
- * Trước đây màn này khai `useState<any[]>` và đọc `item.isActive`, một trường backend
+ * Trước đây màn này khai `useState<any[]>` và đọc cờ trạng thái legacy, một trường backend
  * không còn trả về. Giá trị thiếu thành `undefined` im lặng: mọi đánh giá hiện nhãn
  * "Đã ẩn", và nút gọi `setDanhGiaActive(id, !undefined)` nên luôn gửi lệnh "hiện" —
  * công cụ kiểm duyệt đảo ngược ý nghĩa mà không hề báo lỗi. Kiểu tường minh ở đây là

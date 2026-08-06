@@ -185,7 +185,7 @@ export default function DanhSachBinhLuan() {
                     </td>
                     <td>{renderStars(item.diemXepHang)}</td>
                     <td>
-                      {/* Đọc `trangThai` chứ không phải `isActive`. Trường cũ đã biến mất
+                      {/* `trangThai` là nguồn sự thật duy nhất. Trường cũ đã biến mất
                           khỏi response; khi còn khai `any[]`, giá trị thiếu thành
                           `undefined` im lặng nên mọi dòng hiện "Đã ẩn" và nút gọi
                           `!undefined` nên luôn gửi lệnh "hiện" — công cụ kiểm duyệt đảo

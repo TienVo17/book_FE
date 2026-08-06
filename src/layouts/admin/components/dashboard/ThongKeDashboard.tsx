@@ -30,13 +30,10 @@ const ThongKeDashboard: React.FC = () => {
                 <p>Tổng quan hoạt động hệ thống</p>
             </div>
 
-            {/* Pending reviews alert */}
-            {thongKe && thongKe.soBinhLuanChoXet > 0 && (
-                <div className="alert alert-warning d-flex align-items-center mb-3" role="alert">
-                    <i className="fas fa-exclamation-triangle me-2" />
-                    Có <strong className="mx-1">{thongKe.soBinhLuanChoXet}</strong> bình luận đang chờ xét duyệt.
-                </div>
-            )}
+            {/* Cảnh báo "bình luận chờ xét duyệt" đã bị gỡ: không có hàng đợi nào
+                như vậy. Kiểm duyệt đánh giá chỉ có HIEN_THI và DA_AN, và backend
+                không trả con số đó — ô cảnh báo cũ đọc một trường luôn luôn
+                `undefined` nên không bao giờ hiện, kể cả khi có gì cần xem. */}
 
             {/* Stat cards */}
             <div className="stats-grid">
@@ -77,6 +74,28 @@ const ThongKeDashboard: React.FC = () => {
                     <div className="stat-card-info">
                         <h3>{thongKe?.tongDonHang ?? 0}</h3>
                         <span>Tổng đơn hàng</span>
+                    </div>
+                </div>
+
+                {/* Hai ô dưới đây đọc `pendingOrders` và `totalUsers` — backend đã
+                    trả sẵn từ trước nhưng màn hình chưa từng hiển thị. */}
+                <div className="stat-card stagger-5">
+                    <div className="stat-card-icon stat-card-icon--warning">
+                        <i className="fas fa-truck" />
+                    </div>
+                    <div className="stat-card-info">
+                        <h3>{thongKe?.donChoXuLy ?? 0}</h3>
+                        <span>Đơn chưa giao</span>
+                    </div>
+                </div>
+
+                <div className="stat-card stagger-6">
+                    <div className="stat-card-icon stat-card-icon--primary">
+                        <i className="fas fa-users" />
+                    </div>
+                    <div className="stat-card-info">
+                        <h3>{thongKe?.tongNguoiDung ?? 0}</h3>
+                        <span>Tổng người dùng</span>
                     </div>
                 </div>
             </div>
