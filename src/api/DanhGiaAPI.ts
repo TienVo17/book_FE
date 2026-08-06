@@ -6,6 +6,8 @@ export interface DanhGiaCongKhai {
   nhanXet: string;
   diemXepHang: number;
   timestamp: string;
+  /** Tên đã được backend che sẵn ("Nguyễn V. A."). Không bao giờ là chuỗi rỗng. */
+  tenHienThi: string;
   laCuaToi: boolean;
 }
 
@@ -106,6 +108,11 @@ export interface DanhGiaQuanTri {
   trangThai: TrangThaiDanhGia;
   tungBiAn: boolean;
   maDonHang: number | null;
+}
+
+/** Chủ sở hữu tự gỡ bài của mình. Backend kiểm tra quyền sở hữu, không tin client. */
+export function xoaDanhGia(maDanhGia: number): Promise<unknown> {
+  return authRequest(apiUrl(`/api/danh-gia/xoa-danh-gia/${maDanhGia}`), { method: 'POST' });
 }
 
 interface DanhGiaAdminPage {

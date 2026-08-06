@@ -7,7 +7,9 @@ import {
   layQuyenDanhGia,
   layTrangDanhGia,
   themDanhGiaMoi,
+  xoaDanhGia,
 } from "../../../api/DanhGiaAPI";
+import ChonSao from "./ChonSao";
 import PhanBoSao from "./PhanBoSao";
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -67,11 +69,10 @@ const DanhGiaSanPham: React.FC<DanhGiaSanPhamProps> = ({ maSach }) => {
   const [dangTaiDuLieu, setDangTaiDuLieu] = useState(true);
   const [baoLoi, setBaoLoi] = useState<string | null>(null);
   const [quyenDanhGia, setQuyenDanhGia] = useState<CoTheDanhGia | null>(null);
-  const [danhGiaMoi, setDanhGiaMoi] = useState({
-    diemXepHang: 5,
-    nhanXet: "",
-    maSach:0
-  });
+  const [danhGiaMoi, setDanhGiaMoi] = useState({ diemXepHang: 5, nhanXet: "" });
+  const [dangGui, setDangGui] = useState(false);
+  const [loiGui, setLoiGui] = useState<string | null>(null);
+  const [thongBao, setThongBao] = useState("");
   const navigate = useNavigate();
 
   // Chỉ mời viết đánh giá khi token còn hạn, tránh để khách gõ xong mới bị chặn.
@@ -110,6 +111,44 @@ const DanhGiaSanPham: React.FC<DanhGiaSanPhamProps> = ({ maSach }) => {
       conHieuLuc = false;
     };
   }, [taiTrang]);
+
+  /**
+   * `dangGui` chặn lần gửi thứ hai ngay trong handler, không chỉ vô hiệu hoá nút. Người
+   * dùng bấm hai lần thật nhanh có thể lọt qua trước khi React vẽ lại trạng thái disabled,
+   * và khi đó lần thứ hai trả về 409 — một thông báo lỗi cho một thao tác đã thành công.
+   */
+  const guiDanhGia = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (dangGui) return;
+    setDangGui(true);
+    setLoiGui(null);
+    try {
+      await themDanhGiaMoi(maSach, danhGiaMoi.nhanXet, danhGiaMoi.diemXepHang, 0);
+      setDanhGiaMoi({ diemXepHang: 5, nhanXet: "" });
+      setTrangDanhGia(await taiTrang());
+      // Form phải biến mất ngay: mỗi người chỉ một đánh giá mỗi cuốn sách.
+      setQuyenDanhGia(await layQuyenDanhGia(maSach));
+      setThongBao("Đã gửi đánh giá của bạn.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Không thể gửi đánh giá.";
+      setLoiGui(message);
+      toast.error(message);
+    } finally {
+      setDangGui(false);
+    }
+  };
+
+  const xoaDanhGiaCuaToi = async (maDanhGia: number) => {
+    if (!window.confirm("Bạn muốn xoá đánh giá này?")) return;
+    try {
+      await xoaDanhGia(maDanhGia);
+      setTrangDanhGia(await taiTrang());
+      setQuyenDanhGia(await layQuyenDanhGia(maSach));
+      setThongBao("Đã xoá đánh giá của bạn.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Không thể xoá đánh giá.");
+    }
+  };
 
   // Đổi bộ lọc hay kiểu sắp xếp thì phải về trang đầu: giữ nguyên trang 3 khi tập kết
   // quả vừa co lại còn một trang sẽ cho ra một danh sách rỗng không giải thích được.
@@ -195,54 +234,49 @@ const DanhGiaSanPham: React.FC<DanhGiaSanPhamProps> = ({ maSach }) => {
       <div className="card mb-4">
         <div className="card-body">
           <h4 className="mb-3">Đánh giá sản phẩm</h4>
-          <form onSubmit={async (e) => {
-            e.preventDefault();
-            }}>
+          {/* Logic nằm ở `onSubmit` chứ không phải `onClick` của nút: chỉ `onSubmit` mới
+              bắt được cả phím Enter trong ô nhập, và mới để `required` của trình duyệt
+              chặn trước khi gửi. */}
+          <form onSubmit={guiDanhGia} noValidate={false}>
             <div className="mb-3">
-              <label className="form-label">Số sao:</label>
-              <select 
-                className="form-select"
-                value={danhGiaMoi.diemXepHang}
-                onChange={(e) => setDanhGiaMoi({...danhGiaMoi, diemXepHang: Number(e.target.value)})}
-              >
-                <option value="5">5 sao</option>
-                <option value="4">4 sao</option>
-                <option value="3">3 sao</option>
-                <option value="2">2 sao</option>
-                <option value="1">1 sao</option>
-              </select>
+              <ChonSao
+                giaTri={danhGiaMoi.diemXepHang}
+                onChon={(sao) => setDanhGiaMoi({ ...danhGiaMoi, diemXepHang: sao })}
+                disabled={dangGui}
+              />
             </div>
             <div className="mb-3">
-              <label className="form-label">Nhận xét:</label>
-              <textarea 
+              <label className="form-label" htmlFor="nhan-xet-danh-gia">Nhận xét:</label>
+              <textarea
+                id="nhan-xet-danh-gia"
                 className="form-control"
                 rows={3}
                 value={danhGiaMoi.nhanXet}
-                onChange={(e) => setDanhGiaMoi({...danhGiaMoi, nhanXet: e.target.value})}
+                onChange={(e) => setDanhGiaMoi({ ...danhGiaMoi, nhanXet: e.target.value })}
+                disabled={dangGui}
                 required
               />
             </div>
-            <button 
-              type="submit" 
-              className="btn btn-primary"
-              onClick={async () => {
-                try {
-                  await themDanhGiaMoi(maSach, danhGiaMoi.nhanXet, danhGiaMoi.diemXepHang, 0);
-                  setTrangDanhGia(await taiTrang());
-                  // Form phai bien mat ngay: moi nguoi chi mot danh gia moi cuon sach.
-                  setQuyenDanhGia(await layQuyenDanhGia(maSach));
-                } catch (error) {
-                  const message = error instanceof Error ? error.message : "Không thể gửi đánh giá.";
-                  toast.error(message);
-                }
-              }}
-            >
-              Gửi đánh giá
+
+            {loiGui && (
+              <div className="alert alert-danger py-2" role="alert">
+                {loiGui}
+              </div>
+            )}
+
+            <button type="submit" className="btn btn-primary" disabled={dangGui}>
+              {dangGui ? "Đang gửi…" : "Gửi đánh giá"}
             </button>
           </form>
         </div>
       </div>
       ) : null}
+
+      {/* Live region luôn có mặt trong cây DOM. Chèn nó cùng lúc với nội dung thì trình
+          đọc màn hình thường bỏ qua lần thông báo đầu tiên. */}
+      <div role="status" aria-live="polite" className="visually-hidden">
+        {thongBao}
+      </div>
 
       <div className="section-header">
         <h2>Đánh giá từ khách hàng</h2>
@@ -290,7 +324,9 @@ const DanhGiaSanPham: React.FC<DanhGiaSanPhamProps> = ({ maSach }) => {
                 <div className="d-flex justify-content-between align-items-center mb-2">
                   <div>
                     <i className="fas fa-user-circle me-2 text-primary"></i>
-                    <span className="fw-bold">Khách hàng</span>
+                    {/* Tên đã được backend che sẵn. Trước đây mọi dòng đều ghi cứng
+                        "Khách hàng" vì backend không trả về tên nào cả. */}
+                    <span className="fw-bold">{danhGia.tenHienThi}</span>
                     {danhGia.laCuaToi && (
                       <span className="badge bg-secondary ms-2">Đánh giá của bạn</span>
                     )}
@@ -310,6 +346,17 @@ const DanhGiaSanPham: React.FC<DanhGiaSanPhamProps> = ({ maSach }) => {
                 <p className="review-content mb-0">
                   {danhGia.nhanXet}
                 </p>
+                {/* Chỉ chủ sở hữu thấy nút này. Backend vẫn kiểm tra quyền sở hữu ở
+                    `deleteReview`, nên ẩn nút là chuyện giao diện chứ không phải bảo vệ. */}
+                {danhGia.laCuaToi && (
+                  <button
+                    type="button"
+                    className="btn btn-link btn-sm p-0 mt-2 text-danger"
+                    onClick={() => xoaDanhGiaCuaToi(danhGia.maDanhGia)}
+                  >
+                    Xoá đánh giá của tôi
+                  </button>
+                )}
               </div>
             </div>
           ))
