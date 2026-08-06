@@ -94,7 +94,7 @@ describe("DanhGiaSanPham — quyền đánh giá", () => {
       ...trangRong(),
       // timestamp de trong: component bo qua buoc dinh dang ngay, tranh phu thuoc vao
       // locale date-fns da bi mock o tren.
-      content: [{ maDanhGia: 1, nhanXet: "Sách hay", diemXepHang: 5, timestamp: "", tenHienThi: "Nguyễn V. A.", laCuaToi: false, soLuotHuuIch: 0, toiDaBinhChon: false, phanHoiShop: null, phanHoiShopTai: null }],
+      content: [{ maDanhGia: 1, nhanXet: "Sách hay", diemXepHang: 5, timestamp: "", tenHienThi: "Nguyễn V. A.", laCuaToi: false, soLuotHuuIch: 0, toiDaBinhChon: false, phanHoiShop: null, phanHoiShopTai: null, anhDinhKem: [] }],
       tongSo: 1,
       tongSoTrang: 1,
       diemTrungBinh: 5,

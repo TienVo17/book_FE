@@ -1,5 +1,10 @@
-import { authRequest, my_request } from "./Request";
+import { ApiRequestError, authRequest, my_request } from "./Request";
 import { apiUrl } from './ApiUrl';
+
+export interface DanhGiaHinhAnhCongKhai {
+  maHinhAnh: number;
+  urlHinh: string;
+}
 
 export interface DanhGiaCongKhai {
   maDanhGia: number;
@@ -13,6 +18,7 @@ export interface DanhGiaCongKhai {
   toiDaBinhChon: boolean;
   phanHoiShop: string | null;
   phanHoiShopTai: string | null;
+  anhDinhKem: DanhGiaHinhAnhCongKhai[];
 }
 
 /**
@@ -84,17 +90,62 @@ export function layQuyenDanhGia(maSach: number): Promise<CoTheDanhGia> {
   return authRequest<CoTheDanhGia>(apiUrl(`/api/danh-gia/co-the-danh-gia?maSach=${maSach}`));
 }
 
-export async function themDanhGiaMoi(
+export function themDanhGiaMoi(
   maSach: number,
   nhanXet: string,
   diemXepHang: number,
   maNguoiDung: number
-): Promise<boolean> {
-  await authRequest(apiUrl('/api/danh-gia/them-danh-gia-v1'), {
+): Promise<DanhGiaCongKhai> {
+  return authRequest<DanhGiaCongKhai>(apiUrl('/api/danh-gia/them-danh-gia-v1'), {
     method: 'POST',
     body: JSON.stringify({ maSach, nhanXet, diemXepHang, maNguoiDung }),
   });
-  return true;
+}
+
+export function thongDiepLoiAnhDanhGia(error: unknown): string {
+  if (!(error instanceof ApiRequestError)) {
+    return error instanceof Error ? error.message : "Không thể tải ảnh đánh giá.";
+  }
+
+  switch (error.code) {
+    case "REVIEW_IMAGE_TOO_MANY":
+      return "Mỗi đánh giá tối đa 5 ảnh.";
+    case "REVIEW_IMAGE_TOO_LARGE":
+    case "FILE_TOO_LARGE":
+      return "Mỗi ảnh phải có dung lượng không quá 5MB.";
+    case "REVIEW_IMAGE_UNSUPPORTED_TYPE":
+      return "Chỉ chấp nhận ảnh JPEG, PNG hoặc WebP.";
+    case "REVIEW_IMAGE_EMPTY":
+      return "Ảnh đã chọn không có dữ liệu. Vui lòng chọn ảnh khác.";
+    case "REVIEW_IMAGE_QUOTA_EXCEEDED":
+      return "Bạn đã dùng hết hạn ngạch ảnh đánh giá.";
+    case "RATE_LIMITED":
+      return "Bạn tải ảnh quá nhanh. Vui lòng thử lại sau ít phút.";
+    case "STORAGE_NOT_CONFIGURED":
+      return "Hệ thống chưa cấu hình lưu ảnh. Đánh giá chữ đã được lưu; vui lòng thử tải ảnh sau.";
+    default:
+      return error.message || "Không thể tải ảnh đánh giá.";
+  }
+}
+
+export function themAnhDanhGia(
+  maDanhGia: number,
+  tep: File,
+  idempotencyKey: string
+): Promise<DanhGiaHinhAnhCongKhai> {
+  const form = new FormData();
+  form.append("tep", tep);
+  return authRequest<DanhGiaHinhAnhCongKhai>(apiUrl(`/api/danh-gia/${maDanhGia}/hinh-anh`), {
+    method: "POST",
+    headers: {
+      "Idempotency-Key": idempotencyKey,
+    },
+    body: form,
+  });
+}
+
+export function xoaAnhDanhGia(maHinhAnh: number): Promise<{ maHinhAnh: number; daXoa: boolean }> {
+  return authRequest(apiUrl(`/api/danh-gia/hinh-anh/${maHinhAnh}/xoa`), { method: "POST" });
 }
 
 export type TrangThaiDanhGia = 'HIEN_THI' | 'DA_AN';
@@ -122,6 +173,7 @@ export interface DanhGiaQuanTri {
   maDonHang: number | null;
   phanHoiShop: string | null;
   phanHoiShopTai: string | null;
+  anhDinhKem: DanhGiaHinhAnhCongKhai[];
 }
 
 /** Chủ sở hữu tự gỡ bài của mình. Backend kiểm tra quyền sở hữu, không tin client. */

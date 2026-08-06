@@ -22,8 +22,8 @@ type Trang = Awaited<ReturnType<typeof layTrangDanhGia>>;
 function trang(ghiDe: Partial<Trang> = {}): Trang {
   return {
     content: [
-      { maDanhGia: 1, nhanXet: "Rất hay", diemXepHang: 5, timestamp: "", tenHienThi: "Nguyễn V. A.", laCuaToi: false, soLuotHuuIch: 0, toiDaBinhChon: false, phanHoiShop: null, phanHoiShopTai: null },
-      { maDanhGia: 2, nhanXet: "Tạm được", diemXepHang: 3, timestamp: "", tenHienThi: "Nguyễn V. A.", laCuaToi: false, soLuotHuuIch: 0, toiDaBinhChon: false, phanHoiShop: null, phanHoiShopTai: null },
+      { maDanhGia: 1, nhanXet: "Rất hay", diemXepHang: 5, timestamp: "", tenHienThi: "Nguyễn V. A.", laCuaToi: false, soLuotHuuIch: 0, toiDaBinhChon: false, phanHoiShop: null, phanHoiShopTai: null, anhDinhKem: [] },
+      { maDanhGia: 2, nhanXet: "Tạm được", diemXepHang: 3, timestamp: "", tenHienThi: "Nguyễn V. A.", laCuaToi: false, soLuotHuuIch: 0, toiDaBinhChon: false, phanHoiShop: null, phanHoiShopTai: null, anhDinhKem: [] },
     ],
     trang: 0,
     kichThuoc: 10,
@@ -75,7 +75,7 @@ describe("DanhGiaSanPham — đọc phân trang và phân bố", () => {
   // bấm vào một cột sẽ làm bốn cột còn lại về 0 và thanh phân bố tự phá huỷ công dụng của nó.
   it("giữ nguyên phân bố khi đang lọc", async () => {
     layTrangMock.mockResolvedValue(
-      trang({ content: [{ maDanhGia: 3, nhanXet: "Bốn sao", diemXepHang: 4, timestamp: "", tenHienThi: "Nguyễn V. A.", laCuaToi: false, soLuotHuuIch: 0, toiDaBinhChon: false, phanHoiShop: null, phanHoiShopTai: null }] })
+      trang({ content: [{ maDanhGia: 3, nhanXet: "Bốn sao", diemXepHang: 4, timestamp: "", tenHienThi: "Nguyễn V. A.", laCuaToi: false, soLuotHuuIch: 0, toiDaBinhChon: false, phanHoiShop: null, phanHoiShopTai: null, anhDinhKem: [] }] })
     );
 
     renderComponent();

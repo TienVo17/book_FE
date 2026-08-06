@@ -51,7 +51,19 @@ describe("DanhGiaSanPham — form gửi đánh giá", () => {
     localStorage.setItem("jwt", jwtConHan());
     layTrangMock.mockResolvedValue(trangRong());
     layQuyenMock.mockResolvedValue({ coThe: true, maDonHang: 42, lyDo: null });
-    themMock.mockResolvedValue(true);
+    themMock.mockResolvedValue({
+      maDanhGia: 99,
+      nhanXet: "Sách rất hay",
+      diemXepHang: 5,
+      timestamp: "",
+      tenHienThi: "Nguyễn V. A.",
+      laCuaToi: true,
+      soLuotHuuIch: 0,
+      toiDaBinhChon: false,
+      phanHoiShop: null,
+      phanHoiShopTai: null,
+      anhDinhKem: [],
+    });
   });
 
   async function moForm() {
@@ -94,8 +106,8 @@ describe("DanhGiaSanPham — form gửi đánh giá", () => {
    * thành công.
    */
   it("bấm nhanh hai lần chỉ tạo một request", async () => {
-    let giaiPhong: (v: boolean) => void = () => {};
-    themMock.mockImplementation(() => new Promise<boolean>((resolve) => { giaiPhong = resolve; }));
+    let giaiPhong: (v: Awaited<ReturnType<typeof themDanhGiaMoi>>) => void = () => {};
+    themMock.mockImplementation(() => new Promise((resolve) => { giaiPhong = resolve; }));
 
     const nut = await moForm();
     await userEvent.type(screen.getByLabelText("Nhận xét:"), "Sách rất hay");
@@ -104,19 +116,43 @@ describe("DanhGiaSanPham — form gửi đánh giá", () => {
     await userEvent.click(nut);
 
     expect(themMock).toHaveBeenCalledTimes(1);
-    giaiPhong(true);
+    giaiPhong({
+      maDanhGia: 99,
+      nhanXet: "Sách rất hay",
+      diemXepHang: 5,
+      timestamp: "",
+      tenHienThi: "Nguyễn V. A.",
+      laCuaToi: true,
+      soLuotHuuIch: 0,
+      toiDaBinhChon: false,
+      phanHoiShop: null,
+      phanHoiShopTai: null,
+      anhDinhKem: [],
+    });
   });
 
   it("khoá nút và đổi nhãn trong lúc đang gửi", async () => {
-    let giaiPhong: (v: boolean) => void = () => {};
-    themMock.mockImplementation(() => new Promise<boolean>((resolve) => { giaiPhong = resolve; }));
+    let giaiPhong: (v: Awaited<ReturnType<typeof themDanhGiaMoi>>) => void = () => {};
+    themMock.mockImplementation(() => new Promise((resolve) => { giaiPhong = resolve; }));
 
     const nut = await moForm();
     await userEvent.type(screen.getByLabelText("Nhận xét:"), "Sách rất hay");
     await userEvent.click(nut);
 
     expect(await screen.findByRole("button", { name: "Đang gửi…" })).toBeDisabled();
-    giaiPhong(true);
+    giaiPhong({
+      maDanhGia: 99,
+      nhanXet: "Sách rất hay",
+      diemXepHang: 5,
+      timestamp: "",
+      tenHienThi: "Nguyễn V. A.",
+      laCuaToi: true,
+      soLuotHuuIch: 0,
+      toiDaBinhChon: false,
+      phanHoiShop: null,
+      phanHoiShopTai: null,
+      anhDinhKem: [],
+    });
   });
 
   it("xoá nội dung form sau khi gửi thành công", async () => {

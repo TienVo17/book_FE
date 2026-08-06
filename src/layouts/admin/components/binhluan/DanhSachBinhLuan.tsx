@@ -1,6 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { DanhGiaQuanTri } from '../../../../api/DanhGiaAPI';
-import { getDanhGiaAdmin, setDanhGiaActive, traLoiDanhGia } from '../../../../api/DanhGiaAPI';
+import {
+  getDanhGiaAdmin,
+  setDanhGiaActive,
+  traLoiDanhGia,
+  xoaAnhDanhGia,
+} from '../../../../api/DanhGiaAPI';
 
 export default function DanhSachBinhLuan() {
   const [binhLuanList, setBinhLuanList] = useState<DanhGiaQuanTri[]>([]);
@@ -57,6 +62,28 @@ export default function DanhSachBinhLuan() {
     }
   };
 
+  const handleXoaAnh = async (maDanhGia: number, maHinhAnh: number) => {
+    if (!window.confirm('Bạn muốn gỡ ảnh vi phạm này?')) return;
+    try {
+      await xoaAnhDanhGia(maHinhAnh);
+      setBinhLuanList((danhSach) =>
+        danhSach.map((danhGia) =>
+          danhGia.maDanhGia === maDanhGia
+            ? {
+                ...danhGia,
+                anhDinhKem: danhGia.anhDinhKem.filter(
+                  (anh) => anh.maHinhAnh !== maHinhAnh
+                ),
+              }
+            : danhGia
+        )
+      );
+    } catch (error) {
+      alert('Không gỡ được ảnh!');
+      console.error('Lỗi:', error);
+    }
+  };
+
   const renderStars = (rating: number) => {
     const stars = [];
     for (let i = 1; i <= 5; i++) {
@@ -104,6 +131,7 @@ export default function DanhSachBinhLuan() {
                 <tr>
                   <th>Mã</th>
                   <th>Nhận xét</th>
+                  <th>Ảnh</th>
                   <th>Đánh giá</th>
                   <th>Trạng thái</th>
                   <th style={{ textAlign: 'center', width: '80px' }}>Thao tác</th>
@@ -124,6 +152,36 @@ export default function DanhSachBinhLuan() {
                       }}>
                         {item.nhanXet || '—'}
                       </span>
+                    </td>
+                    <td>
+                      {item.anhDinhKem.length === 0 ? (
+                        <span>—</span>
+                      ) : (
+                        <ul className="admin-review-image-list" aria-label={`Ảnh của đánh giá #${item.maDanhGia}`}>
+                          {item.anhDinhKem.map((anh, index) => (
+                            <li key={anh.maHinhAnh}>
+                              <a href={anh.urlHinh} target="_blank" rel="noreferrer">
+                                <img
+                                  src={anh.urlHinh}
+                                  alt={`Ảnh ${index + 1} của đánh giá #${item.maDanhGia}`}
+                                  width={64}
+                                  height={64}
+                                  loading="lazy"
+                                />
+                              </a>
+                              <button
+                                type="button"
+                                className="order-action-btn"
+                                title={`Gỡ ảnh ${index + 1}`}
+                                aria-label={`Gỡ ảnh ${index + 1} của đánh giá #${item.maDanhGia}`}
+                                onClick={() => handleXoaAnh(item.maDanhGia, anh.maHinhAnh)}
+                              >
+                                <i className="fas fa-trash" aria-hidden="true" />
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </td>
                     <td>{renderStars(item.diemXepHang)}</td>
                     <td>

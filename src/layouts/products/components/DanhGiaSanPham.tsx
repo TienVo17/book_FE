@@ -1,27 +1,44 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
   CoTheDanhGia,
+  DanhGiaHinhAnhCongKhai,
   KieuSapXepDanhGia,
   LyDoKhongDanhGiaDuoc,
   TrangDanhGia,
   layQuyenDanhGia,
   layTrangDanhGia,
+  themAnhDanhGia,
   themDanhGiaMoi,
+  thongDiepLoiAnhDanhGia,
+  xoaAnhDanhGia,
   xoaDanhGia,
 } from "../../../api/DanhGiaAPI";
+import ChonAnhDanhGia from "./ChonAnhDanhGia";
 import ChonSao from "./ChonSao";
 import NutHuuIch from "./NutHuuIch";
 import PhanBoSao from "./PhanBoSao";
+import XemAnhLon from "./XemAnhLon";
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { toast } from "react-toastify";
 import { useNavigate } from 'react-router-dom';
 import { jwtDecode } from "jwt-decode";
+import { generateIdempotencyKey } from "../../../api/CheckoutIntent";
 
 
 
 interface DanhGiaSanPhamProps {
   maSach: number;
+}
+
+interface AnhDangXem {
+  danhSach: DanhGiaHinhAnhCongKhai[];
+  chiSo: number;
+}
+
+interface AnhChoTai {
+  file: File;
+  idempotencyKey: string;
 }
 
 export const renderStars = (rating: number) => {
@@ -71,9 +88,16 @@ const DanhGiaSanPham: React.FC<DanhGiaSanPhamProps> = ({ maSach }) => {
   const [baoLoi, setBaoLoi] = useState<string | null>(null);
   const [quyenDanhGia, setQuyenDanhGia] = useState<CoTheDanhGia | null>(null);
   const [danhGiaMoi, setDanhGiaMoi] = useState({ diemXepHang: 5, nhanXet: "" });
+  const [anhDaChon, setAnhDaChon] = useState<File[]>([]);
   const [dangGui, setDangGui] = useState(false);
   const [loiGui, setLoiGui] = useState<string | null>(null);
   const [thongBao, setThongBao] = useState("");
+  const [anhDangXem, setAnhDangXem] = useState<AnhDangXem | null>(null);
+  const [anhDangXoa, setAnhDangXoa] = useState<number | null>(null);
+  const [taiLaiAnh, setTaiLaiAnh] = useState<{
+    maDanhGia: number;
+    files: AnhChoTai[];
+  } | null>(null);
   const navigate = useNavigate();
 
   // Chỉ mời viết đánh giá khi token còn hạn, tránh để khách gõ xong mới bị chặn.
@@ -123,17 +147,113 @@ const DanhGiaSanPham: React.FC<DanhGiaSanPhamProps> = ({ maSach }) => {
     if (dangGui) return;
     setDangGui(true);
     setLoiGui(null);
+
+    let daTao;
     try {
-      await themDanhGiaMoi(maSach, danhGiaMoi.nhanXet, danhGiaMoi.diemXepHang, 0);
-      setDanhGiaMoi({ diemXepHang: 5, nhanXet: "" });
-      setTrangDanhGia(await taiTrang());
-      // Form phải biến mất ngay: mỗi người chỉ một đánh giá mỗi cuốn sách.
-      setQuyenDanhGia(await layQuyenDanhGia(maSach));
-      setThongBao("Đã gửi đánh giá của bạn.");
+      daTao = await themDanhGiaMoi(
+        maSach,
+        danhGiaMoi.nhanXet,
+        danhGiaMoi.diemXepHang,
+        0
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : "Không thể gửi đánh giá.";
       setLoiGui(message);
       toast.error(message);
+      setDangGui(false);
+      return;
+    }
+
+    // Review chữ đã được commit. Ẩn form ngay, không để lỗi upload/refresh phía sau
+    // biến một thao tác đã thành công thành thông báo "gửi thất bại".
+    setQuyenDanhGia({ coThe: false, maDonHang: null, lyDo: "DA_DANH_GIA" });
+    setDanhGiaMoi({ diemXepHang: 5, nhanXet: "" });
+    setAnhDaChon([]);
+
+    const anhChoTai = anhDaChon.map((file) => ({
+      file,
+      idempotencyKey: generateIdempotencyKey(),
+    }));
+    let soAnhDaTai = 0;
+    let loiAnh: string | null = null;
+
+    for (let index = 0; index < anhChoTai.length; index += 1) {
+      const anh = anhChoTai[index];
+      try {
+        await themAnhDanhGia(
+          daTao.maDanhGia,
+          anh.file,
+          anh.idempotencyKey
+        );
+        soAnhDaTai += 1;
+      } catch (error) {
+        loiAnh = thongDiepLoiAnhDanhGia(error);
+        setTaiLaiAnh({
+          maDanhGia: daTao.maDanhGia,
+          files: anhChoTai.slice(index),
+        });
+        break;
+      }
+    }
+
+    if (!loiAnh) setTaiLaiAnh(null);
+
+    if (loiAnh) {
+      const ketQuaAnh = soAnhDaTai > 0
+        ? ` Đã tải ${soAnhDaTai}/${anhChoTai.length} ảnh.`
+        : "";
+      setThongBao(`Đánh giá chữ đã được lưu.${ketQuaAnh} ${loiAnh}`);
+      toast.error(`Đánh giá chữ đã được lưu.${ketQuaAnh} ${loiAnh}`);
+    } else {
+      setThongBao(
+        anhChoTai.length > 0
+          ? `Đã gửi đánh giá và ${soAnhDaTai} ảnh của bạn.`
+          : "Đã gửi đánh giá của bạn."
+      );
+    }
+
+    try {
+      const [trangMoi, quyenMoi] = await Promise.all([
+        taiTrang(),
+        layQuyenDanhGia(maSach),
+      ]);
+      setTrangDanhGia(trangMoi);
+      setQuyenDanhGia(quyenMoi);
+    } catch {
+      setThongBao("Đánh giá đã được lưu nhưng chưa thể làm mới danh sách.");
+    } finally {
+      setDangGui(false);
+    }
+  };
+
+  const taiLaiAnhConThieu = async () => {
+    if (!taiLaiAnh || dangGui) return;
+    setDangGui(true);
+    let soAnhDaTai = 0;
+    try {
+      for (let index = 0; index < taiLaiAnh.files.length; index += 1) {
+        const anh = taiLaiAnh.files[index];
+        try {
+          await themAnhDanhGia(
+            taiLaiAnh.maDanhGia,
+            anh.file,
+            anh.idempotencyKey
+          );
+          soAnhDaTai += 1;
+        } catch (error) {
+          setTaiLaiAnh({
+            maDanhGia: taiLaiAnh.maDanhGia,
+            files: taiLaiAnh.files.slice(index),
+          });
+          const message = thongDiepLoiAnhDanhGia(error);
+          setThongBao(`Đã tải thêm ${soAnhDaTai} ảnh. ${message}`);
+          toast.error(message);
+          return;
+        }
+      }
+      setTaiLaiAnh(null);
+      setTrangDanhGia(await taiTrang());
+      setThongBao(`Đã tải thêm ${soAnhDaTai} ảnh vào đánh giá của bạn.`);
     } finally {
       setDangGui(false);
     }
@@ -148,6 +268,21 @@ const DanhGiaSanPham: React.FC<DanhGiaSanPhamProps> = ({ maSach }) => {
       setThongBao("Đã xoá đánh giá của bạn.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Không thể xoá đánh giá.");
+    }
+  };
+
+  const xoaAnhCuaToi = async (maHinhAnh: number) => {
+    if (!window.confirm("Bạn muốn gỡ ảnh này khỏi đánh giá?")) return;
+    setAnhDangXoa(maHinhAnh);
+    try {
+      await xoaAnhDanhGia(maHinhAnh);
+      setAnhDangXem(null);
+      setTrangDanhGia(await taiTrang());
+      setThongBao("Đã gỡ ảnh khỏi đánh giá của bạn.");
+    } catch (error) {
+      toast.error(thongDiepLoiAnhDanhGia(error));
+    } finally {
+      setAnhDangXoa(null);
     }
   };
 
@@ -259,6 +394,10 @@ const DanhGiaSanPham: React.FC<DanhGiaSanPhamProps> = ({ maSach }) => {
               />
             </div>
 
+            <div className="mb-3">
+              <ChonAnhDanhGia files={anhDaChon} onChange={setAnhDaChon} disabled={dangGui} />
+            </div>
+
             {loiGui && (
               <div className="alert alert-danger py-2" role="alert">
                 {loiGui}
@@ -272,6 +411,22 @@ const DanhGiaSanPham: React.FC<DanhGiaSanPhamProps> = ({ maSach }) => {
         </div>
       </div>
       ) : null}
+
+      {taiLaiAnh && (
+        <div className="alert alert-warning d-flex justify-content-between align-items-center gap-3" role="status">
+          <span>
+            Còn {taiLaiAnh.files.length} ảnh chưa tải lên. Đánh giá chữ của bạn đã được lưu.
+          </span>
+          <button
+            type="button"
+            className="btn btn-sm btn-outline-primary"
+            onClick={taiLaiAnhConThieu}
+            disabled={dangGui}
+          >
+            {dangGui ? "Đang tải lại…" : `Tải lại ${taiLaiAnh.files.length} ảnh`}
+          </button>
+        </div>
+      )}
 
       {/* Live region luôn có mặt trong cây DOM. Chèn nó cùng lúc với nội dung thì trình
           đọc màn hình thường bỏ qua lần thông báo đầu tiên. */}
@@ -347,6 +502,38 @@ const DanhGiaSanPham: React.FC<DanhGiaSanPhamProps> = ({ maSach }) => {
                 <p className="review-content mb-0">
                   {danhGia.nhanXet}
                 </p>
+                {danhGia.anhDinhKem?.length > 0 && (
+                  <ul className="review-image-list" aria-label={`Ảnh của đánh giá từ ${danhGia.tenHienThi}`}>
+                    {danhGia.anhDinhKem.map((anh, index) => (
+                      <li key={anh.maHinhAnh}>
+                        <button
+                          type="button"
+                          className="review-image-thumbnail"
+                          onClick={() => setAnhDangXem({ danhSach: danhGia.anhDinhKem, chiSo: index })}
+                          aria-label={`Xem ảnh đánh giá ${index + 1} ở kích thước lớn`}
+                        >
+                          <img
+                            src={anh.urlHinh}
+                            alt=""
+                            width={112}
+                            height={112}
+                            loading="lazy"
+                          />
+                        </button>
+                        {danhGia.laCuaToi && (
+                          <button
+                            type="button"
+                            className="btn btn-link btn-sm p-0 text-danger"
+                            onClick={() => xoaAnhCuaToi(anh.maHinhAnh)}
+                            disabled={anhDangXoa === anh.maHinhAnh}
+                          >
+                            {anhDangXoa === anh.maHinhAnh ? "Đang gỡ…" : `Gỡ ảnh ${index + 1}`}
+                          </button>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
                 {/* Phản hồi của shop lồng ngay dưới bài, không phải một dòng riêng trong
                     danh sách: nó là câu trả lời cho đúng bài này. */}
                 {danhGia.phanHoiShop && (
@@ -406,6 +593,15 @@ const DanhGiaSanPham: React.FC<DanhGiaSanPhamProps> = ({ maSach }) => {
             Trang sau
           </button>
         </div>
+      )}
+
+      {anhDangXem && (
+        <XemAnhLon
+          danhSach={anhDangXem.danhSach}
+          chiSo={anhDangXem.chiSo}
+          onChuyen={(chiSo) => setAnhDangXem({ ...anhDangXem, chiSo })}
+          onDong={() => setAnhDangXem(null)}
+        />
       )}
     </div>
   );
