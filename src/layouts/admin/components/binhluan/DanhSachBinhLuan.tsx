@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { DanhGiaQuanTri } from '../../../../api/DanhGiaAPI';
-import { getDanhGiaAdmin, setDanhGiaActive } from '../../../../api/DanhGiaAPI';
+import { getDanhGiaAdmin, setDanhGiaActive, traLoiDanhGia } from '../../../../api/DanhGiaAPI';
 
 export default function DanhSachBinhLuan() {
   const [binhLuanList, setBinhLuanList] = useState<DanhGiaQuanTri[]>([]);
@@ -41,6 +41,18 @@ export default function DanhSachBinhLuan() {
       loadData();
     } catch (error) {
       alert('Có lỗi xảy ra!');
+      console.error('Lỗi:', error);
+    }
+  };
+
+  const handleTraLoi = async (maDanhGia: number, phanHoiHienTai: string | null) => {
+    const noiDung = window.prompt('Phản hồi của shop:', phanHoiHienTai ?? '');
+    if (noiDung === null || !noiDung.trim()) return;
+    try {
+      await traLoiDanhGia(maDanhGia, noiDung.trim());
+      loadData();
+    } catch (error) {
+      alert('Không gửi được phản hồi!');
       console.error('Lỗi:', error);
     }
   };
@@ -136,6 +148,15 @@ export default function DanhSachBinhLuan() {
                         onClick={() => handleToggleActive(item.maDanhGia, item.trangThai === 'HIEN_THI')}
                       >
                         <i className={`fas fa-${item.trangThai === 'HIEN_THI' ? 'eye-slash' : 'eye'}`} />
+                      </button>
+                      {/* Trả lời lần hai là sửa nội dung, không tạo thêm dòng — phản hồi
+                          lưu thẳng trên chính dòng đánh giá. */}
+                      <button
+                        className="order-action-btn"
+                        title={item.phanHoiShop ? 'Sửa phản hồi' : 'Trả lời'}
+                        onClick={() => handleTraLoi(item.maDanhGia, item.phanHoiShop)}
+                      >
+                        <i className="fas fa-reply" />
                       </button>
                     </td>
                   </tr>

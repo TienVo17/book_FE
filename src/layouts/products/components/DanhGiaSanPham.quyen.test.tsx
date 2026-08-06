@@ -13,6 +13,7 @@ jest.mock("../../../api/DanhGiaAPI", () => ({
   layQuyenDanhGia: jest.fn(),
   themDanhGiaMoi: jest.fn(),
   xoaDanhGia: jest.fn(),
+  doiBinhChonHuuIch: jest.fn(),
 }));
 
 const layTrangMock = layTrangDanhGia as jest.MockedFunction<typeof layTrangDanhGia>;
@@ -93,7 +94,7 @@ describe("DanhGiaSanPham — quyền đánh giá", () => {
       ...trangRong(),
       // timestamp de trong: component bo qua buoc dinh dang ngay, tranh phu thuoc vao
       // locale date-fns da bi mock o tren.
-      content: [{ maDanhGia: 1, nhanXet: "Sách hay", diemXepHang: 5, timestamp: "", tenHienThi: "Nguyễn V. A.", laCuaToi: false }],
+      content: [{ maDanhGia: 1, nhanXet: "Sách hay", diemXepHang: 5, timestamp: "", tenHienThi: "Nguyễn V. A.", laCuaToi: false, soLuotHuuIch: 0, toiDaBinhChon: false, phanHoiShop: null, phanHoiShopTai: null }],
       tongSo: 1,
       tongSoTrang: 1,
       diemTrungBinh: 5,

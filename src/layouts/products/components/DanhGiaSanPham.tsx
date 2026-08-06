@@ -10,6 +10,7 @@ import {
   xoaDanhGia,
 } from "../../../api/DanhGiaAPI";
 import ChonSao from "./ChonSao";
+import NutHuuIch from "./NutHuuIch";
 import PhanBoSao from "./PhanBoSao";
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -346,17 +347,37 @@ const DanhGiaSanPham: React.FC<DanhGiaSanPhamProps> = ({ maSach }) => {
                 <p className="review-content mb-0">
                   {danhGia.nhanXet}
                 </p>
-                {/* Chỉ chủ sở hữu thấy nút này. Backend vẫn kiểm tra quyền sở hữu ở
-                    `deleteReview`, nên ẩn nút là chuyện giao diện chứ không phải bảo vệ. */}
-                {danhGia.laCuaToi && (
-                  <button
-                    type="button"
-                    className="btn btn-link btn-sm p-0 mt-2 text-danger"
-                    onClick={() => xoaDanhGiaCuaToi(danhGia.maDanhGia)}
-                  >
-                    Xoá đánh giá của tôi
-                  </button>
+                {/* Phản hồi của shop lồng ngay dưới bài, không phải một dòng riêng trong
+                    danh sách: nó là câu trả lời cho đúng bài này. */}
+                {danhGia.phanHoiShop && (
+                  <div className="mt-3 ps-3 border-start border-3">
+                    <strong className="d-block">Phản hồi từ shop</strong>
+                    <p className="mb-0">{danhGia.phanHoiShop}</p>
+                  </div>
                 )}
+
+                <div className="d-flex align-items-center gap-3 mt-2">
+                  <NutHuuIch
+                    key={danhGia.maDanhGia}
+                    maDanhGia={danhGia.maDanhGia}
+                    soLuot={danhGia.soLuotHuuIch}
+                    daBinhChon={danhGia.toiDaBinhChon}
+                    laCuaToi={danhGia.laCuaToi}
+                    daDangNhap={daDangNhap}
+                    onLoi={(thongDiep) => toast.error(thongDiep)}
+                  />
+                  {/* Chỉ chủ sở hữu thấy nút này. Backend vẫn kiểm tra quyền sở hữu ở
+                      `deleteReview`, nên ẩn nút là chuyện giao diện chứ không phải bảo vệ. */}
+                  {danhGia.laCuaToi && (
+                    <button
+                      type="button"
+                      className="btn btn-link btn-sm p-0 text-danger"
+                      onClick={() => xoaDanhGiaCuaToi(danhGia.maDanhGia)}
+                    >
+                      Xoá đánh giá của tôi
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           ))

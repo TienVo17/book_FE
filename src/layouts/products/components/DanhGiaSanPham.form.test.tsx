@@ -13,6 +13,7 @@ jest.mock("../../../api/DanhGiaAPI", () => ({
   layQuyenDanhGia: jest.fn(),
   themDanhGiaMoi: jest.fn(),
   xoaDanhGia: jest.fn(),
+  doiBinhChonHuuIch: jest.fn(),
 }));
 
 const layTrangMock = layTrangDanhGia as jest.MockedFunction<typeof layTrangDanhGia>;

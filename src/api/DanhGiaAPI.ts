@@ -9,6 +9,18 @@ export interface DanhGiaCongKhai {
   /** Tên đã được backend che sẵn ("Nguyễn V. A."). Không bao giờ là chuỗi rỗng. */
   tenHienThi: string;
   laCuaToi: boolean;
+  soLuotHuuIch: number;
+  toiDaBinhChon: boolean;
+  phanHoiShop: string | null;
+  phanHoiShopTai: string | null;
+}
+
+/**
+ * Bấm lần hai là gỡ bình chọn, như nút thích ở mọi nơi khác. Trả về số lượt còn lại để
+ * giao diện không phải tải lại cả trang chỉ để cập nhật một con số.
+ */
+export function doiBinhChonHuuIch(maDanhGia: number): Promise<{ maDanhGia: number; soLuotHuuIch: number }> {
+  return authRequest(apiUrl(`/api/danh-gia/${maDanhGia}/huu-ich`), { method: 'POST' });
 }
 
 export type KieuSapXepDanhGia = 'moi-nhat' | 'cu-nhat' | 'diem-cao' | 'diem-thap' | 'huu-ich';
@@ -108,11 +120,21 @@ export interface DanhGiaQuanTri {
   trangThai: TrangThaiDanhGia;
   tungBiAn: boolean;
   maDonHang: number | null;
+  phanHoiShop: string | null;
+  phanHoiShopTai: string | null;
 }
 
 /** Chủ sở hữu tự gỡ bài của mình. Backend kiểm tra quyền sở hữu, không tin client. */
 export function xoaDanhGia(maDanhGia: number): Promise<unknown> {
   return authRequest(apiUrl(`/api/danh-gia/xoa-danh-gia/${maDanhGia}`), { method: 'POST' });
+}
+
+/** Shop trả lời công khai dưới một đánh giá. Gọi lần hai là sửa, không tạo thêm dòng. */
+export function traLoiDanhGia(maDanhGia: number, noiDung: string): Promise<unknown> {
+  return authRequest(apiUrl(`/api/admin/danh-gia/${maDanhGia}/phan-hoi`), {
+    method: 'POST',
+    body: JSON.stringify({ noiDung }),
+  });
 }
 
 interface DanhGiaAdminPage {
