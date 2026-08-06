@@ -1,6 +1,12 @@
 import React, { useEffect, useState } from "react";
 import DanhGiaModel from "../../../models/DanhGiaModel";
-import { getAllReviewOfOneBook, themDanhGiaMoi } from "../../../api/DanhGiaAPI";
+import {
+  CoTheDanhGia,
+  LyDoKhongDanhGiaDuoc,
+  getAllReviewOfOneBook,
+  layQuyenDanhGia,
+  themDanhGiaMoi,
+} from "../../../api/DanhGiaAPI";
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { toast } from "react-toastify";
@@ -31,10 +37,22 @@ export const renderStars = (rating: number) => {
   );
 };
 
+/**
+ * Bon ly do dan toi bon hanh dong khac nhau. Gop thanh mot cau "ban khong the danh gia"
+ * bat nguoi dung tu doan minh dang thieu gi, va ho thuong doan sai.
+ */
+const THONG_DIEP_KHONG_DANH_GIA_DUOC: Record<LyDoKhongDanhGiaDuoc, string> = {
+  CHUA_MUA: "Chỉ khách đã mua và nhận cuốn sách này mới đánh giá được.",
+  CHUA_NHAN_HANG: "Đơn của bạn chưa được giao xong. Bạn đánh giá được ngay sau khi nhận hàng.",
+  DA_DANH_GIA: "Bạn đã đánh giá cuốn sách này rồi.",
+  DA_BI_AN: "Đánh giá của bạn cho cuốn sách này đã bị ẩn nên không thể đăng lại.",
+};
+
 const DanhGiaSanPham: React.FC<DanhGiaSanPhamProps> = ({ maSach }) => {
   const [danhSachDanhGia, setDanhSachDanhGia] = useState<DanhGiaModel[]>([]);
   const [dangTaiDuLieu, setDangTaiDuLieu] = useState(true);
   const [baoLoi, setBaoLoi] = useState<string | null>(null);
+  const [quyenDanhGia, setQuyenDanhGia] = useState<CoTheDanhGia | null>(null);
   const [danhGiaMoi, setDanhGiaMoi] = useState({
     diemXepHang: 5,
     nhanXet: "",
@@ -65,6 +83,26 @@ const DanhGiaSanPham: React.FC<DanhGiaSanPhamProps> = ({ maSach }) => {
         setBaoLoi(error.message);
       });
   }, [maSach]);
+
+  // Hoi quyen truoc khi hien form, de nguoi dung khong go xong ca bai roi moi bi tu choi.
+  // Loi o day khong duoc chan danh sach danh gia: doc va viet la hai viec doc lap.
+  useEffect(() => {
+    if (!daDangNhap) {
+      setQuyenDanhGia(null);
+      return;
+    }
+    let conHieuLuc = true;
+    layQuyenDanhGia(maSach)
+      .then((quyen) => {
+        if (conHieuLuc) setQuyenDanhGia(quyen);
+      })
+      .catch(() => {
+        if (conHieuLuc) setQuyenDanhGia(null);
+      });
+    return () => {
+      conHieuLuc = false;
+    };
+  }, [maSach, daDangNhap]);
 
   
 
@@ -107,7 +145,18 @@ const DanhGiaSanPham: React.FC<DanhGiaSanPhamProps> = ({ maSach }) => {
             Đăng nhập để đánh giá
           </button>
         </div>
-      ) : (
+      ) : quyenDanhGia && !quyenDanhGia.coThe ? (
+        <div className="review-login-prompt" role="status">
+          <div>
+            <strong>Chưa thể đánh giá</strong>
+            <p>
+              {quyenDanhGia.lyDo
+                ? THONG_DIEP_KHONG_DANH_GIA_DUOC[quyenDanhGia.lyDo]
+                : "Bạn chưa đủ điều kiện đánh giá cuốn sách này."}
+            </p>
+          </div>
+        </div>
+      ) : quyenDanhGia?.coThe ? (
       <div className="card mb-4">
         <div className="card-body">
           <h4 className="mb-3">Đánh giá sản phẩm</h4>
@@ -145,6 +194,8 @@ const DanhGiaSanPham: React.FC<DanhGiaSanPhamProps> = ({ maSach }) => {
                 try {
                   await themDanhGiaMoi(maSach, danhGiaMoi.nhanXet, danhGiaMoi.diemXepHang, 0);
                   setDanhSachDanhGia(await getAllReviewOfOneBook(maSach));
+                  // Form phai bien mat ngay: moi nguoi chi mot danh gia moi cuon sach.
+                  setQuyenDanhGia(await layQuyenDanhGia(maSach));
                 } catch (error) {
                   const message = error instanceof Error ? error.message : "Không thể gửi đánh giá.";
                   toast.error(message);
@@ -156,7 +207,7 @@ const DanhGiaSanPham: React.FC<DanhGiaSanPhamProps> = ({ maSach }) => {
           </form>
         </div>
       </div>
-      )}
+      ) : null}
 
       <div className="section-header">
         <h2>Đánh giá từ khách hàng</h2>
