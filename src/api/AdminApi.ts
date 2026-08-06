@@ -107,8 +107,38 @@ function isSachTonKhoResponse(value: unknown): value is SachTonKhoResponse {
     && response.soLuongTon >= 0;
 }
 
+/** `null` khi chưa có đơn nào — `SUM` của JPA trả null, không phải 0. */
+function soHoacKhong(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
+
+/**
+ * Backend trả tên tiếng Anh (`totalRevenue`, `topBanChay`…); màn hình khai tên
+ * tiếng Việt. Trước đây hai bên chỉ được nối bằng một phép ép kiểu của
+ * `authRequest<T>`, vốn không kiểm tra gì, nên mọi trường về `undefined` trong
+ * im lặng: dashboard hiện 0đ và bảng rỗng ngay cả khi hệ thống có doanh thu.
+ * Ánh xạ tường minh ở đây là chỗ duy nhất biết cả hai tên.
+ */
 export async function getThongKe(): Promise<ThongKeModel> {
-  return authRequest<ThongKeModel>(`${BASE}/api/admin/thong-ke`);
+  const raw = await authRequest<Record<string, unknown>>(`${BASE}/api/admin/thong-ke`);
+  const topRaw: unknown[] = Array.isArray(raw?.topBanChay) ? raw.topBanChay : [];
+
+  return {
+    tongDonHang: soHoacKhong(raw?.totalOrders),
+    tongDoanhThu: soHoacKhong(raw?.totalRevenue),
+    donHangHomNay: soHoacKhong(raw?.todayOrders),
+    doanhThuHomNay: soHoacKhong(raw?.todayRevenue),
+    tongNguoiDung: soHoacKhong(raw?.totalUsers),
+    donChoXuLy: soHoacKhong(raw?.pendingOrders),
+    topSachBanChay: topRaw
+      .map((item) => (item ?? {}) as Record<string, unknown>)
+      .filter((item) => typeof item.tenSach === 'string')
+      .map((item) => ({
+        maSach: soHoacKhong(item.maSach),
+        tenSach: item.tenSach as string,
+        soLuongBan: soHoacKhong(item.tongBan),
+      })),
+  };
 }
 
 export async function setSachActive(maSach: number, active: boolean): Promise<unknown> {

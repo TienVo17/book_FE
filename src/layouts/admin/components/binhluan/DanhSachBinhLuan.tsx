@@ -1,9 +1,14 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import DanhGiaModel from '../../../../models/DanhGiaModel';
-import { getDanhGiaAdmin, setDanhGiaActive } from '../../../../api/DanhGiaAPI';
+import { DanhGiaQuanTri } from '../../../../api/DanhGiaAPI';
+import {
+  getDanhGiaAdmin,
+  setDanhGiaActive,
+  traLoiDanhGia,
+  xoaAnhDanhGia,
+} from '../../../../api/DanhGiaAPI';
 
 export default function DanhSachBinhLuan() {
-  const [binhLuanList, setBinhLuanList] = useState<any[]>([]);
+  const [binhLuanList, setBinhLuanList] = useState<DanhGiaQuanTri[]>([]);
   const [dangTaiDuLieu, setDangTaiDuLieu] = useState(true);
   const [baoLoi, setBaoLoi] = useState<string | null>(null);
   const [trangHienTai, setTrangHienTai] = useState(1);
@@ -13,7 +18,7 @@ export default function DanhSachBinhLuan() {
     setDangTaiDuLieu(true);
     getDanhGiaAdmin(trangHienTai - 1)
       .then(response => {
-        const sorted = (response.content as DanhGiaModel[]).sort((a, b) => {
+        const sorted = response.content.slice().sort((a, b) => {
           const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
           const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
           return timeB - timeA;
@@ -33,14 +38,48 @@ export default function DanhSachBinhLuan() {
     loadData();
   }, [loadData]);
 
-  const handleToggleActive = async (maDanhGia: number, isActive: boolean) => {
-    const action = isActive ? 'ẩn' : 'hiện';
+  const handleToggleActive = async (maDanhGia: number, dangHienThi: boolean) => {
+    const action = dangHienThi ? 'ẩn' : 'hiện';
     if (!window.confirm(`Bạn muốn ${action} bình luận này?`)) return;
     try {
-      await setDanhGiaActive(maDanhGia, !isActive);
+      await setDanhGiaActive(maDanhGia, !dangHienThi);
       loadData();
     } catch (error) {
       alert('Có lỗi xảy ra!');
+      console.error('Lỗi:', error);
+    }
+  };
+
+  const handleTraLoi = async (maDanhGia: number, phanHoiHienTai: string | null) => {
+    const noiDung = window.prompt('Phản hồi của shop:', phanHoiHienTai ?? '');
+    if (noiDung === null || !noiDung.trim()) return;
+    try {
+      await traLoiDanhGia(maDanhGia, noiDung.trim());
+      loadData();
+    } catch (error) {
+      alert('Không gửi được phản hồi!');
+      console.error('Lỗi:', error);
+    }
+  };
+
+  const handleXoaAnh = async (maDanhGia: number, maHinhAnh: number) => {
+    if (!window.confirm('Bạn muốn gỡ ảnh vi phạm này?')) return;
+    try {
+      await xoaAnhDanhGia(maHinhAnh);
+      setBinhLuanList((danhSach) =>
+        danhSach.map((danhGia) =>
+          danhGia.maDanhGia === maDanhGia
+            ? {
+                ...danhGia,
+                anhDinhKem: danhGia.anhDinhKem.filter(
+                  (anh) => anh.maHinhAnh !== maHinhAnh
+                ),
+              }
+            : danhGia
+        )
+      );
+    } catch (error) {
+      alert('Không gỡ được ảnh!');
       console.error('Lỗi:', error);
     }
   };
@@ -92,6 +131,7 @@ export default function DanhSachBinhLuan() {
                 <tr>
                   <th>Mã</th>
                   <th>Nhận xét</th>
+                  <th>Ảnh</th>
                   <th>Đánh giá</th>
                   <th>Trạng thái</th>
                   <th style={{ textAlign: 'center', width: '80px' }}>Thao tác</th>
@@ -113,19 +153,68 @@ export default function DanhSachBinhLuan() {
                         {item.nhanXet || '—'}
                       </span>
                     </td>
+                    <td>
+                      {item.anhDinhKem.length === 0 ? (
+                        <span>—</span>
+                      ) : (
+                        <ul className="admin-review-image-list" aria-label={`Ảnh của đánh giá #${item.maDanhGia}`}>
+                          {item.anhDinhKem.map((anh, index) => (
+                            <li key={anh.maHinhAnh}>
+                              <a href={anh.urlHinh} target="_blank" rel="noreferrer">
+                                <img
+                                  src={anh.urlHinh}
+                                  alt={`Ảnh ${index + 1} của đánh giá #${item.maDanhGia}`}
+                                  width={64}
+                                  height={64}
+                                  loading="lazy"
+                                />
+                              </a>
+                              <button
+                                type="button"
+                                className="order-action-btn"
+                                title={`Gỡ ảnh ${index + 1}`}
+                                aria-label={`Gỡ ảnh ${index + 1} của đánh giá #${item.maDanhGia}`}
+                                onClick={() => handleXoaAnh(item.maDanhGia, anh.maHinhAnh)}
+                              >
+                                <i className="fas fa-trash" aria-hidden="true" />
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </td>
                     <td>{renderStars(item.diemXepHang)}</td>
                     <td>
-                      <span className={`status-badge ${item.isActive ? 'paid' : 'pending'}`}>
-                        {item.isActive ? 'Hiển thị' : 'Đã ẩn'}
+                      {/* `trangThai` là nguồn sự thật duy nhất. Trường cũ đã biến mất
+                          khỏi response; khi còn khai `any[]`, giá trị thiếu thành
+                          `undefined` im lặng nên mọi dòng hiện "Đã ẩn" và nút gọi
+                          `!undefined` nên luôn gửi lệnh "hiện" — công cụ kiểm duyệt đảo
+                          ngược ý nghĩa mà không hề báo lỗi. */}
+                      <span className={`status-badge ${item.trangThai === 'HIEN_THI' ? 'paid' : 'pending'}`}>
+                        {item.trangThai === 'HIEN_THI' ? 'Hiển thị' : 'Đã ẩn'}
                       </span>
+                      {item.tungBiAn && item.trangThai === 'HIEN_THI' && (
+                        <span className="status-badge pending ms-1" title="Đã từng bị ẩn ít nhất một lần">
+                          Từng bị ẩn
+                        </span>
+                      )}
                     </td>
                     <td style={{ textAlign: 'center' }}>
                       <button
-                        className={`order-action-btn ${item.isActive ? '' : 'success'}`}
-                        title={item.isActive ? 'Ẩn bình luận' : 'Hiện bình luận'}
-                        onClick={() => handleToggleActive(item.maDanhGia, item.isActive)}
+                        className={`order-action-btn ${item.trangThai === 'HIEN_THI' ? '' : 'success'}`}
+                        title={item.trangThai === 'HIEN_THI' ? 'Ẩn bình luận' : 'Hiện bình luận'}
+                        onClick={() => handleToggleActive(item.maDanhGia, item.trangThai === 'HIEN_THI')}
                       >
-                        <i className={`fas fa-${item.isActive ? 'eye-slash' : 'eye'}`} />
+                        <i className={`fas fa-${item.trangThai === 'HIEN_THI' ? 'eye-slash' : 'eye'}`} />
+                      </button>
+                      {/* Trả lời lần hai là sửa nội dung, không tạo thêm dòng — phản hồi
+                          lưu thẳng trên chính dòng đánh giá. */}
+                      <button
+                        className="order-action-btn"
+                        title={item.phanHoiShop ? 'Sửa phản hồi' : 'Trả lời'}
+                        onClick={() => handleTraLoi(item.maDanhGia, item.phanHoiShop)}
+                      >
+                        <i className="fas fa-reply" />
                       </button>
                     </td>
                   </tr>
