@@ -34,14 +34,6 @@ export async function getAllReviewOfOneBook(
   return getAllReviewOfBook(duongDan); // Call the correct function with the string
 }
 
-export async function getOneReviewOfOneBook(
-  maSach: number
-): Promise<DanhGiaModel[]> {
-  // Xác định endpoint
-  const duongDan: string = apiUrl(`/sach/${maSach}/listDanhGia?sort=maDanhGia,asc&page=0&size=1`);
-
-  return getAllReviewOfBook(duongDan); // Call the correct function with the string
-}
 export async function themDanhGiaMoi(
   maSach: number,
   nhanXet: string,
