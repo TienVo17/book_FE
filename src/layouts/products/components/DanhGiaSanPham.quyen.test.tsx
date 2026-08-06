@@ -2,20 +2,32 @@ import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import DanhGiaSanPham from "./DanhGiaSanPham";
-import { getAllReviewOfOneBook, layQuyenDanhGia } from "../../../api/DanhGiaAPI";
+import { layQuyenDanhGia, layTrangDanhGia } from "../../../api/DanhGiaAPI";
 
 // date-fns/locale chi ship ESM nen Jest cua CRA khong parse duoc. Component chi dung
 // locale de dinh dang ngay, khong lien quan gi den quyen danh gia dang duoc kiem tra.
 jest.mock("date-fns/locale", () => ({ vi: {} }));
 
 jest.mock("../../../api/DanhGiaAPI", () => ({
-  getAllReviewOfOneBook: jest.fn(),
+  layTrangDanhGia: jest.fn(),
   layQuyenDanhGia: jest.fn(),
   themDanhGiaMoi: jest.fn(),
 }));
 
-const getAllReviewMock = getAllReviewOfOneBook as jest.MockedFunction<typeof getAllReviewOfOneBook>;
+const layTrangMock = layTrangDanhGia as jest.MockedFunction<typeof layTrangDanhGia>;
 const layQuyenMock = layQuyenDanhGia as jest.MockedFunction<typeof layQuyenDanhGia>;
+
+function trangRong(): Awaited<ReturnType<typeof layTrangDanhGia>> {
+  return {
+    content: [],
+    trang: 0,
+    kichThuoc: 10,
+    tongSoTrang: 0,
+    tongSo: 0,
+    diemTrungBinh: 0,
+    phanBo: { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 },
+  };
+}
 
 /** JWT gia voi exp o tuong lai — component chi doc truong `exp`. */
 function jwtConHan(): string {
@@ -35,7 +47,7 @@ describe("DanhGiaSanPham — quyền đánh giá", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     localStorage.clear();
-    getAllReviewMock.mockResolvedValue([]);
+    layTrangMock.mockResolvedValue(trangRong());
   });
 
   it("mời đăng nhập khi chưa có token, và không hỏi quyền", async () => {
@@ -76,11 +88,16 @@ describe("DanhGiaSanPham — quyền đánh giá", () => {
   it("vẫn hiện danh sách đánh giá khi endpoint quyền lỗi", async () => {
     localStorage.setItem("jwt", jwtConHan());
     layQuyenMock.mockRejectedValue(new Error("mạng lỗi"));
-    getAllReviewMock.mockResolvedValue([
+    layTrangMock.mockResolvedValue({
+      ...trangRong(),
       // timestamp de trong: component bo qua buoc dinh dang ngay, tranh phu thuoc vao
       // locale date-fns da bi mock o tren.
-      { maDanhGia: 1, nhanXet: "Sách hay", diemXepHang: 5, timestamp: "" } as never,
-    ]);
+      content: [{ maDanhGia: 1, nhanXet: "Sách hay", diemXepHang: 5, timestamp: "", laCuaToi: false }],
+      tongSo: 1,
+      tongSoTrang: 1,
+      diemTrungBinh: 5,
+      phanBo: { "1": 0, "2": 0, "3": 0, "4": 0, "5": 1 },
+    });
 
     renderComponent();
 

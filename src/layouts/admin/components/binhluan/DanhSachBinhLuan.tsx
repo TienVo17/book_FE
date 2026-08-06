@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import DanhGiaModel from '../../../../models/DanhGiaModel';
+import { DanhGiaQuanTri } from '../../../../api/DanhGiaAPI';
 import { getDanhGiaAdmin, setDanhGiaActive } from '../../../../api/DanhGiaAPI';
 
 export default function DanhSachBinhLuan() {
-  const [binhLuanList, setBinhLuanList] = useState<any[]>([]);
+  const [binhLuanList, setBinhLuanList] = useState<DanhGiaQuanTri[]>([]);
   const [dangTaiDuLieu, setDangTaiDuLieu] = useState(true);
   const [baoLoi, setBaoLoi] = useState<string | null>(null);
   const [trangHienTai, setTrangHienTai] = useState(1);
@@ -13,7 +13,7 @@ export default function DanhSachBinhLuan() {
     setDangTaiDuLieu(true);
     getDanhGiaAdmin(trangHienTai - 1)
       .then(response => {
-        const sorted = (response.content as DanhGiaModel[]).sort((a, b) => {
+        const sorted = response.content.slice().sort((a, b) => {
           const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
           const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
           return timeB - timeA;
@@ -33,11 +33,11 @@ export default function DanhSachBinhLuan() {
     loadData();
   }, [loadData]);
 
-  const handleToggleActive = async (maDanhGia: number, isActive: boolean) => {
-    const action = isActive ? 'ẩn' : 'hiện';
+  const handleToggleActive = async (maDanhGia: number, dangHienThi: boolean) => {
+    const action = dangHienThi ? 'ẩn' : 'hiện';
     if (!window.confirm(`Bạn muốn ${action} bình luận này?`)) return;
     try {
-      await setDanhGiaActive(maDanhGia, !isActive);
+      await setDanhGiaActive(maDanhGia, !dangHienThi);
       loadData();
     } catch (error) {
       alert('Có lỗi xảy ra!');
@@ -115,17 +115,27 @@ export default function DanhSachBinhLuan() {
                     </td>
                     <td>{renderStars(item.diemXepHang)}</td>
                     <td>
-                      <span className={`status-badge ${item.isActive ? 'paid' : 'pending'}`}>
-                        {item.isActive ? 'Hiển thị' : 'Đã ẩn'}
+                      {/* Đọc `trangThai` chứ không phải `isActive`. Trường cũ đã biến mất
+                          khỏi response; khi còn khai `any[]`, giá trị thiếu thành
+                          `undefined` im lặng nên mọi dòng hiện "Đã ẩn" và nút gọi
+                          `!undefined` nên luôn gửi lệnh "hiện" — công cụ kiểm duyệt đảo
+                          ngược ý nghĩa mà không hề báo lỗi. */}
+                      <span className={`status-badge ${item.trangThai === 'HIEN_THI' ? 'paid' : 'pending'}`}>
+                        {item.trangThai === 'HIEN_THI' ? 'Hiển thị' : 'Đã ẩn'}
                       </span>
+                      {item.tungBiAn && item.trangThai === 'HIEN_THI' && (
+                        <span className="status-badge pending ms-1" title="Đã từng bị ẩn ít nhất một lần">
+                          Từng bị ẩn
+                        </span>
+                      )}
                     </td>
                     <td style={{ textAlign: 'center' }}>
                       <button
-                        className={`order-action-btn ${item.isActive ? '' : 'success'}`}
-                        title={item.isActive ? 'Ẩn bình luận' : 'Hiện bình luận'}
-                        onClick={() => handleToggleActive(item.maDanhGia, item.isActive)}
+                        className={`order-action-btn ${item.trangThai === 'HIEN_THI' ? '' : 'success'}`}
+                        title={item.trangThai === 'HIEN_THI' ? 'Ẩn bình luận' : 'Hiện bình luận'}
+                        onClick={() => handleToggleActive(item.maDanhGia, item.trangThai === 'HIEN_THI')}
                       >
-                        <i className={`fas fa-${item.isActive ? 'eye-slash' : 'eye'}`} />
+                        <i className={`fas fa-${item.trangThai === 'HIEN_THI' ? 'eye-slash' : 'eye'}`} />
                       </button>
                     </td>
                   </tr>
