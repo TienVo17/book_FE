@@ -47,7 +47,7 @@ describe('RouteMetadata noindex matrix', () => {
     expect(robots()).toBe('noindex,nofollow');
   });
 
-  const publicRoutes = ['/', '/about', '/the-loai/tieu-thuyet', '/sach/1', '/sach/nha-gia-kim'];
+  const publicRoutes = ['/', '/about', '/the-loai/tieu-thuyet', '/sach/1', '/sach/nha-gia-kim', '/tim-kiem'];
 
   it.each(publicRoutes)('leaves %s indexable', (path) => {
     expect(isPrivateRoute(path)).toBe(false);
@@ -64,6 +64,11 @@ describe('RouteMetadata noindex matrix', () => {
   it('sets a category title from the slug', () => {
     renderAt('/the-loai/tieu-thuyet');
     expect(document.title).toMatch(/BookStore/);
+  });
+
+  it('sets a descriptive title for the search results page, which now has its own URL', () => {
+    renderAt('/tim-kiem');
+    expect(document.title).toMatch(/Tìm kiếm sách/);
   });
 
   it('does not override product metadata, which the product page owns', () => {

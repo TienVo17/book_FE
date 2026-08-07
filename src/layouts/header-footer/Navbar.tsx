@@ -1,18 +1,25 @@
-import React, { ChangeEvent, useState, useEffect } from "react";
-import { Search } from "react-bootstrap-icons";
-import { NavLink, useNavigate } from "react-router-dom";
+import React, { ChangeEvent, useEffect, useRef, useState } from "react";
+import { Search, X } from "react-bootstrap-icons";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { getAllTheLoai } from "../../api/TheLoaiApi";
+import { getGoiYTimKiem, SachGoiYModel } from "../../api/SachApi";
 import { getJwtPayload } from "../../api/Request";
 import { TheLoaiModel } from "../../models/TheLoaiModel";
 import { readCart } from "../../api/CartStorage";
+import dinhDangSo from "../utils/DinhDangSo";
+import AnhSach from "../utils/AnhSach";
 
-interface NavbarProps {
-  tuKhoaTimKiem: string;
-  setTuKhoaTimKiem: (tuKhoa: string) => void;
-}
+// Bỏ qua gợi ý khi từ khóa quá ngắn: một, hai ký tự trả về quá nhiều kết quả
+// không liên quan và tốn một lượt gọi API cho mỗi phím gõ.
+const DO_DAI_TU_KHOA_TOI_THIEU = 2;
+// Chờ người dùng ngừng gõ 250ms rồi mới gọi API gợi ý.
+const THOI_GIAN_DEBOUNCE_MS = 250;
 
-function Navbar({ tuKhoaTimKiem, setTuKhoaTimKiem }: NavbarProps) {
-  const [tuKhoaTamThoi, setTuKhoaTamThoi] = useState("");
+function Navbar() {
+  const location = useLocation();
+  const [tuKhoaTamThoi, setTuKhoaTamThoi] = useState(
+    () => new URLSearchParams(location.search).get("q") ?? ""
+  );
   const [soLuongGioHang, setSoLuongGioHang] = useState(0);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [openNavDropdown, setOpenNavDropdown] = useState<"theLoai" | null>(null);
@@ -22,6 +29,23 @@ function Navbar({ tuKhoaTimKiem, setTuKhoaTimKiem }: NavbarProps) {
   const [userInfo, setUserInfo] = useState<any>(null);
   const [isAdminorStaff, setIsAdminorStaff] = useState(false);
   const [theLoaiList, setTheLoaiList] = useState<TheLoaiModel[]>([]);
+
+  // Gợi ý tìm kiếm
+  const [goiY, setGoiY] = useState<SachGoiYModel[]>([]);
+  const [moGoiY, setMoGoiY] = useState(false);
+  const [chiSoDangChon, setChiSoDangChon] = useState(-1);
+  // Đánh số mỗi lượt gọi gợi ý để loại bỏ phản hồi trả về trễ (cờ "còn hiệu
+  // lực" theo request) — nếu không, một phản hồi chậm của từ khóa cũ có thể
+  // ghi đè lên kết quả mới hơn của từ khóa hiện tại.
+  const soThuTuYeuCauRef = useRef(0);
+
+  // Đồng bộ ô tìm kiếm với URL khi đang đứng ở trang kết quả: F5 hoặc back/forward
+  // trên /tim-kiem?q=... phải hiện đúng từ khóa đang xem, không phải ô trống.
+  useEffect(() => {
+    if (location.pathname === "/tim-kiem") {
+      setTuKhoaTamThoi(new URLSearchParams(location.search).get("q") ?? "");
+    }
+  }, [location.pathname, location.search]);
 
   // Fetch categories on mount
   useEffect(() => {
@@ -72,21 +96,90 @@ function Navbar({ tuKhoaTimKiem, setTuKhoaTimKiem }: NavbarProps) {
     navigate("/");
   };
 
+  // Debounce + hủy phản hồi trễ cho gợi ý tìm kiếm. Lỗi/404 phải suy biến êm:
+  // không dropdown, không toast, và không được cản trở việc submit tìm kiếm
+  // bình thường — backend /api/sach/goi-y deploy sau frontend nên chắc chắn
+  // có giai đoạn trả 404 trên production.
   useEffect(() => {
-    setTuKhoaTamThoi(tuKhoaTimKiem);
-  }, [tuKhoaTimKiem]);
+    const tuKhoa = tuKhoaTamThoi.trim();
+    if (tuKhoa.length < DO_DAI_TU_KHOA_TOI_THIEU) {
+      setGoiY([]);
+      setMoGoiY(false);
+      setChiSoDangChon(-1);
+      return;
+    }
+
+    const soThuTu = ++soThuTuYeuCauRef.current;
+    const timer = setTimeout(() => {
+      getGoiYTimKiem(tuKhoa)
+        .then((ketQua) => {
+          if (soThuTuYeuCauRef.current !== soThuTu) return; // phản hồi trễ, đã có yêu cầu mới hơn
+          setGoiY(ketQua);
+          setMoGoiY(ketQua.length > 0);
+          setChiSoDangChon(-1);
+        })
+        .catch(() => {
+          if (soThuTuYeuCauRef.current !== soThuTu) return;
+          setGoiY([]);
+          setMoGoiY(false);
+          setChiSoDangChon(-1);
+        });
+    }, THOI_GIAN_DEBOUNCE_MS);
+
+    return () => clearTimeout(timer);
+  }, [tuKhoaTamThoi]);
 
   const onSearchInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     setTuKhoaTamThoi(e.target.value);
   };
 
-  const onSearchSubmit = () => {
-    setTuKhoaTimKiem(tuKhoaTamThoi);
+  const dieuHuongTimKiem = (tuKhoa: string) => {
+    const trimmed = tuKhoa.trim();
+    if (!trimmed) return;
+    setMoGoiY(false);
+    setChiSoDangChon(-1);
+    navigate(`/tim-kiem?q=${encodeURIComponent(trimmed)}`);
   };
 
-  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      onSearchSubmit();
+  const onSearchSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    dieuHuongTimKiem(tuKhoaTamThoi);
+  };
+
+  const chonGoiY = (item: SachGoiYModel) => {
+    setMoGoiY(false);
+    setChiSoDangChon(-1);
+    setTuKhoaTamThoi(item.tenSach);
+    navigate(`/sach/${item.slug || item.maSach}`);
+  };
+
+  const xoaTuKhoa = () => {
+    setTuKhoaTamThoi("");
+    setGoiY([]);
+    setMoGoiY(false);
+    setChiSoDangChon(-1);
+  };
+
+  const onSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Escape") {
+      setMoGoiY(false);
+      setChiSoDangChon(-1);
+      return;
+    }
+
+    if (!moGoiY || goiY.length === 0) {
+      return;
+    }
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setChiSoDangChon((i) => (i + 1) % goiY.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setChiSoDangChon((i) => (i <= 0 ? goiY.length - 1 : i - 1));
+    } else if (e.key === "Enter" && chiSoDangChon >= 0) {
+      e.preventDefault();
+      chonGoiY(goiY[chiSoDangChon]);
     }
   };
 
@@ -100,14 +193,19 @@ function Navbar({ tuKhoaTimKiem, setTuKhoaTimKiem }: NavbarProps) {
       if (openNavDropdown && !target.closest(".navbar-nav .dropdown")) {
         setOpenNavDropdown(null);
       }
+      if (moGoiY && !target.closest(".search-modern")) {
+        setMoGoiY(false);
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isDropdownOpen, openNavDropdown]);
+  }, [isDropdownOpen, openNavDropdown, moGoiY]);
 
   const toggleNavDropdown = (dropdown: "theLoai") => {
     setOpenNavDropdown((current) => current === dropdown ? null : dropdown);
   };
+
+  const hienThiGoiY = moGoiY && goiY.length > 0;
 
   return (
     <nav className={`navbar navbar-expand-lg navbar-modern sticky-top ${scrolled ? "scrolled" : ""}`}>
@@ -169,24 +267,67 @@ function Navbar({ tuKhoaTimKiem, setTuKhoaTimKiem }: NavbarProps) {
         </div>
 
         {/* Search */}
-        <div className="search-modern me-3">
+        <form className="search-modern me-3" role="search" onSubmit={onSearchSubmit} autoComplete="off">
           <input
             type="search"
+            role="combobox"
             placeholder="Tìm kiếm sách..."
-            aria-label="Tìm kiếm"
+            aria-label="Tìm kiếm sách"
+            aria-expanded={hienThiGoiY}
+            aria-controls="goi-y-tim-kiem-listbox"
+            aria-autocomplete="list"
+            aria-activedescendant={chiSoDangChon >= 0 ? `goi-y-tim-kiem-option-${chiSoDangChon}` : undefined}
             onChange={onSearchInputChange}
-            onKeyDown={handleSearchKeyDown}
+            onKeyDown={onSearchKeyDown}
             value={tuKhoaTamThoi}
           />
+          {tuKhoaTamThoi.length > 0 && (
+            <button
+              className="search-clear-btn"
+              type="button"
+              onClick={xoaTuKhoa}
+              aria-label="Xóa từ khóa tìm kiếm"
+            >
+              <X size={16} />
+            </button>
+          )}
           <button
             className="search-btn"
-            type="button"
-            onClick={onSearchSubmit}
+            type="submit"
             aria-label="Tìm kiếm"
           >
             <Search size={14} />
           </button>
-        </div>
+
+          {hienThiGoiY && (
+            <ul
+              id="goi-y-tim-kiem-listbox"
+              role="listbox"
+              aria-label="Gợi ý tìm kiếm"
+              className="search-suggestions dropdown-modern"
+            >
+              {goiY.map((item, index) => (
+                <li
+                  key={item.maSach}
+                  id={`goi-y-tim-kiem-option-${index}`}
+                  role="option"
+                  aria-selected={index === chiSoDangChon}
+                  className={`search-suggestion-item ${index === chiSoDangChon ? "active" : ""}`}
+                  // onMouseDown thay vì onClick: chạy trước sự kiện blur của input
+                  // nên lựa chọn không bị mất khi dropdown đóng do mất focus.
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    chonGoiY(item);
+                  }}
+                >
+                  <AnhSach src={item.urlAnh ?? undefined} alt={item.tenSach} className="search-suggestion-anh" />
+                  <span className="search-suggestion-ten">{item.tenSach}</span>
+                  <span className="search-suggestion-gia">{dinhDangSo(item.giaBan)} đ</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </form>
 
         {/* Cart */}
         <NavLink to="/gio-hang" className="cart-icon me-3" aria-label="Giỏ hàng">

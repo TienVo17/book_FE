@@ -6,11 +6,7 @@ import SachModel from "../../models/SachModel";
 import { getSachBanChay, getSachMoiNhat } from "../../api/SachApi";
 import SachRow from "./components/SachRow";
 
-interface HomePageProps {
-  tuKhoaTimKiem: string;
-}
-
-function HomePage({ tuKhoaTimKiem }: HomePageProps) {
+function HomePage() {
   const [sachBanChay, setSachBanChay] = useState<SachModel[]>([]);
   const [sachMoiNhat, setSachMoiNhat] = useState<SachModel[]>([]);
 
@@ -25,10 +21,7 @@ function HomePage({ tuKhoaTimKiem }: HomePageProps) {
       <Carousel />
       <SachRow title="Sách bán chạy" danhSach={sachBanChay} />
       <SachRow title="Sách mới nhất" danhSach={sachMoiNhat} />
-      <DanhSachSanPham
-        tuKhoaTimKiem={tuKhoaTimKiem}
-        maTheLoai={0}
-      />
+      <DanhSachSanPham maTheLoai={0} />
     </div>
   );
 }

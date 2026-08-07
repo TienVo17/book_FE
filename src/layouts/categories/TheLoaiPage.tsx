@@ -4,11 +4,7 @@ import { getTheLoaiBySlug } from '../../api/TheLoaiApi';
 import DanhSachSanPham from '../products/DanhSachSanPham';
 import { TheLoaiModel } from '../../models/TheLoaiModel';
 
-interface TheLoaiPageProps {
-  tuKhoaTimKiem: string;
-}
-
-const TheLoaiPage: React.FC<TheLoaiPageProps> = ({ tuKhoaTimKiem }) => {
+const TheLoaiPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const [theLoai, setTheLoai] = useState<TheLoaiModel | null>(null);
   const [dangTai, setDangTai] = useState(true);
@@ -50,8 +46,6 @@ const TheLoaiPage: React.FC<TheLoaiPageProps> = ({ tuKhoaTimKiem }) => {
     );
   }
 
-  const tieuDe = tuKhoaTimKiem ? `${theLoai.tenTheLoai} - tìm kiếm: "${tuKhoaTimKiem}"` : theLoai.tenTheLoai;
-
   return (
     <div>
       <div className="container py-4">
@@ -64,7 +58,7 @@ const TheLoaiPage: React.FC<TheLoaiPageProps> = ({ tuKhoaTimKiem }) => {
           <p style={{ margin: 0, color: 'var(--color-text-secondary)' }}>{theLoai.soLuongSach} sách</p>
         </div>
       </div>
-      <DanhSachSanPham tuKhoaTimKiem={tuKhoaTimKiem} maTheLoai={theLoai.maTheLoai} tieuDe={tieuDe} />
+      <DanhSachSanPham maTheLoai={theLoai.maTheLoai} tieuDe={theLoai.tenTheLoai} />
     </div>
   );
 };

@@ -263,7 +263,9 @@
   border: 1.5px solid var(--color-border);
   border-radius: var(--radius-xl);
   padding: 0.5rem 1rem;
-  padding-right: 2.75rem;
+  /* Chừa chỗ cho cả nút xóa từ khóa (khi có chữ) lẫn nút tìm kiếm, để văn bản
+     đang gõ không bị hai nút này che mất. */
+  padding-right: 4.5rem;
   font-size: 0.88rem;
   width: 220px;
   /* At 200% zoom the CSS viewport halves, so a fixed px width overflows the
@@ -305,6 +307,139 @@
 .search-modern .search-btn:hover {
   background: var(--color-primary-dark);
   transform: scale(1.05);
+}
+
+.search-modern .search-clear-btn {
+  position: absolute;
+  right: 46px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.search-modern .search-clear-btn:hover {
+  color: var(--color-text);
+  background: var(--color-border-light);
+}
+
+.search-suggestions {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  max-height: 360px;
+  overflow-y: auto;
+  z-index: 1050;
+  list-style: none;
+  margin: 0;
+}
+
+.search-suggestion-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.search-suggestion-item:hover,
+.search-suggestion-item.active {
+  background: var(--color-border-light);
+}
+
+.search-suggestion-anh {
+  width: 34px;
+  height: 46px;
+  object-fit: cover;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.search-suggestion-ten {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.88rem;
+  color: var(--color-text);
+}
+
+.search-suggestion-gia {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--color-accent);
+  white-space: nowrap;
+}
+
+/* ===== Trang kết quả tìm kiếm (/tim-kiem) ===== */
+.tim-kiem-bo-loc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1.5px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  border-radius: var(--radius-xl);
+  padding: 0.3rem 0.75rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.filter-chip:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.tim-kiem-thanh-cong-cu {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.tim-kiem-sap-xep,
+.tim-kiem-khoang-gia {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.tim-kiem-sap-xep label,
+.tim-kiem-khoang-gia label {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.tim-kiem-sap-xep select,
+.tim-kiem-khoang-gia input {
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 0.4rem 0.6rem;
+  font-size: 0.85rem;
+  background: var(--color-bg);
+  color: var(--color-text);
+  /* Không để khoảng giá tràn ngang ở màn hình rất nhỏ (320px). */
+  max-width: 100px;
+  min-width: 0;
 }
 
 /* Cart icon */

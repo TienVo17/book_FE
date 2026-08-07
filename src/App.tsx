@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import "./App.css";
 import Navbar from "./layouts/header-footer/Navbar";
 import Footer from "./layouts/header-footer/Footer";
@@ -24,11 +24,10 @@ import RouteGuard from "./layouts/utils/RouteGuard";
 import DanhSachYeuThich from "./layouts/user/DanhSachYeuThich";
 import TheLoaiPage from "./layouts/categories/TheLoaiPage";
 import DiaChiNguoiDung from "./layouts/user/DiaChiNguoiDung";
+import TimKiemPage from "./layouts/search/TimKiemPage";
 
 
 function App() {
-  const [tuKhoaTimKiem, setTuKhoaTimKiem] = useState("");
-
   return (
     <BrowserRouter>
       <RouteMetadata />
@@ -41,14 +40,12 @@ function App() {
         } />
         <Route path="/*" element={
           <>
-            <Navbar
-              tuKhoaTimKiem={tuKhoaTimKiem}
-              setTuKhoaTimKiem={setTuKhoaTimKiem}
-            />
+            <Navbar />
             <Routes>
-              <Route path="/" element={<HomePage tuKhoaTimKiem={tuKhoaTimKiem} />} />
+              <Route path="/" element={<HomePage />} />
               <Route path="/about" element={<About />} />
-              <Route path="/the-loai/:slug" element={<TheLoaiPage tuKhoaTimKiem={tuKhoaTimKiem} />} />
+              <Route path="/the-loai/:slug" element={<TheLoaiPage />} />
+              <Route path="/tim-kiem" element={<TimKiemPage />} />
               <Route path="/sach/:maSach" element={<ChiTietSanPham />} />
               <Route path="/dang-ky" element={<DangKyNguoiDung />} />
               <Route path="/thanh-toan" element={<RouteGuard require="user"><ThanhToan /></RouteGuard>} />

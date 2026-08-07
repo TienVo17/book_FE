@@ -34,6 +34,7 @@ function titleForPath(pathname: string): string | undefined {
     const slug = decodeURIComponent(pathname.replace('/the-loai/', '')).replace(/-/g, ' ').trim();
     return slug ? `Thể loại ${slug}` : 'Thể loại sách';
   }
+  if (pathname === '/tim-kiem') return 'Tìm kiếm sách';
   if (pathname === '/gio-hang') return 'Giỏ hàng';
   if (pathname === '/thanh-toan') return 'Thanh toán';
   if (pathname === '/order') return 'Đơn hàng của tôi';

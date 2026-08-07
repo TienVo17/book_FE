@@ -1,7 +1,7 @@
 # Codebase Summary
 
 **Generated**: 2026-07-08
-**Updated**: 2026-07-24
+**Updated**: 2026-08-07
 **Framework**: React 18.3 + TypeScript 4.9  
 **Build**: Create React App (react-scripts 5.0.1)
 
@@ -110,6 +110,12 @@ Organized by feature area. Each layout composes child components.
 |-----------|---------|
 | `TheLoaiPage.tsx` | Category landing page by slug; lists books in category |
 
+#### Search (`layouts/search/`)
+
+| Component | Purpose |
+|-----------|---------|
+| `TimKiemPage.tsx` | Search results page at `/tim-kiem`; the URL query string (`q`, `maTheLoai`, `sort`, `giaMin`, `giaMax`, `page`) is the single source of truth, so direct URLs, refresh, share links, and the browser Back button all work. Owns sort, price-range filtering, removable filter chips, and reuses `DanhSachSanPham`'s error/empty sub-components. |
+
 #### About (`layouts/about/`)
 
 | Component | Purpose |
@@ -183,6 +189,7 @@ Defines all routes using react-router-dom v6.
 - `/` (HomePage)
 - `/about` (About)
 - `/the-loai/:slug` (Category browse)
+- `/tim-kiem` (Search results; query string is the source of truth)
 - `/sach/:maSach` (Product detail)
 - `/dang-ky` (Register)
 - `/dang-nhap` (Login)

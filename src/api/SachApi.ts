@@ -59,13 +59,40 @@ export async function get3NewBook(): Promise<KetQuaInterface> {
   return laySach(apiUrl('/api/sach?page=0'));
 }
 
-export async function findByBook(tuKhoaTimKiem: string, maTheLoai: number, trangHienTai: number = 0): Promise<KetQuaInterface> {
+/** Giá trị sort mà backend chấp nhận cho `GET /api/sach`; `moi-nhat` là mặc định. */
+export type SachSortOption = 'moi-nhat' | 'gia-tang' | 'gia-giam' | 'ten-az' | 'danh-gia';
+
+export interface TimKiemSachOptions {
+  sort?: SachSortOption;
+  giaMin?: number;
+  giaMax?: number;
+  size?: number;
+}
+
+export async function findByBook(
+  tuKhoaTimKiem: string,
+  maTheLoai: number,
+  trangHienTai: number = 0,
+  options: TimKiemSachOptions = {},
+): Promise<KetQuaInterface> {
   let duongDan: string = apiUrl(`/api/sach?page=${trangHienTai}`);
   if (tuKhoaTimKiem !== "") {
     duongDan += `&tensach=${encodeURIComponent(tuKhoaTimKiem)}`;
   }
   if (maTheLoai > 0) {
     duongDan += `&maTheLoai=${maTheLoai}`;
+  }
+  if (options.giaMin !== undefined) {
+    duongDan += `&giaMin=${options.giaMin}`;
+  }
+  if (options.giaMax !== undefined) {
+    duongDan += `&giaMax=${options.giaMax}`;
+  }
+  if (options.sort) {
+    duongDan += `&sort=${options.sort}`;
+  }
+  if (options.size !== undefined) {
+    duongDan += `&size=${options.size}`;
   }
   return laySach(duongDan);
 }
@@ -141,4 +168,52 @@ export async function getSachMoiNhat(limit: number = 8): Promise<SachModel[]> {
 
 export async function getSachLienQuan(maSach: number, limit: number = 6): Promise<SachModel[]> {
   return my_request<SachModel[]>(apiUrl(`/api/sach/${maSach}/lien-quan?limit=${limit}`));
+}
+
+export interface SachGoiYModel {
+  maSach: number;
+  tenSach: string;
+  slug: string;
+  /** `null` khi sách chưa gắn ảnh nào — không phải dữ liệu hỏng. */
+  urlAnh: string | null;
+  giaBan: number;
+}
+
+/**
+ * `my_request<T>` chỉ ép kiểu, không kiểm tra gì — dashboard admin từng hiện
+ * toàn số 0 vì tin vào phép ép kiểu này (xem AdminApi.getThongKe). Áp dụng lại
+ * bài học đó ở đây: xác thực từng phần tử trước khi vẽ, loại bỏ phần tử sai
+ * hình dạng thay vì để `undefined` lọt xuống UI trong im lặng.
+ */
+function isSachGoiY(value: unknown): value is SachGoiYModel {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const item = value as Record<string, unknown>;
+  return typeof item.maSach === 'number'
+    && typeof item.tenSach === 'string'
+    && typeof item.slug === 'string'
+    // Sách chưa có ảnh là chuyện bình thường; đòi `urlAnh` phải là chuỗi sẽ lặng lẽ
+    // loại chúng khỏi gợi ý, đúng kiểu hỏng mà hàm này sinh ra để chặn.
+    && (item.urlAnh === null || typeof item.urlAnh === 'string')
+    && typeof item.giaBan === 'number';
+}
+
+/**
+ * Gợi ý tìm kiếm tức thời. Backend đang được làm song song và `/api/sach/goi-y`
+ * chắc chắn có giai đoạn trả 404 trên production trước khi backend deploy —
+ * nơi gọi (Navbar) phải tự bắt lỗi này và suy biến êm (không dropdown, không
+ * toast), nên hàm này ném lỗi bình thường thay vì nuốt lỗi ở đây.
+ */
+export async function getGoiYTimKiem(q: string, limit: number = 8): Promise<SachGoiYModel[]> {
+  const tuKhoa = q.trim();
+  if (tuKhoa === '') {
+    return [];
+  }
+
+  const raw = await my_request<unknown>(apiUrl(`/api/sach/goi-y?q=${encodeURIComponent(tuKhoa)}&limit=${limit}`));
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  return raw.filter(isSachGoiY);
 }
