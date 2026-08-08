@@ -41,6 +41,7 @@ describe('RouteMetadata noindex matrix', () => {
     '/kich-hoat/a@b.test/code',
     // Mang khoa huy dang ky dung mot lan, cung ho voi hai duong ngay tren.
     '/huy-nhan-tin/3f2b1c4d-0000-0000-0000-000000000000',
+    '/xac-nhan-nhan-tin/3f2b1c4d-0000-0000-0000-000000000000',
   ];
 
   it.each(privateRoutes)('marks %s as noindex', (path) => {

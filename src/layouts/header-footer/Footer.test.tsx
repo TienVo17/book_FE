@@ -126,7 +126,9 @@ describe("Footer - đăng ký nhận tin", () => {
     fireEvent.submit(screen.getByLabelText("Email nhận tin").closest("form")!);
 
     await waitFor(() => expect(mockedDangKy).toHaveBeenCalledWith("khach@example.com"));
-    expect(await screen.findByText(/Cảm ơn bạn/)).toBeInTheDocument();
+    // Dang ky moi la buoc mot; noi "se gui tin cho ban" o day la hua mot viec chi xay ra
+    // sau khi ho bam lien ket trong thu xac thuc.
+    expect(await screen.findByText(/Đã gửi thư xác nhận/)).toBeInTheDocument();
     expect((screen.getByLabelText("Email nhận tin") as HTMLInputElement).value).toBe("");
   });
 
@@ -167,7 +169,7 @@ describe("Footer - đăng ký nhận tin", () => {
 
     expect(mockedDangKy).toHaveBeenCalledTimes(1);
     choXong();
-    await waitFor(() => expect(screen.getByText(/Cảm ơn bạn/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/Đã gửi thư xác nhận/)).toBeInTheDocument());
   });
 
   it("không gọi API khi ô email rỗng", () => {

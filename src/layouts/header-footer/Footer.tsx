@@ -60,7 +60,9 @@ function Footer() {
     try {
       await dangKyNhanTin(giaTri);
       setTrangThai("thanh-cong");
-      setThongDiep("Cảm ơn bạn! Chúng tôi sẽ gửi sách mới và ưu đãi tới email này.");
+      // Đăng ký chưa hoàn tất ở bước này: nói "sẽ gửi tin cho bạn" là hứa một việc chỉ
+      // xảy ra sau khi họ bấm liên kết trong thư.
+      setThongDiep("Đã gửi thư xác nhận. Vui lòng mở hộp thư và bấm liên kết để hoàn tất.");
       setEmail("");
     } catch (loi) {
       setTrangThai("loi");

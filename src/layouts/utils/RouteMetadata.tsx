@@ -26,6 +26,7 @@ const PRIVATE_PREFIXES = [
   // De no duoc index nghia la mot lien ket huy nhan tin cua mot nguoi cu the nam trong
   // ket qua tim kiem cong khai.
   '/huy-nhan-tin',
+  '/xac-nhan-nhan-tin',
 ];
 
 export function isPrivateRoute(pathname: string): boolean {
