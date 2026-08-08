@@ -4,6 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 import Footer from "./Footer";
 import { dangKyNhanTin } from "../../api/NhanTinApi";
 import { DANH_SACH_CHINH_SACH } from "../chinh-sach/noiDungChinhSach";
+import { MANG_XA_HOI } from "../../config/thongTinCuaHang";
 
 jest.mock("../../api/NhanTinApi", () => ({
   dangKyNhanTin: jest.fn(),
@@ -72,11 +73,29 @@ describe("Footer - không còn điểm chết", () => {
     expect(href.some((h) => h?.startsWith("mailto:"))).toBe(true);
   });
 
-  /** Trỏ vào trang chủ facebook.com thì thà đừng hiện còn hơn. */
-  it("không hiện biểu tượng mạng xã hội khi chưa cấu hình trang thật", () => {
+  /**
+   * Chỉ hiện biểu tượng của mạng đã có trang thật. Trỏ vào trang chủ facebook.com thì thà
+   * đừng hiện còn hơn. Test này đếm theo cấu hình chứ không ghim một con số, nên thêm hay
+   * bớt một mạng xã hội không làm nó đỏ oan.
+   */
+  it("chỉ hiện biểu tượng của mạng xã hội đã cấu hình", () => {
     const { container } = veFooter();
 
-    expect(container.querySelectorAll(".social-icon")).toHaveLength(0);
+    const soDaCauHinh = MANG_XA_HOI.filter((muc) => muc.url).length;
+    expect(container.querySelectorAll(".social-icon")).toHaveLength(soDaCauHinh);
+  });
+
+  it("liên kết mạng xã hội mở tab mới và không rò rỉ tab gốc", () => {
+    const { container } = veFooter();
+
+    const icon = Array.from(container.querySelectorAll("a.social-icon"));
+    expect(icon.length).toBeGreaterThan(0);
+    icon.forEach((a) => {
+      expect(a.getAttribute("target")).toBe("_blank");
+      expect(a.getAttribute("rel")).toContain("noopener");
+      expect(a.getAttribute("rel")).toContain("noreferrer");
+      expect(a.getAttribute("href")).toMatch(/^https:\/\//);
+    });
   });
 
   it("năm bản quyền lấy theo năm hiện tại, không ghi cứng", () => {

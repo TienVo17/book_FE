@@ -25,7 +25,9 @@ export const HOTLINE_TEL = `tel:${THONG_TIN_CUA_HANG.hotline.replace(/\s+/g, "")
  * nên bấm vào không đi đâu cả. Điền URL trang thật vào đây thì biểu tượng tự hiện lại.
  */
 export const MANG_XA_HOI: Array<{ ten: string; icon: string; url: string | null }> = [
-  { ten: "Facebook", icon: "fab fa-facebook-f", url: null },
+  // Ghi thẳng https thay vì http: CSP production bật `upgrade-insecure-requests` nên
+  // http sẽ bị nâng cấp, và ghi sẵn https thì bỏ được một lần chuyển hướng.
+  { ten: "Facebook", icon: "fab fa-facebook-f", url: "https://facebook.com/TienVo17" },
   { ten: "Instagram", icon: "fab fa-instagram", url: null },
-  { ten: "Github", icon: "fab fa-github", url: null },
+  { ten: "Github", icon: "fab fa-github", url: "https://github.com/TienVo17" },
 ];
