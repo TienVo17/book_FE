@@ -25,6 +25,8 @@ import DanhSachYeuThich from "./layouts/user/DanhSachYeuThich";
 import TheLoaiPage from "./layouts/categories/TheLoaiPage";
 import DiaChiNguoiDung from "./layouts/user/DiaChiNguoiDung";
 import TimKiemPage from "./layouts/search/TimKiemPage";
+import ChinhSachPage from "./layouts/chinh-sach/ChinhSachPage";
+import HuyNhanTin from "./layouts/nhan-tin/HuyNhanTin";
 
 
 function App() {
@@ -60,6 +62,10 @@ function App() {
               <Route path="/quen-mat-khau" element={<QuenMatKhau />} />
               <Route path="/dat-lai-mat-khau/:email/:token" element={<DatLaiMatKhau />} />
               <Route path="/yeu-thich" element={<RouteGuard require="user"><DanhSachYeuThich /></RouteGuard>} />
+              {/* Tam trang chinh sach ma footer tro toi; noi dung lay theo slug. */}
+              <Route path="/chinh-sach/:slug" element={<ChinhSachPage />} />
+              {/* Duong dich cua lien ket huy nhan tin; khoa ngau nhien, khong phai email. */}
+              <Route path="/huy-nhan-tin/:maHuy" element={<HuyNhanTin />} />
               {/* Unknown SPA path: client-side UX only. The origin still answers
                   200 because of the history fallback (documented limitation). */}
               <Route path="*" element={<NotFound />} />
