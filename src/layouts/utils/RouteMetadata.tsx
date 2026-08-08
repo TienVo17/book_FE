@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { applySeoMeta, SITE_NAME } from './SeoMeta';
+import { timChinhSach } from '../chinh-sach/noiDungChinhSach';
 
 /**
  * Route prefixes that must never be indexed: anything behind auth, anything
@@ -21,10 +22,23 @@ const PRIVATE_PREFIXES = [
   '/quen-mat-khau',
   '/dat-lai-mat-khau',
   '/kich-hoat',
+  // Mang khoa huy dang ky dung mot lan trong URL, giong /dat-lai-mat-khau va /kich-hoat.
+  // De no duoc index nghia la mot lien ket huy nhan tin cua mot nguoi cu the nam trong
+  // ket qua tim kiem cong khai.
+  '/huy-nhan-tin',
 ];
 
 export function isPrivateRoute(pathname: string): boolean {
   return PRIVATE_PREFIXES.some(p => pathname === p || pathname.startsWith(`${p}/`));
+}
+
+/**
+ * Tam trang chinh sach phai co tieu de rieng: chung deu duoc index, va de ca tam trang
+ * dung chung mot tieu de thi cong cu tim kiem coi do la noi dung trung lap. Lay thang tu
+ * noi dung chinh sach de khong co ban sao thu hai phai dong bo bang tay.
+ */
+function tieuDeChinhSach(slug: string): string {
+  return timChinhSach(slug)?.tieuDe ?? 'Chính sách';
 }
 
 function titleForPath(pathname: string): string | undefined {
@@ -35,6 +49,9 @@ function titleForPath(pathname: string): string | undefined {
     return slug ? `Thể loại ${slug}` : 'Thể loại sách';
   }
   if (pathname === '/tim-kiem') return 'Tìm kiếm sách';
+  if (pathname.startsWith('/chinh-sach/')) {
+    return tieuDeChinhSach(pathname.replace('/chinh-sach/', ''));
+  }
   if (pathname === '/gio-hang') return 'Giỏ hàng';
   if (pathname === '/thanh-toan') return 'Thanh toán';
   if (pathname === '/order') return 'Đơn hàng của tôi';

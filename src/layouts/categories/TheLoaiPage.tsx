@@ -1,14 +1,22 @@
 import React, { useEffect, useState } from 'react';
-import { NavLink, useParams } from 'react-router-dom';
+import { NavLink, useParams, useSearchParams } from 'react-router-dom';
 import { getTheLoaiBySlug } from '../../api/TheLoaiApi';
-import DanhSachSanPham from '../products/DanhSachSanPham';
+import DanhSachCoBoLoc from '../products/DanhSachCoBoLoc';
 import { TheLoaiModel } from '../../models/TheLoaiModel';
 
 const TheLoaiPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [theLoai, setTheLoai] = useState<TheLoaiModel | null>(null);
   const [dangTai, setDangTai] = useState(true);
   const [baoLoi, setBaoLoi] = useState<string | null>(null);
+
+  const tuKhoa = (searchParams.get('q') ?? '').trim();
+  const [tuKhoaNhap, setTuKhoaNhap] = useState(tuKhoa);
+
+  useEffect(() => {
+    setTuKhoaNhap(tuKhoa);
+  }, [tuKhoa]);
 
   useEffect(() => {
     if (!slug) {
@@ -30,6 +38,22 @@ const TheLoaiPage: React.FC = () => {
       });
   }, [slug]);
 
+  /** Tìm trong phạm vi thể loại đang xem: chỉ đổi `q`, thể loại do route quyết định. */
+  const timTrongTheLoai = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSearchParams((truoc) => {
+      const banSao = new URLSearchParams(truoc);
+      const giaTri = tuKhoaNhap.trim();
+      if (giaTri) {
+        banSao.set('q', giaTri);
+      } else {
+        banSao.delete('q');
+      }
+      banSao.delete('page');
+      return banSao;
+    });
+  };
+
   if (dangTai) {
     return <div className="container py-5 text-center">Đang tải thể loại...</div>;
   }
@@ -47,18 +71,36 @@ const TheLoaiPage: React.FC = () => {
   }
 
   return (
-    <div>
-      <div className="container py-4">
-        <nav style={{ fontSize: '0.9rem', marginBottom: '0.75rem', color: 'var(--color-text-secondary)' }}>
-          <NavLink to="/" style={{ textDecoration: 'none' }}>Trang chủ</NavLink>
-          <span> / Thể loại / {theLoai.tenTheLoai}</span>
-        </nav>
-        <div className="section-header" style={{ marginBottom: '1rem' }}>
-          <h2>{theLoai.tenTheLoai}</h2>
-          <p style={{ margin: 0, color: 'var(--color-text-secondary)' }}>{theLoai.soLuongSach} sách</p>
-        </div>
+    <div className="container py-4">
+      <nav style={{ fontSize: '0.9rem', marginBottom: '0.75rem', color: 'var(--color-text-secondary)' }}>
+        <NavLink to="/" style={{ textDecoration: 'none' }}>Trang chủ</NavLink>
+        <span> / Thể loại / {theLoai.tenTheLoai}</span>
+      </nav>
+      <div className="section-header" style={{ marginBottom: '1rem' }}>
+        <h2>{theLoai.tenTheLoai}</h2>
+        <p style={{ margin: 0, color: 'var(--color-text-secondary)' }}>{theLoai.soLuongSach} sách</p>
       </div>
-      <DanhSachSanPham maTheLoai={theLoai.maTheLoai} tieuDe={theLoai.tenTheLoai} />
+
+      <form className="d-flex gap-2 mb-3" onSubmit={timTrongTheLoai} role="search">
+        <label className="visually-hidden" htmlFor="tim-trong-the-loai">
+          Tìm trong thể loại {theLoai.tenTheLoai}
+        </label>
+        <input
+          id="tim-trong-the-loai"
+          type="search"
+          className="form-control"
+          style={{ maxWidth: 320 }}
+          placeholder={`Tìm trong ${theLoai.tenTheLoai}…`}
+          value={tuKhoaNhap}
+          onChange={(e) => setTuKhoaNhap(e.target.value)}
+        />
+        <button type="submit" className="btn-modern-outline-primary">Tìm</button>
+      </form>
+
+      <DanhSachCoBoLoc
+        maTheLoaiCoDinh={theLoai.maTheLoai}
+        thongDiepRong={`Chưa có sách nào phù hợp trong thể loại ${theLoai.tenTheLoai}.`}
+      />
     </div>
   );
 };
