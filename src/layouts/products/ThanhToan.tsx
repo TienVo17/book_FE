@@ -23,6 +23,8 @@ import {
     createVNPayPaymentUrl,
     CheckoutOrderRequest,
     CheckoutOrderResponse,
+    HinhThucGiaoHangResponse,
+    getHinhThucGiaoHang,
 } from '../../api/DonHangApi';
 import {
     ensureIntent,
@@ -41,6 +43,10 @@ function ThanhToan() {
     const [danhSachDiaChi, setDanhSachDiaChi] = useState<DiaChiModel[]>([]);
     const [diaChiDaChon, setDiaChiDaChon] = useState<number | null>(null);
     const [phuongThucThanhToan, setPhuongThucThanhToan] = useState<'COD' | 'VNPAY'>('COD');
+    const [danhSachHinhThucGiaoHang, setDanhSachHinhThucGiaoHang] = useState<HinhThucGiaoHangResponse[]>([]);
+    const [hinhThucGiaoHangDaChon, setHinhThucGiaoHangDaChon] = useState<number | null>(null);
+    const [dangTaiHinhThucGiaoHang, setDangTaiHinhThucGiaoHang] = useState(true);
+    const [loiHinhThucGiaoHang, setLoiHinhThucGiaoHang] = useState<string | null>(null);
     const [maCoupon, setMaCoupon] = useState('');
     const [couponResult, setCouponResult] = useState<KetQuaKiemTraCoupon | null>(null);
     const [dangTao, setDangTao] = useState(false);
@@ -52,7 +58,36 @@ function ThanhToan() {
     const [loiDatHang, setLoiDatHang] = useState<{ message: string; traceId?: string } | null>(null);
     const dangGuiRef = useRef(false);
     const imageLoadRevision = useRef(0);
+    const couponValidationRevision = useRef(0);
     const navigate = useNavigate();
+
+    const invalidateCoupon = () => {
+        couponValidationRevision.current += 1;
+        setCouponResult(null);
+    };
+
+    const taiHinhThucGiaoHang = async () => {
+        setDangTaiHinhThucGiaoHang(true);
+        setLoiHinhThucGiaoHang(null);
+        try {
+            const list = await getHinhThucGiaoHang();
+            setDanhSachHinhThucGiaoHang(list);
+            setHinhThucGiaoHangDaChon(current =>
+                current !== null && list.some(item => item.maHinhThucGiaoHang === current)
+                    ? current
+                    : null
+            );
+        } catch (error) {
+            setDanhSachHinhThucGiaoHang([]);
+            setHinhThucGiaoHangDaChon(null);
+            const message = error instanceof Error
+                ? error.message
+                : 'Không thể tải hình thức giao hàng.';
+            setLoiHinhThucGiaoHang(message);
+        } finally {
+            setDangTaiHinhThucGiaoHang(false);
+        }
+    };
 
     useEffect(() => {
         const loadGioHangWithImages = async (items: CartItem[]) => {
@@ -80,8 +115,13 @@ function ThanhToan() {
 
         // Cross-tab reconciliation: another tab may add/clear items while this
         // review page is open; refresh from storage when that happens.
-        const onExternalChange = () => loadGioHangWithImages(readCart());
+        const onExternalChange = () => {
+            invalidateCoupon();
+            void loadGioHangWithImages(readCart());
+        };
         window.addEventListener('storage', onExternalChange);
+
+        void taiHinhThucGiaoHang();
 
         getDanhSachDiaChi()
             .then(list => {
@@ -107,6 +147,9 @@ function ThanhToan() {
             const match = prev.find(p => p.maSach === item.maSach);
             return match ? { ...item, hinhAnh: match.hinhAnh } : item;
         }));
+        // Coupon được backend tính theo subtotal tại lúc kiểm tra. Mọi thay đổi
+        // giỏ hàng làm kết quả đó cũ; không hiển thị hay gửi một mức giảm sai.
+        invalidateCoupon();
     };
 
     const handleIncrease = (maSach: number) => {
@@ -130,14 +173,29 @@ function ThanhToan() {
 
     const tongTienGoc = gioHang.reduce((t, item) => t + item.sachDto.giaBan * item.soLuong, 0);
     const soTienGiam = donHang?.soTienGiam ?? (couponResult?.hopLe ? couponResult.soTienGiam : 0);
-    const tongThanhToan = donHang?.tongTien ?? (couponResult?.tongTienSauGiam ?? (tongTienGoc - soTienGiam));
+    const hinhThucGiaoHang = danhSachHinhThucGiaoHang.find(
+        item => item.maHinhThucGiaoHang === hinhThucGiaoHangDaChon
+    );
+    const phiVanChuyen = donHang?.phiVanChuyen ?? hinhThucGiaoHang?.chiPhiGiaoHang ?? 0;
+    const tongSauGiam = couponResult?.hopLe
+        ? (couponResult.tongTienSauGiam ?? tongTienGoc - soTienGiam)
+        : tongTienGoc - soTienGiam;
+    const tongThanhToan = donHang?.tongTien ?? (tongSauGiam + phiVanChuyen);
 
     const handleApCoupon = async () => {
         if (!maCoupon.trim()) {
             return;
         }
+        const validationRevision = ++couponValidationRevision.current;
+        const cartFingerprint = getCartFingerprint();
         try {
             const result = await kiemTraCoupon(maCoupon, tongTienGoc);
+            if (
+                validationRevision !== couponValidationRevision.current ||
+                cartFingerprint !== getCartFingerprint()
+            ) {
+                return;
+            }
             setCouponResult(result);
             if (result.hopLe) {
                 setMaCoupon(result.maCoupon || maCoupon.trim().toUpperCase());
@@ -146,7 +204,9 @@ function ThanhToan() {
                 toast.error(result.thongBao);
             }
         } catch {
-            toast.error('Không thể kiểm tra coupon');
+            if (validationRevision === couponValidationRevision.current) {
+                toast.error('Không thể kiểm tra coupon');
+            }
         }
     };
 
@@ -174,6 +234,10 @@ function ThanhToan() {
             baoLoiDatHang('Giỏ hàng trống');
             return;
         }
+        if (hinhThucGiaoHangDaChon === null || !hinhThucGiaoHang) {
+            baoLoiDatHang('Vui lòng chọn hình thức giao hàng');
+            return;
+        }
 
         const cartFingerprintHienTai = getCartFingerprint();
         const cartFingerprintDaXem = getCartFingerprintForItems(gioHang);
@@ -188,6 +252,7 @@ function ThanhToan() {
         const checkoutFingerprint = buildCheckoutIntentFingerprint({
             cartFingerprint: cartFingerprintHienTai,
             maDiaChiGiaoHang: diaChiDaChon,
+            maHinhThucGiaoHang: hinhThucGiaoHangDaChon,
             phuongThucThanhToan,
             maCoupon: couponResult?.hopLe ? (couponResult.maCoupon || maCoupon) : undefined,
         });
@@ -215,6 +280,7 @@ function ThanhToan() {
             const payload: CheckoutOrderRequest = {
                 items: gioHang.map(item => ({ maSach: item.maSach, soLuong: item.soLuong })),
                 maDiaChiGiaoHang: diaChiDaChon,
+                maHinhThucGiaoHang: hinhThucGiaoHangDaChon,
                 phuongThucThanhToan,
                 maCoupon: couponResult?.hopLe ? (couponResult.maCoupon || maCoupon.trim().toUpperCase()) : undefined,
             };
@@ -224,7 +290,7 @@ function ThanhToan() {
                 setCouponResult({
                     hopLe: true,
                     soTienGiam: data.soTienGiam,
-                    tongTienSauGiam: data.tongTien,
+                    tongTienSauGiam: data.tongTien - data.phiVanChuyen,
                     maCoupon: data.maCoupon,
                     thongBao: `Đã áp dụng mã ${data.maCoupon}`,
                 });
@@ -233,11 +299,16 @@ function ThanhToan() {
                 setCouponResult(null);
             }
             setBuocHienTai('payment');
-            // Only clear the cart and the pending intent once the order is
-            // actually committed by the server.
-            clearCart();
+            // Chỉ xóa đúng snapshot vừa đặt. Nếu tab khác sửa giỏ trong lúc
+            // request chờ phản hồi, giữ dữ liệu mới thay vì làm mất sản phẩm.
+            if (getCartFingerprint() === cartFingerprintHienTai) {
+                clearCart();
+                setGioHang([]);
+            } else {
+                setGioHang(readCart());
+                toast.info('Đơn hàng đã được tạo. Giỏ hàng có thay đổi mới nên được giữ lại.');
+            }
             clearIntent();
-            setGioHang([]);
             if (data.phuongThucThanhToan === 'COD') {
                 toast.success('Đặt hàng COD thành công');
             } else {
@@ -355,6 +426,10 @@ function ThanhToan() {
                             <p>
                                 Mã đơn hàng: <strong style={{ color: 'var(--color-primary)' }}>#{donHang?.maDonHang}</strong>
                                 <br />
+                                Hình thức giao hàng: <strong>{donHang?.tenHinhThucGiaoHang}</strong>
+                                <br />
+                                Phí vận chuyển: <strong>{donHang?.phiVanChuyen === 0 ? 'Miễn phí' : `${donHang?.phiVanChuyen?.toLocaleString('vi-VN')}đ`}</strong>
+                                <br />
                                 Tổng tiền: <strong style={{ color: 'var(--color-accent)' }}>{donHang?.tongTien?.toLocaleString('vi-VN')}đ</strong>
                                 <br />
                                 Người nhận: <strong>{donHang?.hoTen}</strong>
@@ -417,12 +492,19 @@ function ThanhToan() {
                     onChonDiaChi={setDiaChiDaChon}
                     phuongThucThanhToan={phuongThucThanhToan}
                     onChonPhuongThucThanhToan={setPhuongThucThanhToan}
+                    danhSachHinhThucGiaoHang={danhSachHinhThucGiaoHang}
+                    hinhThucGiaoHangDaChon={hinhThucGiaoHangDaChon}
+                    onChonHinhThucGiaoHang={setHinhThucGiaoHangDaChon}
+                    dangTaiHinhThucGiaoHang={dangTaiHinhThucGiaoHang}
+                    loiHinhThucGiaoHang={loiHinhThucGiaoHang}
+                    onTaiLaiHinhThucGiaoHang={() => { void taiHinhThucGiaoHang(); }}
                     maCoupon={maCoupon}
-                    onChangeCoupon={val => { setMaCoupon(val); setCouponResult(null); }}
+                    onChangeCoupon={val => { setMaCoupon(val); invalidateCoupon(); }}
                     onApCoupon={handleApCoupon}
                     couponResult={couponResult}
                     tongTienGoc={tongTienGoc}
                     soTienGiam={soTienGiam}
+                    phiVanChuyen={phiVanChuyen}
                     tongThanhToan={tongThanhToan}
                     dangTao={dangTao}
                     onDatHang={handleDatHang}

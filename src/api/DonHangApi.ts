@@ -11,6 +11,7 @@ export interface CheckoutOrderItem {
 export interface CheckoutOrderRequest {
   items: CheckoutOrderItem[];
   maDiaChiGiaoHang: number;
+  maHinhThucGiaoHang: number;
   phuongThucThanhToan: 'COD' | 'VNPAY';
   maCoupon?: string;
 }
@@ -20,6 +21,8 @@ export interface CheckoutOrderResponse {
   tongTien: number;
   tongTienSanPham: number;
   soTienGiam: number;
+  phiVanChuyen: number;
+  tenHinhThucGiaoHang: string;
   maCoupon?: string | null;
   phuongThucThanhToan: 'COD' | 'VNPAY';
   trangThaiThanhToan: number;
@@ -30,6 +33,43 @@ export interface CheckoutOrderResponse {
 
 export interface VNPayUrlResponse {
   paymentUrl: string;
+}
+
+export interface HinhThucGiaoHangResponse {
+  maHinhThucGiaoHang: number;
+  tenHinhThucGiaoHang: string;
+  moTa?: string | null;
+  chiPhiGiaoHang: number;
+}
+
+function isHinhThucGiaoHang(value: unknown): value is HinhThucGiaoHangResponse {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const item = value as Record<string, unknown>;
+  return (
+    Number.isInteger(item.maHinhThucGiaoHang) &&
+    (item.maHinhThucGiaoHang as number) > 0 &&
+    typeof item.tenHinhThucGiaoHang === 'string' &&
+    item.tenHinhThucGiaoHang.trim().length > 0 &&
+    (item.moTa === undefined || item.moTa === null || typeof item.moTa === 'string') &&
+    typeof item.chiPhiGiaoHang === 'number' &&
+    Number.isFinite(item.chiPhiGiaoHang) &&
+    item.chiPhiGiaoHang >= 0
+  );
+}
+
+/** Public delivery methods and their server-authoritative fees. */
+export async function getHinhThucGiaoHang(): Promise<HinhThucGiaoHangResponse[]> {
+  const raw = await publicRequest<unknown>(`${BASE}/api/hinh-thuc-giao-hang`);
+  if (!Array.isArray(raw) || raw.length === 0 || !raw.every(isHinhThucGiaoHang)) {
+    throw new Error('Dữ liệu hình thức giao hàng không hợp lệ.');
+  }
+  const ids = raw.map(item => item.maHinhThucGiaoHang);
+  if (new Set(ids).size !== ids.length) {
+    throw new Error('Dữ liệu hình thức giao hàng không hợp lệ.');
+  }
+  return raw;
 }
 
 export interface DonHangListItem {
@@ -54,22 +94,17 @@ export interface ThongBaoResponse {
 }
 
 /**
- * Creates an order. When `idempotencyKey` is provided it is sent as the
- * `Idempotency-Key` header (allow-list `^[A-Za-z0-9._-]+$`, max 100 chars is
- * enforced server-side); omitting it preserves the legacy non-idempotent
- * behavior. The CheckoutOrderResponse JSON shape is unchanged either way.
+ * Creates an order with the required idempotency key. The server enforces the
+ * `^[A-Za-z0-9._-]+$` allow-list and a maximum length of 100 characters. The
+ * response includes the server-authoritative shipping method and fee.
  */
 export async function createDonHang(
   payload: CheckoutOrderRequest,
-  idempotencyKey?: string,
+  idempotencyKey: string,
 ): Promise<CheckoutOrderResponse> {
-  const headers: Record<string, string> = {};
-  if (idempotencyKey) {
-    headers['Idempotency-Key'] = idempotencyKey;
-  }
   return authRequest<CheckoutOrderResponse>(`${BASE}/api/don-hang/them`, {
     method: 'POST',
-    headers,
+    headers: { 'Idempotency-Key': idempotencyKey },
     body: JSON.stringify(payload),
   });
 }

@@ -5,6 +5,7 @@ import {
   cancelDonHang,
   createVNPayPaymentUrl,
   getVNPayCallbackResult,
+  getHinhThucGiaoHang,
 } from './DonHangApi';
 import { apiUrl } from './ApiUrl';
 
@@ -36,11 +37,12 @@ describe('DonHangApi', () => {
     const payload = {
       items: [{ maSach: 1, soLuong: 2 }],
       maDiaChiGiaoHang: 5,
+      maHinhThucGiaoHang: 1,
       phuongThucThanhToan: 'COD' as const,
     };
 
-    it('POSTs to /api/don-hang/them with a Bearer token from authRequest (no hand-rolled header)', async () => {
-      await createDonHang(payload);
+    it('POSTs to /api/don-hang/them with auth and the required idempotency key', async () => {
+      await createDonHang(payload, 'checkout-key');
 
       const [url, options] = requestOf();
       expect(url).toBe(`${BASE}/api/don-hang/them`);
@@ -48,6 +50,7 @@ describe('DonHangApi', () => {
       expect(options.body).toBe(JSON.stringify(payload));
       const headers = new Headers(options.headers);
       expect(headers.get('Authorization')).toMatch(/^Bearer /);
+      expect(headers.get('Idempotency-Key')).toBe('checkout-key');
     });
 
     it('sends the Idempotency-Key header when a key is provided', async () => {
@@ -58,13 +61,6 @@ describe('DonHangApi', () => {
       expect(headers.get('Idempotency-Key')).toBe('abc-123.DEF_456');
     });
 
-    it('omits the Idempotency-Key header when no key is provided (legacy behavior)', async () => {
-      await createDonHang(payload);
-
-      const [, options] = requestOf();
-      const headers = new Headers(options.headers);
-      expect(headers.has('Idempotency-Key')).toBe(false);
-    });
 
     it('throws with the server-provided message on 409 conflict', async () => {
       global.fetch = jest.fn().mockResolvedValue(
@@ -75,6 +71,51 @@ describe('DonHangApi', () => {
         status: 409,
         message: 'Yêu cầu xung đột',
       });
+    });
+  });
+
+  describe('getHinhThucGiaoHang', () => {
+    it('GETs the public delivery method reference data without an Authorization header', async () => {
+      global.fetch = jest.fn().mockResolvedValue(new Response(JSON.stringify([
+        {
+          maHinhThucGiaoHang: 2,
+          tenHinhThucGiaoHang: 'Tự lấy hàng tại cửa hàng',
+          moTa: 'Nhận tại cửa hàng',
+          chiPhiGiaoHang: 0,
+        },
+      ]), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+
+      const result = await getHinhThucGiaoHang();
+
+      const [url, options] = requestOf();
+      expect(url).toBe(`${BASE}/api/hinh-thuc-giao-hang`);
+      expect(options?.headers ? new Headers(options.headers).has('Authorization') : false).toBe(false);
+      expect(result).toHaveLength(1);
+    });
+
+    it('accepts a valid method when its optional description is omitted', async () => {
+      global.fetch = jest.fn().mockResolvedValue(new Response(JSON.stringify([
+        { maHinhThucGiaoHang: 1, tenHinhThucGiaoHang: 'Giao tận nơi', chiPhiGiaoHang: 10000 },
+      ]), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+
+      await expect(getHinhThucGiaoHang()).resolves.toHaveLength(1);
+    });
+
+    it.each<unknown>([
+      [{ maHinhThucGiaoHang: 1, tenHinhThucGiaoHang: 'Giao tận nơi', chiPhiGiaoHang: '10000' }],
+      [{ maHinhThucGiaoHang: 0, tenHinhThucGiaoHang: 'Giao tận nơi', chiPhiGiaoHang: 10000 }],
+      [{ maHinhThucGiaoHang: 1, tenHinhThucGiaoHang: '   ', chiPhiGiaoHang: 10000 }],
+      [
+        { maHinhThucGiaoHang: 1, tenHinhThucGiaoHang: 'Giao tận nơi', chiPhiGiaoHang: 10000 },
+        { maHinhThucGiaoHang: 1, tenHinhThucGiaoHang: 'Trùng mã', chiPhiGiaoHang: 0 },
+      ],
+    ])('rejects invalid reference data instead of showing a wrong shipping total', async invalidBody => {
+      global.fetch = jest.fn().mockResolvedValue(new Response(JSON.stringify(invalidBody), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }));
+
+      await expect(getHinhThucGiaoHang()).rejects.toThrow('Dữ liệu hình thức giao hàng không hợp lệ.');
     });
   });
 

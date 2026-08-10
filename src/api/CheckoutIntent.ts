@@ -18,20 +18,22 @@ export interface CheckoutIntent {
 export interface CheckoutIntentInput {
   cartFingerprint: string;
   maDiaChiGiaoHang: number;
+  maHinhThucGiaoHang: number;
   phuongThucThanhToan: 'COD' | 'VNPAY';
   maCoupon?: string;
 }
 
 /**
  * Binds the pending key to the complete checkout intent, not only the cart.
- * This mirrors the backend fingerprint fields so changing address, payment or
- * coupon cannot silently reuse a key that already represents another request.
+ * This mirrors the backend fingerprint fields so changing address, delivery,
+ * payment or coupon cannot silently reuse a key that represents another request.
  */
 export function buildCheckoutIntentFingerprint(input: CheckoutIntentInput): string {
   const coupon = input.maCoupon?.trim().toUpperCase() ?? '';
   return JSON.stringify({
     cart: input.cartFingerprint,
     address: input.maDiaChiGiaoHang,
+    delivery: input.maHinhThucGiaoHang,
     payment: input.phuongThucThanhToan,
     coupon,
   });

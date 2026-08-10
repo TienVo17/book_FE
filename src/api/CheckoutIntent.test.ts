@@ -44,6 +44,7 @@ describe('CheckoutIntent', () => {
       cartFingerprint: '[{"maSach":1,"soLuong":1}]',
       maDiaChiGiaoHang: 5,
       phuongThucThanhToan: 'COD' as const,
+      maHinhThucGiaoHang: 1,
       maCoupon: ' save10 ',
     };
 
@@ -51,6 +52,7 @@ describe('CheckoutIntent', () => {
     expect(buildCheckoutIntentFingerprint({ ...base, maCoupon: 'SAVE10' })).toBe(fingerprint);
     expect(buildCheckoutIntentFingerprint({ ...base, maDiaChiGiaoHang: 6 })).not.toBe(fingerprint);
     expect(buildCheckoutIntentFingerprint({ ...base, phuongThucThanhToan: 'VNPAY' })).not.toBe(fingerprint);
+    expect(buildCheckoutIntentFingerprint({ ...base, maHinhThucGiaoHang: 2 })).not.toBe(fingerprint);
     expect(buildCheckoutIntentFingerprint({ ...base, maCoupon: 'SAVE20' })).not.toBe(fingerprint);
   });
 

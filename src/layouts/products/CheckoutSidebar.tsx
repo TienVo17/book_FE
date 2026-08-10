@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { DiaChiModel } from '../../models/DiaChiModel';
 import { KetQuaKiemTraCoupon } from '../../models/CouponModel';
+import { HinhThucGiaoHangResponse } from '../../api/DonHangApi';
 
 interface Props {
     danhSachDiaChi: DiaChiModel[];
@@ -9,12 +10,19 @@ interface Props {
     onChonDiaChi: (id: number) => void;
     phuongThucThanhToan: 'COD' | 'VNPAY';
     onChonPhuongThucThanhToan: (value: 'COD' | 'VNPAY') => void;
+    danhSachHinhThucGiaoHang: HinhThucGiaoHangResponse[];
+    hinhThucGiaoHangDaChon: number | null;
+    onChonHinhThucGiaoHang: (id: number) => void;
+    dangTaiHinhThucGiaoHang: boolean;
+    loiHinhThucGiaoHang: string | null;
+    onTaiLaiHinhThucGiaoHang: () => void;
     maCoupon: string;
     onChangeCoupon: (val: string) => void;
     onApCoupon: () => void;
     couponResult: KetQuaKiemTraCoupon | null;
     tongTienGoc: number;
     soTienGiam: number;
+    phiVanChuyen: number;
     tongThanhToan: number;
     dangTao: boolean;
     onDatHang: () => void;
@@ -26,12 +34,19 @@ const CheckoutSidebar: React.FC<Props> = ({
     onChonDiaChi,
     phuongThucThanhToan,
     onChonPhuongThucThanhToan,
+    danhSachHinhThucGiaoHang,
+    hinhThucGiaoHangDaChon,
+    onChonHinhThucGiaoHang,
+    dangTaiHinhThucGiaoHang,
+    loiHinhThucGiaoHang,
+    onTaiLaiHinhThucGiaoHang,
     maCoupon,
     onChangeCoupon,
     onApCoupon,
     couponResult,
     tongTienGoc,
     soTienGiam,
+    phiVanChuyen,
     tongThanhToan,
     dangTao,
     onDatHang,
@@ -86,6 +101,62 @@ const CheckoutSidebar: React.FC<Props> = ({
 
         <div className="checkout-card animate-slide-in-right" style={{ animationDelay: '50ms' }}>
             <div className="checkout-card-header">
+                <h2 className="checkout-card-title" id="checkout-delivery-heading">
+                    <i className="fas fa-truck me-2" aria-hidden="true"></i>Hình thức giao hàng
+                </h2>
+            </div>
+            <div className="checkout-card-body" role="radiogroup" aria-labelledby="checkout-delivery-heading">
+                {dangTaiHinhThucGiaoHang ? (
+                    <p role="status" style={{ color: 'var(--color-text-muted)', marginBottom: 0 }}>
+                        Đang tải hình thức giao hàng…
+                    </p>
+                ) : loiHinhThucGiaoHang ? (
+                    <div role="alert" aria-label="Lỗi hình thức giao hàng">
+                        <p style={{ color: 'var(--color-danger)', marginBottom: '0.5rem' }}>
+                            {loiHinhThucGiaoHang}
+                        </p>
+                        <button type="button" className="btn-modern-outline" onClick={onTaiLaiHinhThucGiaoHang}>
+                            Thử tải lại
+                        </button>
+                    </div>
+                ) : (
+                    danhSachHinhThucGiaoHang.map(hinhThuc => (
+                        <div
+                            key={hinhThuc.maHinhThucGiaoHang}
+                            className={`address-radio${hinhThucGiaoHangDaChon === hinhThuc.maHinhThucGiaoHang ? ' selected' : ''}`}
+                            onClick={() => onChonHinhThucGiaoHang(hinhThuc.maHinhThucGiaoHang)}
+                        >
+                            <input
+                                type="radio"
+                                name="hinhThucGiaoHang"
+                                id={`delivery-${hinhThuc.maHinhThucGiaoHang}`}
+                                checked={hinhThucGiaoHangDaChon === hinhThuc.maHinhThucGiaoHang}
+                                onChange={() => onChonHinhThucGiaoHang(hinhThuc.maHinhThucGiaoHang)}
+                                style={{ marginTop: '3px', accentColor: 'var(--color-primary)' }}
+                            />
+                            <label htmlFor={`delivery-${hinhThuc.maHinhThucGiaoHang}`} style={{ cursor: 'pointer', margin: 0, flex: 1 }}>
+                                <span style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem' }}>
+                                    <strong style={{ fontSize: '0.9rem' }}>{hinhThuc.tenHinhThucGiaoHang}</strong>
+                                    <strong style={{ color: hinhThuc.chiPhiGiaoHang === 0 ? 'var(--color-success)' : 'var(--color-primary)', whiteSpace: 'nowrap' }}>
+                                        {hinhThuc.chiPhiGiaoHang === 0
+                                            ? 'Miễn phí'
+                                            : `${hinhThuc.chiPhiGiaoHang.toLocaleString('vi-VN')}đ`}
+                                    </strong>
+                                </span>
+                                {hinhThuc.moTa && (
+                                    <span style={{ color: 'var(--color-text-muted)', fontSize: '0.82rem' }}>
+                                        {hinhThuc.moTa}
+                                    </span>
+                                )}
+                            </label>
+                        </div>
+                    ))
+                )}
+            </div>
+        </div>
+
+        <div className="checkout-card animate-slide-in-right" style={{ animationDelay: '100ms' }}>
+            <div className="checkout-card-header">
                 <h2 className="checkout-card-title" id="checkout-payment-heading">
                     <i className="fas fa-wallet me-2" aria-hidden="true"></i>Phương thức thanh toán
                 </h2>
@@ -134,7 +205,7 @@ const CheckoutSidebar: React.FC<Props> = ({
             </div>
         </div>
 
-        <div className="checkout-card animate-slide-in-right" style={{ animationDelay: '100ms' }}>
+        <div className="checkout-card animate-slide-in-right" style={{ animationDelay: '150ms' }}>
             <div className="checkout-card-header">
                 <h2 className="checkout-card-title"><i className="fas fa-ticket-alt me-2" aria-hidden="true"></i>Mã giảm giá</h2>
             </div>
@@ -188,7 +259,7 @@ const CheckoutSidebar: React.FC<Props> = ({
             </div>
         </div>
 
-        <div className="cart-summary animate-slide-in-right" style={{ animationDelay: '200ms' }}>
+        <div className="cart-summary animate-slide-in-right" style={{ animationDelay: '250ms' }}>
             <h2 className="checkout-card-title" style={{ fontWeight: 700, fontSize: '1.05rem', marginBottom: '1.2rem' }}>
                 Tóm tắt đơn hàng
             </h2>
@@ -206,15 +277,31 @@ const CheckoutSidebar: React.FC<Props> = ({
             )}
             <div className="d-flex justify-content-between mb-2" style={{ fontSize: '0.93rem' }}>
                 <span style={{ color: 'var(--color-text-secondary)' }}>Phí vận chuyển:</span>
-                <span style={{ color: 'var(--color-success)' }}>Miễn phí</span>
+                <span
+                    style={{
+                        color: phiVanChuyen === 0 ? 'var(--color-success)' : 'var(--color-text-primary)',
+                        fontVariantNumeric: 'tabular-nums',
+                    }}
+                >
+                    {hinhThucGiaoHangDaChon === null
+                        ? 'Chưa chọn'
+                        : phiVanChuyen === 0
+                            ? 'Miễn phí'
+                            : `${phiVanChuyen.toLocaleString('vi-VN')}đ`}
+                </span>
             </div>
             <hr style={{ borderColor: 'var(--color-border)', opacity: 0.5 }} />
             <div className="d-flex justify-content-between mb-2">
-                <strong>Tổng thanh toán:</strong>
+                <strong>{hinhThucGiaoHangDaChon === null ? 'Tổng tạm tính:' : 'Tổng thanh toán:'}</strong>
                 <span className="detail-price" style={{ fontSize: '1.1rem', fontVariantNumeric: 'tabular-nums' }}>
                     {tongThanhToan.toLocaleString('vi-VN')}đ
                 </span>
             </div>
+            {hinhThucGiaoHangDaChon === null && !dangTaiHinhThucGiaoHang && !loiHinhThucGiaoHang && (
+                <small role="status" style={{ color: 'var(--color-text-muted)', display: 'block', marginBottom: '1rem' }}>
+                    Chọn hình thức giao hàng để xem tổng thanh toán chính xác.
+                </small>
+            )}
             {soTienGiam > 0 && (
                 <small style={{ color: 'var(--color-text-muted)', display: 'block', marginBottom: '1rem' }}>
                     Backend sẽ kiểm tra lại coupon khi tạo đơn.
@@ -225,7 +312,14 @@ const CheckoutSidebar: React.FC<Props> = ({
                 className="btn-modern-accent w-100"
                 style={{ padding: '0.75rem', justifyContent: 'center' }}
                 onClick={onDatHang}
-                disabled={dangTao || danhSachDiaChi.length === 0 || diaChiDaChon === null}
+                disabled={
+                    dangTao ||
+                    danhSachDiaChi.length === 0 ||
+                    diaChiDaChon === null ||
+                    dangTaiHinhThucGiaoHang ||
+                    loiHinhThucGiaoHang !== null ||
+                    hinhThucGiaoHangDaChon === null
+                }
                 aria-busy={dangTao}
             >
                 {dangTao ? (

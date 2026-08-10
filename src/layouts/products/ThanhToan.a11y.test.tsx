@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import ThanhToan from './ThanhToan';
 import { getDanhSachDiaChi } from '../../api/DiaChiApi';
 import { getOneImageOfOneBook } from '../../api/HinhAnhApi';
-import { createDonHang } from '../../api/DonHangApi';
+import { createDonHang, getHinhThucGiaoHang } from '../../api/DonHangApi';
 import { ApiRequestError } from '../../api/Request';
 import { addOrUpdateItem } from '../../api/CartStorage';
 
@@ -14,12 +14,14 @@ jest.mock('../../api/CouponApi', () => ({ kiemTraCoupon: jest.fn() }));
 jest.mock('../../api/DonHangApi', () => ({
   createDonHang: jest.fn(),
   createVNPayPaymentUrl: jest.fn(),
+  getHinhThucGiaoHang: jest.fn(),
 }));
 jest.mock('react-toastify', () => ({ toast: { success: jest.fn(), error: jest.fn() } }));
 
 const mockedGetDanhSachDiaChi = getDanhSachDiaChi as jest.MockedFunction<typeof getDanhSachDiaChi>;
 const mockedGetOneImage = getOneImageOfOneBook as jest.MockedFunction<typeof getOneImageOfOneBook>;
 const mockedCreateDonHang = createDonHang as jest.MockedFunction<typeof createDonHang>;
+const mockedGetHinhThucGiaoHang = getHinhThucGiaoHang as jest.MockedFunction<typeof getHinhThucGiaoHang>;
 
 const address = {
   maDiaChi: 5,
@@ -42,6 +44,7 @@ async function renderCheckout(): Promise<void> {
   render(<MemoryRouter><ThanhToan /></MemoryRouter>);
   await screen.findByRole('button', { name: 'Đặt hàng COD' });
   await waitFor(() => expect(screen.getByText('Người nhận')).toBeInTheDocument());
+  fireEvent.click(screen.getByLabelText(/Giao hàng tận nơi/));
 }
 
 describe('ThanhToan accessibility', () => {
@@ -50,6 +53,14 @@ describe('ThanhToan accessibility', () => {
     jest.clearAllMocks();
     mockedGetDanhSachDiaChi.mockResolvedValue([address]);
     mockedGetOneImage.mockResolvedValue([]);
+    mockedGetHinhThucGiaoHang.mockResolvedValue([
+      {
+        maHinhThucGiaoHang: 1,
+        tenHinhThucGiaoHang: 'Giao hàng tận nơi',
+        moTa: 'Giao đến địa chỉ nhận hàng',
+        chiPhiGiaoHang: 10000,
+      },
+    ]);
   });
 
   afterEach(() => {

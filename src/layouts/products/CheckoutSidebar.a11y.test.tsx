@@ -19,13 +19,33 @@ function renderSidebar(overrides: Partial<React.ComponentProps<typeof CheckoutSi
     onChonDiaChi: jest.fn(),
     phuongThucThanhToan: 'COD',
     onChonPhuongThucThanhToan: jest.fn(),
+    danhSachHinhThucGiaoHang: [
+      {
+        maHinhThucGiaoHang: 1,
+        tenHinhThucGiaoHang: 'Giao hàng tận nơi',
+        moTa: 'Giao đến địa chỉ nhận hàng',
+        chiPhiGiaoHang: 10000,
+      },
+      {
+        maHinhThucGiaoHang: 2,
+        tenHinhThucGiaoHang: 'Tự lấy hàng tại cửa hàng',
+        moTa: 'Nhận trực tiếp tại cửa hàng',
+        chiPhiGiaoHang: 0,
+      },
+    ],
+    hinhThucGiaoHangDaChon: 1,
+    onChonHinhThucGiaoHang: jest.fn(),
+    dangTaiHinhThucGiaoHang: false,
+    loiHinhThucGiaoHang: null,
+    onTaiLaiHinhThucGiaoHang: jest.fn(),
     maCoupon: '',
     onChangeCoupon: jest.fn(),
     onApCoupon: jest.fn(),
     couponResult: null,
     tongTienGoc: 100000,
     soTienGiam: 0,
-    tongThanhToan: 100000,
+    phiVanChuyen: 10000,
+    tongThanhToan: 110000,
     dangTao: false,
     onDatHang: jest.fn(),
     ...overrides,
@@ -39,6 +59,7 @@ describe('CheckoutSidebar accessibility', () => {
     renderSidebar();
 
     expect(screen.getByRole('radiogroup', { name: /Địa chỉ giao hàng/ })).toBeInTheDocument();
+    expect(screen.getByRole('radiogroup', { name: /Hình thức giao hàng/ })).toBeInTheDocument();
     expect(screen.getByRole('radiogroup', { name: /Phương thức thanh toán/ })).toBeInTheDocument();
   });
 
