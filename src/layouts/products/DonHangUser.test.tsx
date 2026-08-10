@@ -39,6 +39,30 @@ describe('DonHangUser behavior', () => {
     jest.restoreAllMocks();
   });
 
+  it('shows a load failure instead of claiming the history is empty, then retries', async () => {
+    mockedGetDonHangHistory
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      .mockResolvedValueOnce(page());
+    render(<MemoryRouter><DonHangUser /></MemoryRouter>);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Không thể tải danh sách đơn hàng. Vui lòng thử lại sau.',
+    );
+    expect(screen.queryByText('Chưa có đơn hàng')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Thử lại' }));
+
+    expect(await screen.findByRole('link', { name: 'Xem chi tiết đơn hàng #7' })).toBeInTheDocument();
+    expect(mockedGetDonHangHistory).toHaveBeenCalledTimes(2);
+  });
+
+  it('links each order to its protected detail page', async () => {
+    render(<MemoryRouter><DonHangUser /></MemoryRouter>);
+
+    expect(await screen.findByRole('link', { name: 'Xem chi tiết đơn hàng #7' }))
+      .toHaveAttribute('href', '/order/7');
+  });
+
   it('refreshes order history after cancellation succeeds', async () => {
     mockedCancelDonHang.mockResolvedValue({ noiDung: 'Hủy đơn hàng thành công' });
     render(<MemoryRouter><DonHangUser /></MemoryRouter>);

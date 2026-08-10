@@ -55,6 +55,7 @@ function titleForPath(pathname: string): string | undefined {
   }
   if (pathname === '/gio-hang') return 'Giỏ hàng';
   if (pathname === '/thanh-toan') return 'Thanh toán';
+  if (pathname.startsWith('/order/')) return 'Chi tiết đơn hàng';
   if (pathname === '/order') return 'Đơn hàng của tôi';
   if (pathname === '/profile') return 'Hồ sơ';
   if (pathname === '/dia-chi') return 'Địa chỉ giao hàng';

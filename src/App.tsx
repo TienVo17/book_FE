@@ -17,6 +17,7 @@ import { ToastContainer } from "react-toastify";
 import ThanhToan from "./layouts/products/ThanhToan";
 import KetQuaThanhToan from "./layouts/products/KetQuaThanhToan";
 import DonHangUser from "./layouts/products/DonHangUser";
+import ChiTietDonHangUser from "./layouts/products/ChiTietDonHangUser";
 import HoSoNguoiDung from "./layouts/user/HoSoNguoiDung";
 import QuenMatKhau from "./layouts/user/QuenMatKhau";
 import DatLaiMatKhau from "./layouts/user/DatLaiMatKhau";
@@ -54,6 +55,7 @@ function App() {
               <Route path="/thanh-toan" element={<RouteGuard require="user"><ThanhToan /></RouteGuard>} />
               {/* VNPay browser return route stays public; it never trusts params without backend verification */}
               <Route path="/xu-ly-kq-thanh-toan" element={<KetQuaThanhToan />} />
+              <Route path="/order/:maDonHang" element={<RouteGuard require="user"><ChiTietDonHangUser /></RouteGuard>} />
               <Route path="/order" element={<RouteGuard require="user"><DonHangUser /></RouteGuard>} />
               <Route path="/kich-hoat/:email/:maKichHoat" element={<KichHoatTaiKhoan />} />
               <Route path="/dang-nhap" element={<DangNhap />} />

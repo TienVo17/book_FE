@@ -28,6 +28,7 @@ describe('RouteMetadata noindex matrix', () => {
     '/gio-hang',
     '/thanh-toan',
     '/order',
+    '/order/7',
     '/profile',
     '/dia-chi',
     '/yeu-thich',
@@ -75,6 +76,12 @@ describe('RouteMetadata noindex matrix', () => {
   it('sets a descriptive title for the search results page, which now has its own URL', () => {
     renderAt('/tim-kiem');
     expect(document.title).toMatch(/Tìm kiếm sách/);
+  });
+
+  it('sets a private detail title for nested order routes', () => {
+    renderAt('/order/7');
+    expect(document.title).toMatch(/Chi tiết đơn hàng/);
+    expect(robots()).toBe('noindex,nofollow');
   });
 
   /**

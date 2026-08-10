@@ -1895,7 +1895,8 @@
   padding: 0.75rem 1.25rem;
 }
 
-.checkout-card-header h6 {
+.checkout-card-header h6,
+.checkout-card-header .h6 {
   margin: 0;
   font-family: var(--font-heading);
   font-weight: 600;

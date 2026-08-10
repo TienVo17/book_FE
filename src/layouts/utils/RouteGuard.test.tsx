@@ -17,7 +17,7 @@ function ViTriHienTai() {
 
 /**
  * Mirrors the target App.tsx route matrix from the Phase 2 plan:
- *   /profile, /dia-chi, /yeu-thich, /order, /thanh-toan -> require "user"
+ *   /profile, /dia-chi, /yeu-thich, /order, /order/:id, /thanh-toan -> require "user"
  *   /xu-ly-kq-thanh-toan                                -> public, no guard
  *   /quan-ly/*                                          -> require "admin"
  */
@@ -54,6 +54,14 @@ function renderTaiDuongDan(duongDan: string) {
           element={
             <RouteGuard require="user">
               <Trang nhan="YEU_THICH" />
+            </RouteGuard>
+          }
+        />
+        <Route
+          path="/order/:maDonHang"
+          element={
+            <RouteGuard require="user">
+              <Trang nhan="ORDER_DETAIL" />
             </RouteGuard>
           }
         />
@@ -111,6 +119,7 @@ const CAC_DUONG_DAN_YEU_CAU_USER: Array<{ duongDan: string; nhan: string }> = [
   { duongDan: "/dia-chi", nhan: "DIA_CHI" },
   { duongDan: "/yeu-thich", nhan: "YEU_THICH" },
   { duongDan: "/order", nhan: "ORDER" },
+  { duongDan: "/order/7", nhan: "ORDER_DETAIL" },
   { duongDan: "/thanh-toan", nhan: "THANH_TOAN" },
 ];
 

@@ -89,6 +89,85 @@ export interface DonHangPage {
   totalElements: number;
 }
 
+export interface DonHangDetailLineItem {
+  maSach: number;
+  tenSach: string;
+  soLuong: number;
+  giaBan: number;
+  thanhTien: number;
+}
+
+export interface DonHangDetail {
+  maDonHang: number;
+  ngayTao: string;
+  hoTen: string;
+  soDienThoai: string;
+  diaChiNhanHang: string;
+  trangThaiThanhToan: number;
+  trangThaiGiaoHang: number;
+  phuongThucThanhToan?: 'COD' | 'VNPAY' | string | null;
+  tenPhuongThucThanhToan?: string | null;
+  tenHinhThucGiaoHang?: string | null;
+  tongTienSanPham: number;
+  soTienGiam: number;
+  chiPhiGiaoHang: number;
+  chiPhiThanhToan: number;
+  tongTien: number;
+  danhSachChiTietDonHang: DonHangDetailLineItem[];
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+function isRequiredString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function isOptionalString(value: unknown): value is string | null | undefined {
+  return value === undefined || value === null || typeof value === 'string';
+}
+
+function isDonHangDetailLineItem(value: unknown): value is DonHangDetailLineItem {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const item = value as Record<string, unknown>;
+  return (
+    Number.isSafeInteger(item.maSach) && (item.maSach as number) > 0 &&
+    isRequiredString(item.tenSach) &&
+    Number.isSafeInteger(item.soLuong) && (item.soLuong as number) > 0 &&
+    isFiniteNumber(item.giaBan) && item.giaBan >= 0 &&
+    isFiniteNumber(item.thanhTien) && item.thanhTien >= 0
+  );
+}
+
+function isDonHangDetail(value: unknown): value is DonHangDetail {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const detail = value as Record<string, unknown>;
+  return (
+    Number.isSafeInteger(detail.maDonHang) && (detail.maDonHang as number) > 0 &&
+    isRequiredString(detail.ngayTao) && !Number.isNaN(Date.parse(detail.ngayTao)) &&
+    typeof detail.hoTen === 'string' &&
+    typeof detail.soDienThoai === 'string' &&
+    typeof detail.diaChiNhanHang === 'string' &&
+    Number.isInteger(detail.trangThaiThanhToan) &&
+    Number.isInteger(detail.trangThaiGiaoHang) &&
+    isOptionalString(detail.phuongThucThanhToan) &&
+    isOptionalString(detail.tenPhuongThucThanhToan) &&
+    isOptionalString(detail.tenHinhThucGiaoHang) &&
+    isFiniteNumber(detail.tongTienSanPham) && detail.tongTienSanPham >= 0 &&
+    isFiniteNumber(detail.soTienGiam) && detail.soTienGiam >= 0 &&
+    isFiniteNumber(detail.chiPhiGiaoHang) && detail.chiPhiGiaoHang >= 0 &&
+    isFiniteNumber(detail.chiPhiThanhToan) && detail.chiPhiThanhToan >= 0 &&
+    isFiniteNumber(detail.tongTien) && detail.tongTien >= 0 &&
+    Array.isArray(detail.danhSachChiTietDonHang) &&
+    detail.danhSachChiTietDonHang.every(isDonHangDetailLineItem)
+  );
+}
+
 export interface ThongBaoResponse {
   noiDung?: string;
 }
@@ -115,8 +194,12 @@ export async function getDonHangHistory(page = 0): Promise<DonHangPage> {
 }
 
 /** Single order detail; server enforces owner/admin access. */
-export async function getDonHangDetail(maDonHang: number): Promise<unknown> {
-  return authRequest<unknown>(`${BASE}/api/don-hang/${maDonHang}`);
+export async function getDonHangDetail(maDonHang: number): Promise<DonHangDetail> {
+  const raw = await authRequest<unknown>(`${BASE}/api/don-hang/${maDonHang}`);
+  if (!isDonHangDetail(raw)) {
+    throw new Error('Dữ liệu chi tiết đơn hàng không hợp lệ.');
+  }
+  return raw;
 }
 
 /** Cancels an order the current user owns (or any order, for an admin). */

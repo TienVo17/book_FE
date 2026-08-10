@@ -135,12 +135,75 @@ describe('DonHangApi', () => {
   });
 
   describe('getDonHangDetail', () => {
-    it('GETs /api/don-hang/{id}, via authRequest', async () => {
-      await getDonHangDetail(42);
+    it('GETs /api/don-hang/{id}, via authRequest and returns the typed detail contract', async () => {
+      const detail = {
+        maDonHang: 42,
+        ngayTao: '2026-08-10T08:00:00Z',
+        hoTen: 'Nguyễn Văn A',
+        soDienThoai: '0900000000',
+        diaChiNhanHang: '1 Đường Sách',
+        trangThaiThanhToan: 0,
+        trangThaiGiaoHang: 0,
+        phuongThucThanhToan: 'COD',
+        tenPhuongThucThanhToan: 'Thanh toán khi nhận hàng',
+        tenHinhThucGiaoHang: 'Giao hàng tận nơi',
+        tongTienSanPham: 200000,
+        soTienGiam: 10000,
+        chiPhiGiaoHang: 10000,
+        chiPhiThanhToan: 0,
+        tongTien: 200000,
+        danhSachChiTietDonHang: [{
+          maSach: 3,
+          tenSach: 'Sách kiểm thử',
+          soLuong: 2,
+          giaBan: 100000,
+          thanhTien: 200000,
+        }],
+      };
+      global.fetch = jest.fn().mockResolvedValue(new Response(JSON.stringify(detail), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }));
+
+      const result = await getDonHangDetail(42);
 
       const [url, options] = requestOf();
       expect(url).toBe(`${BASE}/api/don-hang/42`);
       expect(new Headers(options.headers).get('Authorization')).toMatch(/^Bearer /);
+      expect(result.danhSachChiTietDonHang[0]).toEqual(expect.objectContaining({
+        tenSach: 'Sách kiểm thử',
+        giaBan: 100000,
+        thanhTien: 200000,
+      }));
+    });
+
+    it.each([
+      {},
+      { maDonHang: 42, danhSachChiTietDonHang: null },
+      {
+        maDonHang: 42,
+        ngayTao: 'not-a-date',
+        hoTen: '',
+        soDienThoai: '',
+        diaChiNhanHang: '',
+        trangThaiThanhToan: 0,
+        trangThaiGiaoHang: 0,
+        tongTienSanPham: 0,
+        soTienGiam: 0,
+        chiPhiGiaoHang: 0,
+        chiPhiThanhToan: 0,
+        tongTien: 0,
+        danhSachChiTietDonHang: [],
+      },
+    ])('rejects malformed detail payloads instead of crashing the page', async invalidBody => {
+      global.fetch = jest.fn().mockResolvedValue(new Response(JSON.stringify(invalidBody), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }));
+
+      await expect(getDonHangDetail(42)).rejects.toThrow(
+        'Dữ liệu chi tiết đơn hàng không hợp lệ.',
+      );
     });
   });
 

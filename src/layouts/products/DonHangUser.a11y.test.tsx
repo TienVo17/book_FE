@@ -34,11 +34,27 @@ describe('DonHangUser accessibility', () => {
     jest.restoreAllMocks();
   });
 
+  it('announces a history load failure and exposes a retry control', async () => {
+    mockedGetDonHangHistory.mockRejectedValue(new TypeError('Failed to fetch'));
+    render(<MemoryRouter><DonHangUser /></MemoryRouter>);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Không thể tải danh sách đơn hàng');
+    expect(screen.getByRole('button', { name: 'Thử lại' })).toBeInTheDocument();
+    expect(screen.queryByText('Chưa có đơn hàng')).not.toBeInTheDocument();
+  });
+
   it('announces the loading state with status semantics', async () => {
     render(<MemoryRouter><DonHangUser /></MemoryRouter>);
 
     expect(screen.getByRole('status')).toHaveTextContent(/Đang tải đơn hàng/);
     await screen.findByRole('button', { name: /Hủy đơn hàng #7/ });
+  });
+
+  it('gives every detail link an order-specific accessible name', async () => {
+    render(<MemoryRouter><DonHangUser /></MemoryRouter>);
+
+    expect(await screen.findByRole('link', { name: 'Xem chi tiết đơn hàng #7' }))
+      .toHaveAttribute('href', '/order/7');
   });
 
   it('gives every cancel button an order-specific accessible name', async () => {

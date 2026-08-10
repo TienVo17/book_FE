@@ -10,21 +10,49 @@ function DonHangUser() {
     const [loading, setLoading] = useState(true);
     const [dangHuy, setDangHuy] = useState<number | null>(null);
     // window.alert() is not reachable by assistive tech in a predictable way and
-    // disappears on dismiss; the inline alert keeps the failure re-readable.
+    // disappears on dismiss; inline alerts keep failures re-readable.
     const [loiHuy, setLoiHuy] = useState<string | null>(null);
+    const [loiTai, setLoiTai] = useState<string | null>(null);
 
     const taiDonHang = async () => {
+        const data = await getDonHangHistory(0);
+        setDonHangList(data.content || []);
+        setLoiTai(null);
+    };
+
+    const messageForError = (error: unknown, fallback: string) =>
+        error instanceof ApiRequestError ? error.message : fallback;
+
+    const taiDonHangBanDau = async () => {
+        setLoading(true);
         try {
-            const data = await getDonHangHistory(0);
-            setDonHangList(data.content || []);
-        } catch {
-            // giữ danh sách hiện tại nếu tải lỗi
+            await taiDonHang();
+        } catch (error) {
+            setLoiTai(messageForError(error, 'Không thể tải danh sách đơn hàng. Vui lòng thử lại sau.'));
+        } finally {
+            setLoading(false);
         }
     };
 
     useEffect(() => {
+        let active = true;
         setLoading(true);
-        taiDonHang().finally(() => setLoading(false));
+        getDonHangHistory(0)
+            .then(data => {
+                if (!active) return;
+                setDonHangList(data.content || []);
+                setLoiTai(null);
+            })
+            .catch(error => {
+                if (!active) return;
+                setLoiTai(messageForError(error, 'Không thể tải danh sách đơn hàng. Vui lòng thử lại sau.'));
+            })
+            .finally(() => {
+                if (active) setLoading(false);
+            });
+        return () => {
+            active = false;
+        };
     }, []);
 
     const huyDon = async (maDonHang: number) => {
@@ -35,9 +63,7 @@ function DonHangUser() {
             await cancelDonHang(maDonHang);
             await taiDonHang();
         } catch (error) {
-            const message = error instanceof ApiRequestError
-                ? error.message
-                : 'Không kết nối được máy chủ.';
+            const message = messageForError(error, 'Không kết nối được máy chủ.');
             setLoiHuy(message || 'Hủy đơn hàng thất bại.');
         } finally {
             setDangHuy(null);
@@ -99,6 +125,17 @@ function DonHangUser() {
             </h2>
 
             <div aria-live="assertive">
+                {loiTai && (
+                    <div role="alert" className="alert alert-danger d-flex flex-wrap align-items-center justify-content-between gap-2">
+                        <span>
+                            <i className="fas fa-exclamation-circle me-2" aria-hidden="true"></i>
+                            {loiTai}
+                        </span>
+                        <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => void taiDonHangBanDau()}>
+                            Thử lại
+                        </button>
+                    </div>
+                )}
                 {loiHuy && (
                     <div role="alert" className="alert alert-danger">
                         <i className="fas fa-exclamation-circle me-2" aria-hidden="true"></i>
@@ -107,7 +144,7 @@ function DonHangUser() {
                 )}
             </div>
 
-            {donHangList.length === 0 ? (
+            {loiTai && donHangList.length === 0 ? null : donHangList.length === 0 ? (
                 <div className="empty-state">
                     <div className="empty-state-icon"><i className="fas fa-box-open"></i></div>
                     <h5>Chưa có đơn hàng</h5>
@@ -137,7 +174,13 @@ function DonHangUser() {
                                 {donHangList.map((item, index) => (
                                     <tr key={item.maDonHang} className="animate-fade-in-up" style={{ animationDelay: `${index * 50}ms` }}>
                                         <td>
-                                            <strong style={{ color: 'var(--color-primary)' }}>#{item.maDonHang}</strong>
+                                            <Link
+                                                to={`/order/${item.maDonHang}`}
+                                                aria-label={`Xem chi tiết đơn hàng #${item.maDonHang}`}
+                                                style={{ color: 'var(--color-primary)', fontWeight: 700 }}
+                                            >
+                                                #{item.maDonHang}
+                                            </Link>
                                         </td>
                                         <td style={{ whiteSpace: 'nowrap' }}>{formatDate(item.ngayTao)}</td>
                                         <td style={{ maxWidth: '200px' }}>
