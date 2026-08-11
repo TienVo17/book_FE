@@ -11,6 +11,9 @@ import {
   readGuestCartSnapshot,
 } from '../../api/CartSession';
 import { getAllTheLoai } from '../../api/TheLoaiApi';
+import {
+  AUTH_SESSION_CHANGED_EVENT,
+} from '../../api/SessionCleanup';
 
 jest.mock('../../api/TaiKhoanApi', () => ({ dangNhap: jest.fn() }));
 jest.mock('../../api/CartSession', () => ({
@@ -92,17 +95,22 @@ describe('DangNhap cart handoff', () => {
     expect(localStorage.getItem('nextPay')).toBeNull();
   });
 
-  it('does not navigate before a pending merge resolves', async () => {
+  it('notifies the new auth session before a pending cart merge resolves', async () => {
     let resolveMerge!: () => void;
+    const sessionChanged = jest.fn();
+    window.addEventListener(AUTH_SESSION_CHANGED_EVENT, sessionChanged);
     mockedMergeGuestCart.mockReturnValue(new Promise(resolve => { resolveMerge = () => resolve(null); }));
     renderLogin();
 
     submitLogin();
     await waitFor(() => expect(mockedMergeGuestCart).toHaveBeenCalledTimes(1));
+    expect(localStorage.getItem('jwt')).toBe('new-jwt');
+    expect(sessionChanged).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId('vi-tri')).toHaveTextContent('/dang-nhap');
 
     resolveMerge();
     await waitFor(() => expect(screen.getByTestId('vi-tri')).toHaveTextContent('/'));
+    window.removeEventListener(AUTH_SESSION_CHANGED_EVENT, sessionChanged);
   });
 
   it('captures guest items added while the login request is pending', async () => {

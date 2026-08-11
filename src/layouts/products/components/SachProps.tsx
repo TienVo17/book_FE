@@ -7,7 +7,11 @@ import { renderStars } from "./DanhGiaSanPham";
 import dinhDangSo from "../../utils/DinhDangSo";
 import { themVaoGioHang } from "../../utils/GioHangUtils";
 import AnhSach from "../../utils/AnhSach";
-import { themYeuThich, xoaYeuThich } from "../../../api/YeuThichApi";
+import {
+  isBookWishlisted,
+  setBookWishlisted,
+  useWishlist,
+} from "../../../api/WishlistSession";
 import { toast } from "react-toastify";
 
 interface SachPropsInterface {
@@ -20,7 +24,9 @@ const SachProps: React.FC<SachPropsInterface> = (props) => {
   const [danhSachAnh, setDanhSachAnh] = useState<HinhAnhModel[]>([]);
   const [dangTaiDuLieu, setDangTaiDuLieu] = useState(true);
   const [baoLoi, setBaoLoi] = useState(null);
-  const [daYeuThich, setDaYeuThich] = useState(false);
+  const wishlist = useWishlist();
+  const daYeuThich = isBookWishlisted(maSach, wishlist);
+  const dangDoiYeuThich = wishlist.pendingBookIds.includes(maSach);
 
   useEffect(() => {
     getAllImageOfOneBook(maSach)
@@ -43,15 +49,10 @@ const SachProps: React.FC<SachPropsInterface> = (props) => {
       return;
     }
     try {
-      if (daYeuThich) {
-        await xoaYeuThich(maSach);
-        setDaYeuThich(false);
-        toast.success("Đã xóa khỏi danh sách yêu thích!");
-      } else {
-        await themYeuThich(maSach);
-        setDaYeuThich(true);
-        toast.success("Đã thêm vào danh sách yêu thích!");
-      }
+      await setBookWishlisted(maSach, !daYeuThich);
+      toast.success(daYeuThich
+        ? "Đã xóa khỏi danh sách yêu thích!"
+        : "Đã thêm vào danh sách yêu thích!");
     } catch (error) {
       toast.error("Có lỗi xảy ra, vui lòng thử lại!");
     }
@@ -105,10 +106,16 @@ const SachProps: React.FC<SachPropsInterface> = (props) => {
           <div className="product-card-actions">
             <button
               className="btn-icon"
-              aria-label="Yêu thích"
+              type="button"
+              aria-label={daYeuThich
+                ? `Xóa ${props.sach.tenSach} khỏi danh sách yêu thích`
+                : `Thêm ${props.sach.tenSach} vào danh sách yêu thích`}
+              aria-pressed={daYeuThich}
+              aria-busy={dangDoiYeuThich}
+              disabled={dangDoiYeuThich}
               onClick={handleToggleYeuThich}
             >
-              <i className={`fas fa-heart ${daYeuThich ? 'text-danger' : ''}`}></i>
+              <i className={`fas fa-heart ${daYeuThich ? 'text-danger' : ''}`} aria-hidden="true"></i>
             </button>
             <button
               className="btn-icon btn-icon-cart"

@@ -29,12 +29,14 @@ import TimKiemPage from "./layouts/search/TimKiemPage";
 import ChinhSachPage from "./layouts/chinh-sach/ChinhSachPage";
 import HuyNhanTin from "./layouts/nhan-tin/HuyNhanTin";
 import XacNhanNhanTin from "./layouts/nhan-tin/XacNhanNhanTin";
+import WishlistBootstrap from "./layouts/utils/WishlistBootstrap";
 
 
 function App() {
   return (
     <BrowserRouter>
       <RouteMetadata />
+      <WishlistBootstrap />
       <Routes>
         {/* Chỉ cho phép ADMIN truy cập vào /quan-ly */}
         <Route path="/quan-ly/*" element={

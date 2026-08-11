@@ -33,10 +33,12 @@ const DangNhap = () => {
       // added while the login request was pending are included in the handoff.
       const guestSnapshot = readGuestCartSnapshot();
       localStorage.setItem("jwt", data.jwt);
+      // Chuyển mọi state riêng tư sang JWT mới ngay lập tức. Cart merge có thể
+      // chờ mạng nhưng không được để wishlist của phiên cũ tiếp tục hiển thị.
+      notifyAuthSessionChanged();
       // Nếu mất response, CartSession giữ nguyên key + payload. Người dùng có
       // thể submit lại hoặc lần tải cart kế tiếp sẽ replay cùng merge an toàn.
       await mergeGuestCartAfterLogin(guestSnapshot);
-      notifyAuthSessionChanged();
 
       if (continueToCheckout) {
         localStorage.removeItem("nextPay");

@@ -90,6 +90,10 @@ Key directories:
 - **Login handoff**: immediately before storing the new JWT, login captures the
   guest snapshot. A stable `Idempotency-Key` and exact payload are retained for
   safe replay if the merge response is lost.
+- **Wishlist**: authenticated wishlist state is held in one in-memory external
+  store and hydrated from `/api/yeu-thich`. Card, detail, and wishlist pages read
+  the same server-authoritative snapshot; exact-token guards reject stale account
+  responses and per-book queues serialize rapid toggles.
 - **Checkout**: waits for component and shared cart mutations, compares the
   reviewed cart with the current snapshot, then submits that authoritative
   snapshot with an `Idempotency-Key`. A lost order response can be retried

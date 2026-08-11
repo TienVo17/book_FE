@@ -10,7 +10,11 @@ import dinhDangSo from "../utils/DinhDangSo";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { themVaoGioHang } from "../utils/GioHangUtils";
-import { themYeuThich, xoaYeuThich, getDanhSachYeuThich } from "../../api/YeuThichApi";
+import {
+  isBookWishlisted,
+  setBookWishlisted,
+  useWishlist,
+} from "../../api/WishlistSession";
 import SachProps from "./components/SachProps";
 
 const ChiTietSanPham: React.FC = () => {
@@ -26,7 +30,9 @@ const ChiTietSanPham: React.FC = () => {
   const [baoLoi, setBaoLoi] = useState<string | null>(null);
   const [soLuong, setSoLuong] = useState(1);
   const [sachLienQuan, setSachLienQuan] = useState<SachModel[]>([]);
-  const [daYeuThich, setDaYeuThich] = useState(false);
+  const wishlist = useWishlist();
+  const daYeuThich = isBookWishlisted(maSachNumber, wishlist);
+  const dangDoiYeuThich = wishlist.pendingBookIds.includes(maSachNumber);
 
   const tangSoLuong = () => {
     const soLuongTonKho = sach && sach.soLuong ? sach.soLuong : 0;
@@ -139,18 +145,6 @@ const ChiTietSanPham: React.FC = () => {
     }
   }, [maSachNumber]);
 
-  useEffect(() => {
-    const jwt = localStorage.getItem('jwt');
-    if (jwt && maSachNumber > 0) {
-      getDanhSachYeuThich()
-        .then((list) => {
-          const found = list.some((item) => item.maSach === maSachNumber);
-          setDaYeuThich(found);
-        })
-        .catch(console.error);
-    }
-  }, [maSachNumber]);
-
   const toggleYeuThich = async () => {
     const jwt = localStorage.getItem('jwt');
     if (!jwt) {
@@ -158,15 +152,10 @@ const ChiTietSanPham: React.FC = () => {
       return;
     }
     try {
-      if (daYeuThich) {
-        await xoaYeuThich(maSachNumber);
-        setDaYeuThich(false);
-        toast.success("Đã xóa khỏi danh sách yêu thích!");
-      } else {
-        await themYeuThich(maSachNumber);
-        setDaYeuThich(true);
-        toast.success("Đã thêm vào danh sách yêu thích!");
-      }
+      await setBookWishlisted(maSachNumber, !daYeuThich);
+      toast.success(daYeuThich
+        ? "Đã xóa khỏi danh sách yêu thích!"
+        : "Đã thêm vào danh sách yêu thích!");
     } catch (error) {
       toast.error("Có lỗi xảy ra, vui lòng thử lại!");
     }
@@ -274,9 +263,17 @@ const ChiTietSanPham: React.FC = () => {
                 <i className="fas fa-shopping-cart"></i>
                 Thêm vào giỏ hàng
               </button>
-              <button className="btn-modern-outline" onClick={toggleYeuThich} style={{ padding: "0.7rem 1.5rem" }}>
-                <i className={`fas fa-heart ${daYeuThich ? 'text-danger' : ''}`}></i>
-                {daYeuThich ? ' Đã yêu thích' : ' Yêu thích'}
+              <button
+                type="button"
+                className="btn-modern-outline"
+                onClick={toggleYeuThich}
+                aria-pressed={daYeuThich}
+                aria-busy={dangDoiYeuThich}
+                disabled={dangDoiYeuThich}
+                style={{ padding: "0.7rem 1.5rem" }}
+              >
+                <i className={`fas fa-heart ${daYeuThich ? 'text-danger' : ''}`} aria-hidden="true"></i>
+                {dangDoiYeuThich ? ' Đang cập nhật...' : daYeuThich ? ' Đã yêu thích' : ' Yêu thích'}
               </button>
             </div>
           </div>

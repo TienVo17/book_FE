@@ -759,11 +759,18 @@
   background: var(--color-surface);
   color: var(--color-text-secondary);
   cursor: pointer;
+  touch-action: manipulation;
   transition: var(--transition-fast);
   font-size: 0.85rem;
 }
 
-.btn-icon:hover {
+.btn-icon:disabled {
+  cursor: wait;
+  opacity: 0.65;
+  transform: none;
+}
+
+.btn-icon:hover:not(:disabled) {
   border-color: var(--color-primary);
   color: var(--color-primary);
   background: rgba(59, 130, 246, 0.06);
@@ -775,7 +782,7 @@
   color: white;
 }
 
-.btn-icon.btn-icon-cart:hover {
+.btn-icon.btn-icon-cart:hover:not(:disabled) {
   background: var(--color-primary-dark);
   border-color: var(--color-primary-dark);
   transform: scale(1.08);

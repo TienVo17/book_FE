@@ -360,7 +360,7 @@
 - **Status**: Implemented and integrated 2026-08-11
 
 ### V1.2.2: Wishlist Sync
-- **Backend Required**: GET /api/wishlist/me returns user wishlist
+- **Backend Required**: `GET /api/yeu-thich` returns the authenticated user's authoritative flat wishlist snapshot; `POST`/`DELETE /api/yeu-thich/{maSach}` return the updated snapshot.
 - **Status**: Likely exists, verify
 
 ### V1.2.3: Email Notifications
