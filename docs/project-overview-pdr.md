@@ -2,7 +2,7 @@
 
 **Project**: Web Bán Sách (Bookstore Frontend)  
 **Version**: 0.1.0  
-**Last Updated**: 2026-07-08  
+**Last Updated**: 2026-08-11
 **Owner**: Team
 
 ## Executive Summary
@@ -60,7 +60,10 @@ Web Bán Sách is a React-based e-commerce frontend for an online bookstore, pro
 **Description**: Users add items to cart and proceed to payment.
 
 **Requirements**:
-- Client-side cart stored in localStorage (GioHangModel)
+- Guest cart stored in `localStorage.gioHang`; maximum 100 unique book lines
+- Authenticated cart persisted by `/api/gio-hang` and treated as the source of truth
+- Guest snapshot merged after login with a stable idempotency key and exact payload
+- The local render cache must be isolated by account and exact JWT token; it must never cross account or token-rotation sessions
 - View cart page with:
   - Product image, name, price, quantity
   - Remove / Update quantity buttons
@@ -74,11 +77,15 @@ Web Bán Sách is a React-based e-commerce frontend for an online bookstore, pro
 - VNPay payment result page (ThanhToan result status)
 
 **Acceptance Criteria**:
-- Cart persists across browser sessions (localStorage)
+- Guest cart persists across browser sessions; authenticated cart survives local cache deletion
+- Retrying a lost login-merge response cannot add quantity twice
+- Cart cache, merge intent and checkout intent never leak between accounts or rotated JWT sessions
+- Retrying a lost merge response reuses its persisted, exact guest payload and idempotency key
+- Authenticated cart writes are serialized; checkout waits for in-flight cart mutations, detects a reviewed-cart mismatch, and submits the current authoritative snapshot
 - Coupon validation: amount validation, discount calculation
 - Order creates with status "PENDING" before payment
 - VNPay return URL populates with orderId and payment status
-- Guest users get order confirmation email instead of account history
+- Checkout requires authentication; order confirmation email complements account order history
 
 ### F4: Admin Panel
 
@@ -176,7 +183,7 @@ Web Bán Sách is a React-based e-commerce frontend for an online bookstore, pro
 |--------|--------|
 | Page Load Time (Lighthouse) | > 80 |
 | Product Search Latency | < 2s |
-| Cart Operations Latency | < 500ms (local) |
+| Cart Operations Latency | Guest < 500ms local; authenticated depends on API |
 | Mobile Accessibility Score | > 85 |
 | Checkout Completion Rate | > 70% (tracked by backend) |
 | 401/403 Error Recovery | Auto-logout + redirect to login |
@@ -201,7 +208,7 @@ Web Bán Sách is a React-based e-commerce frontend for an online bookstore, pro
 | Risk | Mitigation |
 |------|------------|
 | XSS via localStorage JWT | CSP headers in nginx; sanitize user inputs |
-| Lost cart on localStorage clear | Sync cart to backend (future enhancement) |
+| Guest cart lost on localStorage clear | Explain guest storage boundary; authenticated carts restore from backend |
 | Incorrect API origin in production | Validate `REACT_APP_API_BASE_URL` during the production build and verify backend CORS |
 | Mixed API patterns (fetch vs modules) | Standardize on api/ modules (code review) |
 
@@ -214,7 +221,6 @@ Web Bán Sách is a React-based e-commerce frontend for an online bookstore, pro
 - Admin panel (book, category, coupon CRUD)
 
 ### Future Phase
-- Server-side cart persistence
 - Unify auth guards (consolidate 3 implementations)
 - Refresh token flow
 - Advanced filtering (price range, rating, author)

@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
+import { CartItem } from './CartStorage';
 import {
-  CartItem,
-  readCart,
-  addOrUpdateItem,
-  updateQuantity,
-  removeItem,
-} from './CartStorage';
+  addCartItem,
+  loadCart,
+  readCartForCurrentSession,
+  removeCartItem,
+  setCartItemQuantity,
+} from './CartSession';
 
 /**
  * React hook wrapper around CartStorage. Kept for callers that prefer a
@@ -15,40 +16,49 @@ import {
  * truth for the 'gioHang' key.
  */
 export const useGioHang = () => {
-  const [gioHang, setGioHang] = useState<CartItem[]>(() => readCart());
+  const [gioHang, setGioHang] = useState<CartItem[]>(() => readCartForCurrentSession());
 
   useEffect(() => {
-    const reload = () => setGioHang(readCart());
+    let active = true;
+    loadCart()
+      .then(items => { if (active) setGioHang(items); })
+      .catch(error => {
+        if (active) toast.error(error instanceof Error ? error.message : 'Không thể tải giỏ hàng.');
+      });
+    const reload = () => setGioHang(readCartForCurrentSession());
     window.addEventListener('cartUpdated', reload);
     window.addEventListener('storage', reload);
     return () => {
+      active = false;
       window.removeEventListener('cartUpdated', reload);
       window.removeEventListener('storage', reload);
     };
   }, []);
 
-  const themVaoGio = useCallback((item: CartItem) => {
-    const outcome = addOrUpdateItem({
-      maSach: item.maSach,
-      sachDto: item.sachDto,
-      soLuong: item.soLuong,
-      soLuongTonKho: item.soLuongTonKho,
-    });
-    if (outcome.status === 'rejected-stock') {
-      toast.error(`Số lượng sách không đủ. Chỉ còn ${outcome.soLuongTonKho} cuốn.`);
-      return;
+  const themVaoGio = useCallback(async (item: CartItem) => {
+    try {
+      setGioHang(await addCartItem(item));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Không thể thêm sách vào giỏ hàng.');
     }
-    setGioHang(outcome.cart);
   }, []);
 
-  const xoaKhoiGio = useCallback((maSach: number) => {
-    setGioHang(removeItem(maSach));
-    toast.success('Đã xóa sản phẩm!');
+  const xoaKhoiGio = useCallback(async (maSach: number) => {
+    try {
+      setGioHang(await removeCartItem(maSach));
+      toast.success('Đã xóa sản phẩm!');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Không thể xóa sản phẩm.');
+    }
   }, []);
 
-  const capNhatSoLuong = useCallback((maSach: number, soLuong: number) => {
+  const capNhatSoLuong = useCallback(async (maSach: number, soLuong: number) => {
     if (soLuong < 1) return;
-    setGioHang(updateQuantity(maSach, soLuong));
+    try {
+      setGioHang(await setCartItemQuantity(maSach, soLuong));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Không thể cập nhật số lượng.');
+    }
   }, []);
 
   const tinhTongTien = useCallback(

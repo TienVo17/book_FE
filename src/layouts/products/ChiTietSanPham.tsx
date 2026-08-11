@@ -49,7 +49,7 @@ const ChiTietSanPham: React.FC = () => {
     }
   };
 
-  const handleMuaNgay = () => {
+  const handleMuaNgay = async () => {
     if (!sach) return;
 
     // Unauthenticated: never mutate the cart before auth is validated. Send
@@ -63,8 +63,9 @@ const ChiTietSanPham: React.FC = () => {
 
     // Authenticated: merge the selected item into the existing cart,
     // preserving other lines, then proceed to checkout.
-    themVaoGioHang(sach, soLuong);
-    navigate("/thanh-toan");
+    if (await themVaoGioHang(sach, soLuong)) {
+      navigate("/thanh-toan");
+    }
   };
 
   useEffect(() => {
@@ -171,9 +172,9 @@ const ChiTietSanPham: React.FC = () => {
     }
   };
 
-  const xuLyThemVaoGioHang = () => {
+  const xuLyThemVaoGioHang = async () => {
     if (sach) {
-      themVaoGioHang(sach, soLuong);
+      await themVaoGioHang(sach, soLuong);
     }
   };
 

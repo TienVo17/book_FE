@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import AnhSach from '../utils/AnhSach';
 import { CartItem } from '../../api/CartStorage';
@@ -11,9 +11,46 @@ interface Props {
     onDecrease: (maSach: number) => void;
     onChangeQty: (maSach: number, qty: number) => void;
     onRemove: (maSach: number) => void;
+    pendingBookId?: number | null;
 }
 
-const CartItemsTable: React.FC<Props> = ({ gioHang, onIncrease, onDecrease, onChangeQty, onRemove }) => (
+const CartItemsTable: React.FC<Props> = ({
+    gioHang,
+    onIncrease,
+    onDecrease,
+    onChangeQty,
+    onRemove,
+    pendingBookId = null,
+}) => {
+    const [quantityDrafts, setQuantityDrafts] = useState<Record<number, string>>({});
+
+    useEffect(() => {
+        setQuantityDrafts(current => {
+            const next: Record<number, string> = {};
+            gioHang.forEach(item => {
+                if (current[item.maSach] !== undefined) {
+                    next[item.maSach] = current[item.maSach];
+                }
+            });
+            return next;
+        });
+    }, [gioHang]);
+
+    const commitQuantity = (item: SanPhamGioHang) => {
+        const raw = quantityDrafts[item.maSach];
+        if (raw === undefined) return;
+        setQuantityDrafts(current => {
+            const next = { ...current };
+            delete next[item.maSach];
+            return next;
+        });
+        const quantity = Number.parseInt(raw, 10);
+        if (Number.isInteger(quantity) && quantity >= 1 && quantity !== item.soLuong) {
+            onChangeQty(item.maSach, quantity);
+        }
+    };
+
+    return (
     <div>
         <ul
             aria-label="Sản phẩm trong giỏ hàng"
@@ -24,6 +61,7 @@ const CartItemsTable: React.FC<Props> = ({ gioHang, onIncrease, onDecrease, onCh
                 className="cart-item d-flex gap-3 align-items-center"
                 key={item.maSach}
                 style={{ animationDelay: `${index * 80}ms` }}
+                aria-busy={pendingBookId === item.maSach}
             >
                 <AnhSach
                     src={item.hinhAnh || item.sachDto.hinhAnh}
@@ -56,23 +94,39 @@ const CartItemsTable: React.FC<Props> = ({ gioHang, onIncrease, onDecrease, onCh
                         type="button"
                         onClick={() => onDecrease(item.maSach)}
                         aria-label={`Giảm số lượng ${item.sachDto.tenSach}`}
+                        disabled={pendingBookId === item.maSach || item.soLuong <= 1}
                     >
                         −
                     </button>
                     <input
                         type="number"
-                        value={item.soLuong}
+                        value={quantityDrafts[item.maSach] ?? String(item.soLuong)}
                         min={1}
-                        onChange={e => {
-                            const val = parseInt(e.target.value);
-                            if (!isNaN(val) && val >= 1) onChangeQty(item.maSach, val);
+                        onChange={event => setQuantityDrafts(current => ({
+                            ...current,
+                            [item.maSach]: event.target.value,
+                        }))}
+                        onBlur={() => commitQuantity(item)}
+                        onKeyDown={event => {
+                            if (event.key === 'Enter') {
+                                event.currentTarget.blur();
+                            } else if (event.key === 'Escape') {
+                                setQuantityDrafts(current => {
+                                    const next = { ...current };
+                                    delete next[item.maSach];
+                                    return next;
+                                });
+                                event.currentTarget.blur();
+                            }
                         }}
                         aria-label={`Số lượng ${item.sachDto.tenSach}`}
+                        disabled={pendingBookId === item.maSach}
                     />
                     <button
                         type="button"
                         onClick={() => onIncrease(item.maSach)}
                         aria-label={`Tăng số lượng ${item.sachDto.tenSach}`}
+                        disabled={pendingBookId === item.maSach}
                     >
                         +
                     </button>
@@ -93,6 +147,7 @@ const CartItemsTable: React.FC<Props> = ({ gioHang, onIncrease, onDecrease, onCh
                     style={{ color: 'var(--color-danger)', borderColor: 'var(--color-danger)' }}
                     onClick={() => onRemove(item.maSach)}
                     aria-label={`Xóa ${item.sachDto.tenSach} khỏi giỏ hàng`}
+                    disabled={pendingBookId === item.maSach}
                 >
                     <i className="fas fa-trash-alt" aria-hidden="true"></i>
                 </button>
@@ -106,6 +161,7 @@ const CartItemsTable: React.FC<Props> = ({ gioHang, onIncrease, onDecrease, onCh
             </Link>
         </div>
     </div>
-);
+    );
+};
 
 export default CartItemsTable;

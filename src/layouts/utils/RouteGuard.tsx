@@ -1,6 +1,7 @@
 import React from "react";
 import { Navigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
+import { clearAuthenticatedSessionState } from "../../api/SessionCleanup";
 
 interface JwtPayload {
   exp?: number;
@@ -35,12 +36,12 @@ function readValidPayload(): JwtPayload | null {
   try {
     const decoded = jwtDecode<JwtPayload>(token);
     if (!decoded.exp || decoded.exp * 1000 <= Date.now()) {
-      localStorage.removeItem("jwt");
+      clearAuthenticatedSessionState(true);
       return null;
     }
     return decoded;
   } catch {
-    localStorage.removeItem("jwt");
+    clearAuthenticatedSessionState(true);
     return null;
   }
 }

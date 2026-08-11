@@ -1,7 +1,7 @@
 # Code Standards & Development Conventions
 
-**Version**: 1.0  
-**Last Updated**: 2026-07-08
+**Version**: 1.1
+**Last Updated**: 2026-08-11
 
 ## Overview
 
@@ -193,7 +193,7 @@ try {
 
 ## State Management
 
-### localStorage for Auth & Cart
+### localStorage for Auth & Cart Cache
 
 ```typescript
 // Set JWT after login
@@ -218,17 +218,24 @@ const [formData, setFormData] = useState<{ email: string; password: string }>({
 });
 ```
 
-### Cart State (Client-Side)
+### Cart State
 
-Use `useGioHang()` hook from `api/GioHang.ts` for cart operations.
+Use the existing cart boundaries rather than reading or writing `gioHang` directly:
 
 ```typescript
-const { cart, addItem, removeItem, updateQuantity } = useGioHang();
-
-// Cart auto-syncs via localStorage + storage event
+// Page or utility code
+const items = await loadCart();
+await addCartItem(item);
+await setCartItemQuantity(maSach, soLuong);
+await removeCartItem(maSach);
 ```
 
-**Do NOT** create a new cart hook or introduce global state (Redux, Context). Future enhancement: sync cart to backend.
+- `CartStorage.ts` is the only module allowed to access `localStorage.gioHang` directly. It owns migration, normalization, stock clamping, the 100-unique-line guest limit, and `cartUpdated` events.
+- `CartSession.ts` selects behavior: guest mutations remain local; authenticated mutations enter its FIFO queue, call `CartApi.ts`, and cache only the authoritative server response.
+- `CartApi.ts` must use `authRequest` and `apiUrl`; page components must not call `/api/gio-hang` directly.
+- Preserve `cartCacheOwner` isolation by account and exact JWT token. Preserve a pending `cartMergeIntent`'s owner, stable key, and exact payload so a lost merge response can be replayed without duplicating quantities.
+- Checkout code must await its in-flight mutations and `waitForCartMutations()`, then compare the reviewed cart with the current snapshot before creating the order.
+- Keep the existing `useGioHang()` compatibility hook for hook-based callers. Do not introduce Redux/Context solely for cart state.
 
 ## Routing Conventions
 
@@ -434,13 +441,9 @@ All backend request sites resolve URLs through `src/api/ApiUrl.ts`. `REACT_APP_A
 
 Because Create React App substitutes `REACT_APP_*` values at build time, production deployments must configure the backend origin before running `npm run build`.
 
-### Cart Shape Divergence
+### Cart Compatibility Types
 
-Two cart-item shapes exist:
-- `models/GioHangModel.ts`: `GioHangItem` (minimal)
-- `src/api/GioHang.ts`: Inline `GioHangItem` (adds `sachDto`, `soLuongTon`)
-
-**Action**: Unify in single model; update all references.
+`CartStorage.ts` exports the canonical persisted `CartItem` shape used by cart and checkout flows. `models/GioHangModel.ts` remains only as a legacy import compatibility alias; new code must import cart types and operations from `CartStorage.ts`/`CartSession.ts` rather than introducing another inline shape.
 
 ## Naming Conventions (Vietnamese)
 

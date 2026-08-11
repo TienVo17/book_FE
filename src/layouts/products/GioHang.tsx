@@ -1,15 +1,27 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { getOneImageOfOneBook } from "../../api/HinhAnhApi";
 import dinhDangSo from "../utils/DinhDangSo";
 import AnhSach from "../utils/AnhSach";
-import { CartItem, readCart, updateQuantity, removeItem } from "../../api/CartStorage";
+import { CartItem } from "../../api/CartStorage";
+import {
+  loadCart,
+  readCartForCurrentSession,
+  removeCartItem,
+  setCartItemQuantity,
+} from "../../api/CartSession";
+import { toast } from "react-toastify";
 
 type SanPhamGioHang = CartItem & { hinhAnh?: string };
 
 function GioHang() {
   const [gioHang, setGioHang] = useState<SanPhamGioHang[]>([]);
-  const imageLoadRevision = React.useRef(0);
+  const [dangTaiGioHang, setDangTaiGioHang] = useState(true);
+  const [loiTaiGioHang, setLoiTaiGioHang] = useState<string | null>(null);
+  const [maSachDangCapNhat, setMaSachDangCapNhat] = useState<number | null>(null);
+  const [soLuongNhap, setSoLuongNhap] = useState<Record<number, string>>({});
+  const mutationInFlight = useRef(new Set<number>());
+  const imageLoadRevision = useRef(0);
   const navigate = useNavigate();
 
   const attachImages = useCallback(async (items: CartItem[]) => {
@@ -29,19 +41,33 @@ function GioHang() {
     }
   }, []);
 
-  useEffect(() => {
-    attachImages(readCart());
+  const reloadCart = useCallback(async () => {
+    setDangTaiGioHang(true);
+    setLoiTaiGioHang(null);
+    try {
+      await attachImages(await loadCart());
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Không thể tải giỏ hàng.";
+      setLoiTaiGioHang(message);
+      toast.error(message);
+    } finally {
+      setDangTaiGioHang(false);
+    }
+  }, [attachImages]);
 
-    // Cross-tab reconciliation: reload (and re-fetch images) when another
-    // tab changes the cart. Same-tab mutations update local state directly
-    // (see syncLocal) so they don't need to listen to cartUpdated here.
-    const onExternalChange = () => attachImages(readCart());
+  useEffect(() => {
+    void reloadCart();
+    const onExternalChange = () => {
+      void attachImages(readCartForCurrentSession());
+    };
     window.addEventListener("storage", onExternalChange);
+    window.addEventListener("cartUpdated", onExternalChange);
     return () => {
       imageLoadRevision.current += 1;
       window.removeEventListener("storage", onExternalChange);
+      window.removeEventListener("cartUpdated", onExternalChange);
     };
-  }, [attachImages]);
+  }, [attachImages, reloadCart]);
 
   const syncLocal = (updated: CartItem[]) => {
     setGioHang((prev) =>
@@ -49,6 +75,51 @@ function GioHang() {
         const match = prev.find((p) => p.maSach === item.maSach);
         return match ? { ...item, hinhAnh: match.hinhAnh } : item;
       })
+    );
+    setSoLuongNhap({});
+  };
+
+  const mutateCart = async (
+    maSach: number,
+    operation: () => Promise<CartItem[]>,
+  ) => {
+    if (mutationInFlight.current.has(maSach)) return;
+    mutationInFlight.current.add(maSach);
+    setMaSachDangCapNhat(maSach);
+    try {
+      syncLocal(await operation());
+    } catch (error) {
+      setSoLuongNhap({});
+      toast.error(error instanceof Error ? error.message : "Không thể cập nhật giỏ hàng.");
+    } finally {
+      mutationInFlight.current.delete(maSach);
+      setMaSachDangCapNhat(current => current === maSach ? null : current);
+    }
+  };
+
+  const commitQuantity = (item: SanPhamGioHang) => {
+    const draft = soLuongNhap[item.maSach];
+    if (draft === undefined) return;
+    const soLuongMoi = Number.parseInt(draft, 10);
+    if (!Number.isInteger(soLuongMoi) || soLuongMoi < 1) {
+      setSoLuongNhap(current => {
+        const next = { ...current };
+        delete next[item.maSach];
+        return next;
+      });
+      return;
+    }
+    if (soLuongMoi === item.soLuong) {
+      setSoLuongNhap(current => {
+        const next = { ...current };
+        delete next[item.maSach];
+        return next;
+      });
+      return;
+    }
+    void mutateCart(
+      item.maSach,
+      () => setCartItemQuantity(item.maSach, soLuongMoi),
     );
   };
 
@@ -61,18 +132,41 @@ function GioHang() {
         Giỏ hàng
       </h2>
 
-      {gioHang.length === 0 ? (
+      {dangTaiGioHang ? (
+        <div className="text-center py-5" role="status" aria-live="polite">
+          <span className="spinner-border text-primary" aria-hidden="true"></span>
+          <p className="mt-3" style={{ color: "var(--color-text-muted)" }}>
+            Đang tải giỏ hàng…
+          </p>
+        </div>
+      ) : loiTaiGioHang ? (
+        <div className="alert alert-danger text-center" role="alert">
+          <i className="fas fa-exclamation-circle me-2" aria-hidden="true"></i>
+          {loiTaiGioHang}
+          <div className="mt-3">
+            <button
+              type="button"
+              className="btn-modern-outline"
+              onClick={() => { void reloadCart(); }}
+              aria-label="Tải lại giỏ hàng"
+            >
+              <i className="fas fa-redo" aria-hidden="true"></i>
+              Tải lại
+            </button>
+          </div>
+        </div>
+      ) : gioHang.length === 0 ? (
         <div className="text-center py-5 animate-fade-in">
           <div style={{
             width: 100, height: 100, borderRadius: "50%",
             background: "var(--color-bg)", display: "inline-flex",
             alignItems: "center", justifyContent: "center", marginBottom: "1.5rem"
           }}>
-            <i className="fas fa-shopping-bag" style={{ fontSize: "2.5rem", color: "var(--color-text-muted)" }}></i>
+            <i className="fas fa-shopping-bag" style={{ fontSize: "2.5rem", color: "var(--color-text-muted)" }} aria-hidden="true"></i>
           </div>
           <h5 style={{ color: "var(--color-text-secondary)", marginBottom: "1rem" }}>Giỏ hàng trống</h5>
           <Link to="/" className="btn-modern-primary">
-            <i className="fas fa-arrow-left"></i>
+            <i className="fas fa-arrow-left" aria-hidden="true"></i>
             Tiếp tục mua sắm
           </Link>
         </div>
@@ -80,57 +174,98 @@ function GioHang() {
         <div className="row">
           {/* Cart items */}
           <div className="col-lg-8">
-            {gioHang.map((item, index) => (
-              <div className="cart-item d-flex gap-3 align-items-center" key={item.maSach} style={{ animationDelay: `${index * 80}ms` }}>
-                <AnhSach
-                  src={item.hinhAnh || item.sachDto.hinhAnh}
-                  alt={item.sachDto.tenSach}
-                  className="cart-item-img"
-                />
-                <div className="flex-grow-1">
-                  <h6 style={{ fontFamily: "var(--font-heading)", fontWeight: 600, marginBottom: 4 }}>
-                    {item.sachDto.tenSach}
-                  </h6>
-                  <span style={{ color: "var(--color-accent)", fontWeight: 600 }}>
-                    {dinhDangSo(item.sachDto.giaBan)} đ
-                  </span>
-                </div>
-                <div className="qty-control">
-                  <button onClick={() => {
-                    if (item.soLuong > 1) {
-                      syncLocal(updateQuantity(item.maSach, item.soLuong - 1));
-                    }
-                  }}>-</button>
-                  <input
-                    type="number"
-                    value={item.soLuong}
-                    min={1}
-                    onChange={(e) => {
-                      const soLuongMoi = parseInt(e.target.value);
-                      if (!isNaN(soLuongMoi) && soLuongMoi >= 1) {
-                        syncLocal(updateQuantity(item.maSach, soLuongMoi));
-                      }
-                    }}
-                  />
-                  <button onClick={() => {
-                    syncLocal(updateQuantity(item.maSach, item.soLuong + 1));
-                  }}>+</button>
-                </div>
-                <div className="text-end" style={{ minWidth: 100 }}>
-                  <div style={{ fontFamily: "var(--font-heading)", fontWeight: 700, fontSize: "1rem" }}>
-                    {dinhDangSo(item.sachDto.giaBan * item.soLuong)} đ
-                  </div>
-                </div>
-                <button
-                  className="btn-icon"
-                  style={{ color: "var(--color-danger)", borderColor: "var(--color-danger)" }}
-                  onClick={() => syncLocal(removeItem(item.maSach))}
-                  aria-label="Xóa sản phẩm"
+            {gioHang.map((item, index) => {
+              const dangCapNhat = maSachDangCapNhat === item.maSach;
+              return (
+                <div
+                  className="cart-item d-flex gap-3 align-items-center"
+                  key={item.maSach}
+                  style={{ animationDelay: `${index * 80}ms` }}
+                  aria-busy={dangCapNhat}
                 >
-                  <i className="fas fa-trash-alt"></i>
-                </button>
-              </div>
-            ))}
+                  <AnhSach
+                    src={item.hinhAnh || item.sachDto.hinhAnh}
+                    alt={item.sachDto.tenSach}
+                    className="cart-item-img"
+                  />
+                  <div className="flex-grow-1 cart-item-info">
+                    <h6 style={{ fontFamily: "var(--font-heading)", fontWeight: 600, marginBottom: 4 }}>
+                      {item.sachDto.tenSach}
+                    </h6>
+                    <span style={{ color: "var(--color-accent)", fontWeight: 600 }}>
+                      {dinhDangSo(item.sachDto.giaBan)} đ
+                    </span>
+                  </div>
+                  <div className="qty-control">
+                    <button
+                      type="button"
+                      disabled={dangCapNhat || item.soLuong <= 1}
+                      aria-label={`Giảm số lượng ${item.sachDto.tenSach}`}
+                      onClick={() => {
+                        void mutateCart(
+                          item.maSach,
+                          () => setCartItemQuantity(item.maSach, item.soLuong - 1),
+                        );
+                      }}
+                    >−</button>
+                    <input
+                      type="number"
+                      value={soLuongNhap[item.maSach] ?? String(item.soLuong)}
+                      min={1}
+                      disabled={dangCapNhat}
+                      aria-label={`Số lượng ${item.sachDto.tenSach}`}
+                      onChange={(event) => {
+                        setSoLuongNhap(current => ({
+                          ...current,
+                          [item.maSach]: event.target.value,
+                        }));
+                      }}
+                      onBlur={() => commitQuantity(item)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.currentTarget.blur();
+                        } else if (event.key === "Escape") {
+                          setSoLuongNhap(current => {
+                            const next = { ...current };
+                            delete next[item.maSach];
+                            return next;
+                          });
+                          event.currentTarget.blur();
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      disabled={dangCapNhat}
+                      aria-label={`Tăng số lượng ${item.sachDto.tenSach}`}
+                      onClick={() => {
+                        void mutateCart(
+                          item.maSach,
+                          () => setCartItemQuantity(item.maSach, item.soLuong + 1),
+                        );
+                      }}
+                    >+</button>
+                  </div>
+                  <div className="text-end cart-item-total" style={{ minWidth: 100 }}>
+                    <div style={{ fontFamily: "var(--font-heading)", fontWeight: 700, fontSize: "1rem" }}>
+                      {dinhDangSo(item.sachDto.giaBan * item.soLuong)} đ
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-icon cart-item-remove"
+                    style={{ color: "var(--color-danger)", borderColor: "var(--color-danger)" }}
+                    disabled={dangCapNhat}
+                    onClick={() => {
+                      void mutateCart(item.maSach, () => removeCartItem(item.maSach));
+                    }}
+                    aria-label={`Xóa ${item.sachDto.tenSach} khỏi giỏ hàng`}
+                  >
+                    <i className="fas fa-trash-alt" aria-hidden="true"></i>
+                  </button>
+                </div>
+              );
+            })}
           </div>
 
           {/* Summary */}

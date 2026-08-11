@@ -207,6 +207,45 @@ describe('CartStorage', () => {
     ]);
   });
 
+  it('rejects a 101st unique guest line to stay within the backend merge contract', () => {
+    for (let maSach = 1; maSach <= 100; maSach += 1) {
+      expect(addOrUpdateItem({
+        maSach,
+        sachDto: { tenSach: `Sách ${maSach}`, giaBan: 100 },
+        soLuong: 1,
+      }).status).toBe('added');
+    }
+
+    const outcome = addOrUpdateItem({
+      maSach: 101,
+      sachDto: { tenSach: 'Sách 101', giaBan: 100 },
+      soLuong: 1,
+    });
+
+    expect(outcome).toMatchObject({ status: 'rejected-limit', maxLines: 100 });
+    expect(readCart()).toHaveLength(100);
+  });
+
+  it('trims a legacy cart over 100 unique lines in deterministic first-seen order', () => {
+    const legacyOverflow = Array.from({ length: 101 }, (_, index) => ({
+      maSach: index + 1,
+      sachDto: {
+        tenSach: `Sách ${index + 1}`,
+        giaBan: 100,
+        hinhAnh: '',
+      },
+      soLuong: 1,
+    }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(legacyOverflow));
+
+    const cart = readCart();
+
+    expect(cart).toHaveLength(100);
+    expect(cart.map(item => item.maSach)).toEqual(
+      Array.from({ length: 100 }, (_, index) => index + 1),
+    );
+  });
+
   it('updateQuantity clamps to the known stock snapshot and never goes below 1', () => {
     addOrUpdateItem({ maSach: 1, sachDto: { tenSach: 'A', giaBan: 100 }, soLuong: 1, soLuongTonKho: 3 });
 

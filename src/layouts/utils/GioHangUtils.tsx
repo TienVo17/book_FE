@@ -1,32 +1,30 @@
 import SachModel from '../../models/SachModel';
 import { toast } from 'react-toastify';
-import { addOrUpdateItem } from '../../api/CartStorage';
+import { addCartItem } from '../../api/CartSession';
 
-export const themVaoGioHang = (sach: SachModel, soLuong: number = 1) => {
+export const themVaoGioHang = async (sach: SachModel, soLuong: number = 1): Promise<boolean> => {
     const soLuongTonKho = sach.soLuong || 0;
 
     if (soLuong > soLuongTonKho) {
         toast.error(`Số lượng sách không đủ. Chỉ còn ${soLuongTonKho} cuốn.`);
-        return;
+        return false;
     }
 
-    const outcome = addOrUpdateItem({
-        maSach: sach.maSach,
-        sachDto: {
-            tenSach: sach.tenSach || '',
-            giaBan: sach.giaBan || 0,
-            hinhAnh: '',
-        },
-        soLuong,
-        soLuongTonKho,
-    });
-
-    if (outcome.status === 'rejected-stock') {
-        toast.warning(
-            `Số lượng vượt quá tồn kho. Trong giỏ đã có ${outcome.currentQuantity} cuốn, chỉ còn có thể thêm ${outcome.soLuongTonKho - outcome.currentQuantity} cuốn.`,
-        );
-        return;
+    try {
+        await addCartItem({
+            maSach: sach.maSach,
+            sachDto: {
+                tenSach: sach.tenSach || '',
+                giaBan: sach.giaBan || 0,
+                hinhAnh: '',
+            },
+            soLuong,
+            soLuongTonKho,
+        });
+        toast.success('Đã thêm vào giỏ hàng!');
+        return true;
+    } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Không thể thêm sách vào giỏ hàng.');
+        return false;
     }
-
-    toast.success('Đã thêm vào giỏ hàng!');
 };

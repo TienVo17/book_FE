@@ -1,3 +1,5 @@
+import { clearAuthenticatedSessionState } from './SessionCleanup';
+
 export async function my_request<T = unknown>(duongDan: string): Promise<T> {
   return publicRequest<T>(duongDan);
 }
@@ -25,7 +27,7 @@ function parseJwt(token: string): JwtPayload | null {
 }
 
 function clearAuth() {
-  localStorage.removeItem('jwt');
+  clearAuthenticatedSessionState(true);
 }
 
 function parseJsonSafely(text: string): unknown {
@@ -171,7 +173,10 @@ export async function authRequest<T = unknown>(url: string, options: RequestInit
   const body = await parseResponseBody(response);
 
   if (!response.ok) {
-    if (response.status === 401 || response.status === 403) {
+    if (
+      (response.status === 401 || response.status === 403) &&
+      localStorage.getItem('jwt') === token
+    ) {
       clearAuth();
     }
     throw toApiError(response, body, `Request failed: ${response.status}`);

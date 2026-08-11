@@ -202,7 +202,9 @@ describe('ThanhToan business behavior', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Áp dụng' }));
     await waitFor(() => expect(mockedKiemTraCoupon).toHaveBeenCalledTimes(1));
 
-    fireEvent.change(screen.getByLabelText('Số lượng Sách 1'), { target: { value: '2' } });
+    const quantityInput = screen.getByLabelText('Số lượng Sách 1');
+    fireEvent.change(quantityInput, { target: { value: '2' } });
+    fireEvent.blur(quantityInput);
     resolveCoupon({
       hopLe: true,
       soTienGiam: 10000,
@@ -234,7 +236,9 @@ describe('ThanhToan business behavior', () => {
     await screen.findByText('Đã áp dụng mã SAVE10');
     expect(screen.getByText('-10.000đ')).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText('Số lượng Sách 1'), { target: { value: '2' } });
+    const quantityInput = screen.getByLabelText('Số lượng Sách 1');
+    fireEvent.change(quantityInput, { target: { value: '2' } });
+    fireEvent.blur(quantityInput);
 
     await waitFor(() => {
       expect(screen.queryByText('-10.000đ')).not.toBeInTheDocument();
@@ -288,6 +292,25 @@ describe('ThanhToan business behavior', () => {
     await screen.findByText('Đặt hàng COD thành công!');
   });
 
+  it('submits the latest quantity when checkout starts while its mutation is pending', async () => {
+    addCartItem(1);
+    renderCheckout();
+    await waitUntilReady();
+
+    const quantityInput = screen.getByLabelText('Số lượng Sách 1');
+    fireEvent.change(quantityInput, { target: { value: '2' } });
+    fireEvent.blur(quantityInput);
+    fireEvent.click(screen.getByRole('button', { name: 'Đặt hàng COD' }));
+
+    await waitFor(() => expect(mockedCreateDonHang).toHaveBeenCalledTimes(1));
+    expect(mockedCreateDonHang.mock.calls[0][0].items).toEqual([
+      { maSach: 1, soLuong: 2 },
+    ]);
+    expect(mockedToastError).not.toHaveBeenCalledWith(
+      'Giỏ hàng vừa thay đổi ở tab khác. Vui lòng kiểm tra lại trước khi đặt hàng.',
+    );
+  });
+
   it('blocks a stale reviewed cart after another tab changes storage', async () => {
     addCartItem(1);
     renderCheckout();
@@ -297,10 +320,31 @@ describe('ThanhToan business behavior', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Đặt hàng COD' }));
 
     expect(mockedCreateDonHang).not.toHaveBeenCalled();
-    expect(mockedToastError).toHaveBeenCalledWith(
+    await waitFor(() => expect(mockedToastError).toHaveBeenCalledWith(
       'Giỏ hàng vừa thay đổi ở tab khác. Vui lòng kiểm tra lại trước khi đặt hàng.',
-    );
+    ));
     await waitFor(() => expect(screen.getByText('Sách 2')).toBeInTheDocument());
+  });
+
+  it('blocks checkout when an external line appears with a local cart change', async () => {
+    addCartItem(1);
+    renderCheckout();
+    await waitUntilReady();
+
+    const quantityInput = screen.getByLabelText('Số lượng Sách 1');
+    fireEvent.change(quantityInput, { target: { value: '2' } });
+
+    // An external tab changes storage before this tab commits its quantity
+    // draft. The local mutation response includes both transitions, so checkout
+    // must not treat that entire cart as implicitly reviewed.
+    addCartItem(2);
+    fireEvent.blur(quantityInput);
+    fireEvent.click(screen.getByRole('button', { name: 'Đặt hàng COD' }));
+
+    await waitFor(() => expect(mockedToastError).toHaveBeenCalledWith(
+      'Giỏ hàng vừa thay đổi ở tab khác. Vui lòng kiểm tra lại trước khi đặt hàng.',
+    ));
+    expect(mockedCreateDonHang).not.toHaveBeenCalled();
   });
 
   it('does not redirect when VNPay URL creation fails', async () => {

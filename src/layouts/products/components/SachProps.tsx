@@ -113,7 +113,7 @@ const SachProps: React.FC<SachPropsInterface> = (props) => {
             <button
               className="btn-icon btn-icon-cart"
               aria-label="Thêm vào giỏ hàng"
-              onClick={() => themVaoGioHang(props.sach)}
+              onClick={() => { void themVaoGioHang(props.sach); }}
             >
               <i className="fas fa-shopping-cart"></i>
             </button>

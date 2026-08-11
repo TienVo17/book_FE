@@ -90,4 +90,25 @@ describe('authRequest', () => {
     await expect(authRequest('/api/dia-chi')).rejects.toMatchObject({ status: 401, code: 'UNAUTHENTICATED' });
     expect(localStorage.getItem('jwt')).toBeNull();
   });
+
+  it('does not clear a newer session when an older request returns 401', async () => {
+    const oldToken = localStorage.getItem('jwt');
+    let resolveRequest!: (response: Response) => void;
+    global.fetch = jest.fn().mockReturnValue(new Promise(resolve => {
+      resolveRequest = resolve;
+    }));
+
+    const request = authRequest('/api/dia-chi');
+    const newToken = createJwt(120_000);
+    localStorage.setItem('jwt', newToken);
+    resolveRequest(new Response(JSON.stringify({
+      status: 401,
+      code: 'UNAUTHENTICATED',
+      message: 'Phiên cũ đã hết hạn.',
+    }), { status: 401, headers: { 'Content-Type': 'application/json' } }));
+
+    await expect(request).rejects.toMatchObject({ status: 401 });
+    expect(oldToken).not.toBe(newToken);
+    expect(localStorage.getItem('jwt')).toBe(newToken);
+  });
 });

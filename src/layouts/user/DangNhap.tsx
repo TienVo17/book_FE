@@ -1,6 +1,15 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { dangNhap } from '../../api/TaiKhoanApi';
+import {
+  mergeGuestCartAfterLogin,
+  readGuestCartSnapshot,
+  readPendingCartMerge,
+} from '../../api/CartSession';
+import {
+  clearAuthenticatedSessionState,
+  notifyAuthSessionChanged,
+} from '../../api/SessionCleanup';
 
 const DangNhap = () => {
   const navigate = useNavigate();
@@ -8,27 +17,49 @@ const DangNhap = () => {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const loginInFlight = useRef(false);
 
   const handleDangNhap = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (loginInFlight.current) return;
+    loginInFlight.current = true;
     setIsLoading(true);
     setError("");
 
     try {
+      const continueToCheckout = localStorage.getItem("nextPay") === "true";
       const data = await dangNhap(username, password);
+      // Capture immediately before assigning the authenticated session so items
+      // added while the login request was pending are included in the handoff.
+      const guestSnapshot = readGuestCartSnapshot();
       localStorage.setItem("jwt", data.jwt);
-      if (localStorage.getItem("nextPay") === "true") {
+      // Nếu mất response, CartSession giữ nguyên key + payload. Người dùng có
+      // thể submit lại hoặc lần tải cart kế tiếp sẽ replay cùng merge an toàn.
+      await mergeGuestCartAfterLogin(guestSnapshot);
+      notifyAuthSessionChanged();
+
+      if (continueToCheckout) {
         localStorage.removeItem("nextPay");
         navigate("/thanh-toan");
       } else {
         navigate("/");
       }
-      window.location.reload();
     } catch (error) {
+      if (localStorage.getItem('jwt')) {
+        // Cart handoff là một phần của login transaction phía client. Roll back
+        // mọi JWT vừa cấp nếu handoff lỗi; chỉ giữ merge intent khi đã gửi một
+        // payload retry-safe, và giữ nextPay để lần login sau tiếp tục checkout.
+        clearAuthenticatedSessionState(
+          true,
+          Boolean(readPendingCartMerge()),
+          true,
+        );
+      }
       setError(error instanceof Error
         ? error.message
         : "Đăng nhập thất bại. Vui lòng kiểm tra lại tên đăng nhập và mật khẩu.");
     } finally {
+      loginInFlight.current = false;
       setIsLoading(false);
     }
   };

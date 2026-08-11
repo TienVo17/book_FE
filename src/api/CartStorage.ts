@@ -30,6 +30,7 @@
 
 const STORAGE_KEY = 'gioHang';
 const CART_UPDATED_EVENT = 'cartUpdated';
+export const MAX_CART_LINES = 100;
 
 export interface CartItemBook {
   tenSach: string;
@@ -47,7 +48,8 @@ export interface CartItem {
 export type AddOrUpdateOutcome =
   | { status: 'added'; cart: CartItem[]; item: CartItem }
   | { status: 'merged'; cart: CartItem[]; item: CartItem }
-  | { status: 'rejected-stock'; cart: CartItem[]; currentQuantity: number; soLuongTonKho: number };
+  | { status: 'rejected-stock'; cart: CartItem[]; currentQuantity: number; soLuongTonKho: number }
+  | { status: 'rejected-limit'; cart: CartItem[]; maxLines: number };
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -164,7 +166,10 @@ function parseStoredCart(): CartItem[] {
     .map(normalizeEntry)
     .filter((item): item is CartItem => item !== null);
 
-  return mergeDuplicates(normalized);
+  // Carts created before the server-merge contract could contain more than
+  // 100 unique lines. Keep the first-seen order deterministic and enforce the
+  // current invariant while reading so a legacy cart cannot block login.
+  return mergeDuplicates(normalized).slice(0, MAX_CART_LINES);
 }
 
 function persistAndNotify(items: CartItem[]): void {
@@ -240,6 +245,9 @@ export function addOrUpdateItem(input: {
 
   if (typeof stock === 'number' && requestedQuantity > stock) {
     return { status: 'rejected-stock', cart: current, currentQuantity: 0, soLuongTonKho: stock };
+  }
+  if (current.length >= MAX_CART_LINES) {
+    return { status: 'rejected-limit', cart: current, maxLines: MAX_CART_LINES };
   }
 
   const newItem: CartItem = {

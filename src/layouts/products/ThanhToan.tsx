@@ -12,12 +12,18 @@ import CheckoutSidebar from './CheckoutSidebar';
 import {
     CartItem,
     readCart,
-    updateQuantity,
-    removeItem,
     clearCart,
     getCartFingerprint,
     getCartFingerprintForItems,
 } from '../../api/CartStorage';
+import {
+    loadCart,
+    readCartForCurrentSession,
+    refreshCartAfterCheckout,
+    removeCartItem,
+    setCartItemQuantity,
+    waitForCartMutations,
+} from '../../api/CartSession';
 import {
     createDonHang,
     createVNPayPaymentUrl,
@@ -39,6 +45,15 @@ type SanPhamGioHang = CartItem & { hinhAnh?: string };
 
 function ThanhToan() {
     const [gioHang, setGioHang] = useState<SanPhamGioHang[]>([]);
+    const [dangTaiGioHang, setDangTaiGioHang] = useState(true);
+    const [loiTaiGioHang, setLoiTaiGioHang] = useState<string | null>(null);
+    const [maSachDangCapNhat, setMaSachDangCapNhat] = useState<number | null>(null);
+    const cartMutationInFlight = useRef(new Set<number>());
+    const cartMutationPromises = useRef(new Set<Promise<void>>());
+    const localCartMutationRevision = useRef(0);
+    const acceptedLocalCartFingerprint = useRef<string | null>(null);
+    const checkoutPreparingRef = useRef(false);
+    const renderedCartMutationRevision = localCartMutationRevision.current;
     const [donHang, setDonHang] = useState<CheckoutOrderResponse | null>(null);
     const [danhSachDiaChi, setDanhSachDiaChi] = useState<DiaChiModel[]>([]);
     const [diaChiDaChon, setDiaChiDaChon] = useState<number | null>(null);
@@ -111,15 +126,25 @@ function ThanhToan() {
             }
         };
 
-        loadGioHangWithImages(readCart());
+        setDangTaiGioHang(true);
+        setLoiTaiGioHang(null);
+        loadCart()
+            .then(loadGioHangWithImages)
+            .catch(error => {
+                const message = error instanceof Error ? error.message : 'Không thể tải giỏ hàng.';
+                setLoiTaiGioHang(message);
+                toast.error(message);
+            })
+            .finally(() => setDangTaiGioHang(false));
 
         // Cross-tab reconciliation: another tab may add/clear items while this
         // review page is open; refresh from storage when that happens.
         const onExternalChange = () => {
             invalidateCoupon();
-            void loadGioHangWithImages(readCart());
+            void loadGioHangWithImages(readCartForCurrentSession());
         };
         window.addEventListener('storage', onExternalChange);
+        window.addEventListener('cartUpdated', onExternalChange);
 
         void taiHinhThucGiaoHang();
 
@@ -139,6 +164,7 @@ function ThanhToan() {
         return () => {
             imageLoadRevision.current += 1;
             window.removeEventListener('storage', onExternalChange);
+            window.removeEventListener('cartUpdated', onExternalChange);
         };
     }, []);
 
@@ -152,23 +178,75 @@ function ThanhToan() {
         invalidateCoupon();
     };
 
+    const mutateCart = (
+        maSach: number,
+        expectedCart: CartItem[],
+        operation: () => Promise<CartItem[]>,
+    ) => {
+        if (cartMutationInFlight.current.has(maSach)) return;
+        cartMutationInFlight.current.add(maSach);
+        setMaSachDangCapNhat(maSach);
+        let tracked!: Promise<void>;
+        tracked = (async () => {
+            try {
+                const updated = await operation();
+                localCartMutationRevision.current += 1;
+                acceptedLocalCartFingerprint.current =
+                    getCartFingerprintForItems(updated) === getCartFingerprintForItems(expectedCart)
+                        ? getCartFingerprintForItems(expectedCart)
+                        : null;
+                syncLocal(updated);
+            } catch (error) {
+                toast.error(error instanceof Error ? error.message : 'Không thể cập nhật giỏ hàng.');
+            } finally {
+                cartMutationInFlight.current.delete(maSach);
+                cartMutationPromises.current.delete(tracked);
+                setMaSachDangCapNhat(current => current === maSach ? null : current);
+            }
+        })();
+        cartMutationPromises.current.add(tracked);
+    };
+
     const handleIncrease = (maSach: number) => {
         const target = gioHang.find(sp => sp.maSach === maSach);
         if (!target) return;
-        syncLocal(updateQuantity(maSach, target.soLuong + 1));
+        const expectedCart = gioHang.map(item =>
+            item.maSach === maSach ? { ...item, soLuong: target.soLuong + 1 } : item
+        );
+        void mutateCart(
+            maSach,
+            expectedCart,
+            () => setCartItemQuantity(maSach, target.soLuong + 1),
+        );
     };
 
     const handleDecrease = (maSach: number) => {
         const target = gioHang.find(sp => sp.maSach === maSach);
         if (!target || target.soLuong <= 1) return;
-        syncLocal(updateQuantity(maSach, target.soLuong - 1));
+        const expectedCart = gioHang.map(item =>
+            item.maSach === maSach ? { ...item, soLuong: target.soLuong - 1 } : item
+        );
+        void mutateCart(
+            maSach,
+            expectedCart,
+            () => setCartItemQuantity(maSach, target.soLuong - 1),
+        );
     };
 
-    const handleChangeQty = (maSach: number, qty: number) =>
-        syncLocal(updateQuantity(maSach, qty));
+    const handleChangeQty = (maSach: number, qty: number) => {
+        const expectedCart = gioHang.map(item =>
+            item.maSach === maSach ? { ...item, soLuong: qty } : item
+        );
+        void mutateCart(
+            maSach,
+            expectedCart,
+            () => setCartItemQuantity(maSach, qty),
+        );
+    };
 
     const handleRemove = (maSach: number) => {
-        syncLocal(removeItem(maSach));
+        const expectedCart = gioHang.filter(item => item.maSach !== maSach);
+        void mutateCart(maSach, expectedCart, () => removeCartItem(maSach));
     };
 
     const tongTienGoc = gioHang.reduce((t, item) => t + item.sachDto.giaBan * item.soLuong, 0);
@@ -219,11 +297,9 @@ function ThanhToan() {
     };
 
     const handleDatHang = async () => {
-        // Guards against a double-click/rapid resubmit producing two client
-        // intents: this ref is checked and set synchronously, before the
-        // first `await`, so a second invocation triggered before re-render
-        // cannot slip past it.
-        if (dangGuiRef.current) {
+        // Guard both preparation and network submission. Preparation awaits cart
+        // mutations, so state-based disabling alone cannot stop two rapid clicks.
+        if (checkoutPreparingRef.current || dangGuiRef.current) {
             return;
         }
         if (!diaChiDaChon) {
@@ -239,12 +315,38 @@ function ThanhToan() {
             return;
         }
 
-        const cartFingerprintHienTai = getCartFingerprint();
+        checkoutPreparingRef.current = true;
+        try {
+            await Promise.all(Array.from(cartMutationPromises.current));
+            await waitForCartMutations();
+        } finally {
+            checkoutPreparingRef.current = false;
+        }
+
+        const authoritativeCart = readCartForCurrentSession();
+        const cartFingerprintHienTai = getCartFingerprintForItems(authoritativeCart);
         const cartFingerprintDaXem = getCartFingerprintForItems(gioHang);
-        if (cartFingerprintDaXem !== cartFingerprintHienTai) {
-            setGioHang(readCart());
+        const localMutationFinishedAfterRender =
+            renderedCartMutationRevision !== localCartMutationRevision.current;
+        const matchesAcceptedLocalMutation =
+            localMutationFinishedAfterRender &&
+            acceptedLocalCartFingerprint.current === cartFingerprintHienTai;
+        if (
+            cartFingerprintDaXem !== cartFingerprintHienTai &&
+            !matchesAcceptedLocalMutation
+        ) {
+            setGioHang(authoritativeCart);
             setGioHangDaThayDoi(true);
+            invalidateCoupon();
             baoLoiDatHang('Giỏ hàng vừa thay đổi ở tab khác. Vui lòng kiểm tra lại trước khi đặt hàng.');
+            return;
+        }
+        if (matchesAcceptedLocalMutation) {
+            setGioHang(authoritativeCart);
+            invalidateCoupon();
+        }
+        if (authoritativeCart.length === 0) {
+            baoLoiDatHang('Giỏ hàng trống');
             return;
         }
         setLoiDatHang(null);
@@ -254,7 +356,9 @@ function ThanhToan() {
             maDiaChiGiaoHang: diaChiDaChon,
             maHinhThucGiaoHang: hinhThucGiaoHangDaChon,
             phuongThucThanhToan,
-            maCoupon: couponResult?.hopLe ? (couponResult.maCoupon || maCoupon) : undefined,
+            maCoupon: localMutationFinishedAfterRender
+                ? undefined
+                : couponResult?.hopLe ? (couponResult.maCoupon || maCoupon) : undefined,
         });
         let intent: CheckoutIntent;
         try {
@@ -278,11 +382,13 @@ function ThanhToan() {
         setDangTao(true);
         try {
             const payload: CheckoutOrderRequest = {
-                items: gioHang.map(item => ({ maSach: item.maSach, soLuong: item.soLuong })),
+                items: authoritativeCart.map(item => ({ maSach: item.maSach, soLuong: item.soLuong })),
                 maDiaChiGiaoHang: diaChiDaChon,
                 maHinhThucGiaoHang: hinhThucGiaoHangDaChon,
                 phuongThucThanhToan,
-                maCoupon: couponResult?.hopLe ? (couponResult.maCoupon || maCoupon.trim().toUpperCase()) : undefined,
+                maCoupon: localMutationFinishedAfterRender
+                    ? undefined
+                    : couponResult?.hopLe ? (couponResult.maCoupon || maCoupon.trim().toUpperCase()) : undefined,
             };
             const data = await createDonHang(payload, intent.key);
             setDonHang(data);
@@ -299,9 +405,17 @@ function ThanhToan() {
                 setCouponResult(null);
             }
             setBuocHienTai('payment');
-            // Chỉ xóa đúng snapshot vừa đặt. Nếu tab khác sửa giỏ trong lúc
-            // request chờ phản hồi, giữ dữ liệu mới thay vì làm mất sản phẩm.
-            if (getCartFingerprint() === cartFingerprintHienTai) {
+            // Backend checkout chỉ xóa các dòng sách đã đặt. Với tài khoản,
+            // refresh snapshot authoritative thay vì xóa cache mù; CartSession
+            // không ghi đè nếu có mutation mới trong lúc refresh chờ response.
+            if (localStorage.getItem('jwt')) {
+                try {
+                    setGioHang(await refreshCartAfterCheckout());
+                } catch {
+                    setGioHang(readCartForCurrentSession());
+                    toast.info('Đơn hàng đã được tạo. Giỏ hàng sẽ được đồng bộ lại ở lần tải tiếp theo.');
+                }
+            } else if (getCartFingerprint() === cartFingerprintHienTai) {
                 clearCart();
                 setGioHang([]);
             } else {
@@ -394,6 +508,33 @@ function ThanhToan() {
         </div>
     );
 
+    if (buocHienTai === 'review' && dangTaiGioHang) {
+        return (
+            <div className="container py-5 text-center" role="status" aria-live="polite">
+                <span className="spinner-border text-primary" aria-hidden="true"></span>
+                <p className="mt-3" style={{ color: 'var(--color-text-muted)' }}>
+                    Đang tải giỏ hàng…
+                </p>
+            </div>
+        );
+    }
+
+    if (buocHienTai === 'review' && loiTaiGioHang) {
+        return (
+            <div className="container py-5">
+                <div className="alert alert-danger text-center" role="alert">
+                    <i className="fas fa-exclamation-circle me-2" aria-hidden="true"></i>
+                    {loiTaiGioHang}
+                    <div className="mt-3">
+                        <Link to="/gio-hang" className="btn-modern-outline">
+                            Quay lại giỏ hàng
+                        </Link>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     if (gioHang.length === 0 && buocHienTai === 'review') {
         return (
             <div className="container py-5">
@@ -484,6 +625,7 @@ function ThanhToan() {
                         onDecrease={handleDecrease}
                         onChangeQty={handleChangeQty}
                         onRemove={handleRemove}
+                        pendingBookId={maSachDangCapNhat}
                     />
                 </div>
                 <CheckoutSidebar

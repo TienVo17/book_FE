@@ -1,11 +1,11 @@
 # System Architecture
 
-**Version**: 1.0  
-**Last Updated**: 2026-07-08
+**Version**: 1.1
+**Last Updated**: 2026-08-11
 
 ## Architecture Overview
 
-Web Bán Sách is a **stateless, client-side single-page application (SPA)** that interfaces with a Spring Boot backend API. All state is either ephemeral (component state) or persisted locally (localStorage).
+Web Bán Sách is a client-side single-page application (SPA) that interfaces with a Spring Boot backend API. UI state is ephemeral or cached in localStorage; authenticated carts, orders and other account data are persisted by the backend.
 
 ```
 ┌─────────────────────────────────────────┐
@@ -28,7 +28,7 @@ Web Bán Sách is a **stateless, client-side single-page application (SPA)** tha
 │ └─────────────────────────────────────┘ │
 │                   │                      │
 │              localStorage               │
-│  (jwt token, cart, user preferences)    │
+│ (jwt, guest cart, account cart cache)   │
 └─────────────────────────────────────────┘
              │
          HTTPS/HTTP
@@ -132,36 +132,38 @@ Display toast: "Added to wishlist"
 
 ----- Or -----
 
-Response 401 (Unauthorized)
+Response 401/403 for the token that started the request
     ↓
-authRequest catches error
+authRequest invokes shared authenticated-session cleanup
     ↓
-localStorage.removeItem('jwt')
+JWT, account cart cache and checkout intent are cleared
     ↓
-<Navigate to="/dang-nhap" />  [Not auto-implemented; add if needed]
+authSessionChanged refreshes mounted auth/cart UI
+
+A late 401/403 from an older token never clears a newer session.
 ```
 
-### Shopping Cart (Client-Side Only)
+### Shopping Cart (Guest Local, Account Server-Side)
 
 ```
-User clicks "Add to Cart"
+Add/update/remove cart item
     ↓
-SachProps.tsx
-    ↓
-const { addItem } = useGioHang()
-    ↓
-api/GioHang.ts::useGioHang() hook
-    ↓
-localStorage.setItem('gio-hang', JSON.stringify([...items, newItem]))
-    ↓
-Dispatch 'storage' event (for multi-tab sync)
-    ↓
-toast.success("Added to cart")
-    ↓
-Navbar updates cart badge (listens to storage event)
+CartSession.ts checks valid JWT owner
+    ├── Guest → CartStorage.ts → localStorage.gioHang
+    └── Authenticated → CartApi.ts → authRequest → /api/gio-hang
+                                      ↓
+                              backend summary response
+                                      ↓
+                    CartStorage.ts writes account-owned render cache
+                                      ↓
+                         cartUpdated / storage events refresh UI
 ```
 
-**Note**: Cart is never sent to backend during browsing. Only sent at checkout (order creation).
+`CartStorage.ts` is the only direct owner of `localStorage.gioHang`. Guest carts use it as the source of truth and cannot exceed 100 unique book lines. Authenticated carts use the backend as the source of truth; the local value is only a render cache associated with `cartCacheOwner`, which uses the account subject when present and otherwise a token fingerprint.
+
+Immediately before storing a newly issued JWT, `DangNhap.tsx` captures the latest guest snapshot and passes it to `CartSession.mergeGuestCartAfterLogin()`. The merge request carries a stable `Idempotency-Key` and exact payload. If the response is lost, `cartMergeIntent` retains the same owner, key, and items so the next login/cart load safely replays the request instead of adding quantity twice.
+
+Authenticated mutations run through a FIFO queue. Cache writes and pending-intent cleanup require the account owner and exact JWT captured when the request started, so a late response cannot overwrite a rotated or replacement session. Checkout waits for its component mutations and the shared queue, then compares its reviewed cart with the current snapshot. It either asks for review after an external change or creates the order from that authoritative snapshot.
 
 ### Checkout Flow
 
@@ -170,13 +172,13 @@ User on /thanh-toan page
     ↓
 ThanhToan.tsx
     ↓
-Step 1: Review cart (from localStorage), select address, apply coupon
+Step 1: Load current cart (backend for authenticated users), select address, apply coupon
     ↓
 Step 2: Confirm order
     ↓
 CouponApi.validateCoupon(couponCode)  // Validate discount
     ↓
-AdminApi.createOrder({ items, addressId, coupon })  // Create backend order
+DonHangApi.createDonHang({ items, maDiaChiGiaoHang, maHinhThucGiaoHang, phuongThucThanhToan, maCoupon }, idempotencyKey)  // Create backend order
     ↓
 Backend returns orderId + VNPay payment URL
     ↓
@@ -188,11 +190,11 @@ VNPay redirects to /xu-ly-kq-thanh-toan?...
     ↓
 KetQuaThanhToan.tsx
     ↓
-fetch(apiUrl('/api/don-hang/vnpay-payment') + window.location.search)
+DonHangApi.getVNPayCallbackResult(window.location.search)
     ↓
 Render payment result (success/failure)
     ↓
-Clear cart: localStorage.removeItem('gio-hang')
+Committed order → refresh backend cart; keep newer concurrent cart changes
 ```
 
 ### Admin Book Management
@@ -226,8 +228,10 @@ navigate(-1)  (back to list)
 | Key | Type | Lifecycle | Scope |
 |-----|------|-----------|-------|
 | `jwt` | string (JWT) | Login → Logout / 401 | Global auth token |
-| `gio-hang` | JSON array | Session persist | Shopping cart |
-| `user-preferences` | JSON object | Optional | Wishlist? (not currently stored client-side) |
+| `gioHang` | JSON array | Guest persistence / authenticated render cache | Canonical cart snapshot |
+| `cartCacheOwner` | string | Authenticated session | Binds cached cart to an account subject or fallback token fingerprint |
+| `cartMergeIntent` | JSON object | Login merge until acknowledged | Owner + stable merge key + exact payload for safe replay |
+| `nextPay` | boolean-like string | Buy-now login handoff | Continue to checkout after successful merge |
 
 ### Component State
 
@@ -380,18 +384,9 @@ try {
 
 ## Known Limitations
 
-### 1. Auth Guard Inconsistency
+### 1. Auth Guard Consolidation (Resolved)
 
-**Issue**: Three separate guard implementations exist.
-
-- `RequireAuth.tsx`: Presence-only check (no expiry validation)
-- `Adminroute.tsx` (in route/): Expiry + role check — **actively used**
-- `RequireAdmin.tsx`: HOC variant (dead code)
-- `ProtectedRoute.tsx`: Guest-only guard (unused)
-
-**Impact**: Maintenance burden; inconsistent behavior across routes.
-
-**Mitigation**: Use only `Adminroute` for protected routes. Consolidate in future refactor.
+`RouteGuard.tsx` is the active guard for user and admin routes. It rejects missing, malformed and expired tokens; admin routes additionally require `isAdmin === true`. Invalid-session cleanup also clears account-owned cart cache and checkout intent. Legacy unused guard files remain dead-code cleanup candidates but are not wired into routing.
 
 ### 2. Build-Time API Base URL
 
@@ -442,16 +437,15 @@ interface GioHangItem {
 
 **Mitigation**: Consolidate into one model in `src/models/GioHangModel.ts`.
 
-### 6. Client-Side Cart Only
+### 6. Guest Cart Is Device-Local
 
-**Issue**: Cart stored only in localStorage; not synced to backend.
+**Constraint**: Anonymous users have no server identity, so their cart remains in localStorage until login.
 
-**Impact**: 
-- Cart lost if browser cache cleared
-- Cannot restore abandoned carts
-- No server-side analytics on cart contents
+**Impact**:
+- A guest cart is not shared across browsers/devices.
+- Clearing browser storage removes an unmerged guest cart.
 
-**Mitigation**: (Roadmap) Sync cart to backend via `/cart/sync` endpoint.
+**Mitigation**: Login merges the current guest snapshot into the account cart with retry-safe idempotency. Authenticated carts are persisted by the backend.
 
 ### 7. Dead Code
 

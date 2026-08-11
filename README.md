@@ -63,10 +63,12 @@ Key directories:
 ## Key Features
 
 - **Product Browsing**: Search, category filters, detailed product views with ratings
-- **Shopping Cart**: client-side localStorage persistence (no server cart), with
-  cross-tab reconciliation and a stale-cart check before checkout
-- **Checkout**: authenticated two-step flow (COD or VNPay sandbox) with an
-  idempotency key so a retry cannot duplicate an order
+- **Shopping Cart**: guest carts persist in localStorage with at most 100 unique
+  book lines; authenticated carts use the backend as source of truth. Login
+  merges a guest snapshot with a stable, replay-safe key and payload.
+- **Checkout**: authenticated two-step flow (COD or VNPay sandbox). It waits for
+  queued cart writes, verifies the current cart snapshot, and uses an idempotency
+  key so a retry cannot duplicate an order
 - **Authentication**: JWT tokens (localStorage), login/register/password reset
 - **Admin Panel**: Book CRUD, user management, order tracking, review moderation
 - **Responsive Design**: Bootstrap Icons, mobile-friendly layouts
@@ -75,13 +77,22 @@ Key directories:
 ## Authentication & State
 
 - **JWT Storage**: token in `localStorage.jwt` (no refresh-token flow)
-- **Client-Side State**: cart and auth state in localStorage only (no Redux/Context)
+- **State Model**: component state plus localStorage caches (no Redux/Context);
+  authenticated cart mutations are persisted through the backend API
 - **Auth Guards**: one `RouteGuard`. `require="user"` needs a valid non-expired JWT;
   `require="admin"` also needs `isAdmin === true`. Guards are UX; the backend
   authorizes every request independently.
-- **Cart**: local-only, owned by `src/api/CartStorage.ts` (the single writer for
-  `localStorage.gioHang`). The frontend does not call the server cart API.
-- **Checkout**: sends an `Idempotency-Key`, so a lost response can be retried
+- **Cart**: `CartStorage.ts` is the only direct writer of the local
+  `localStorage.gioHang` snapshot. The guest cart is limited to 100 unique book
+  lines. For authenticated users, `CartSession.ts` serializes mutations through
+  `CartApi.ts`; backend responses are authoritative and the local snapshot is an
+  account- and exact-token-bound render cache.
+- **Login handoff**: immediately before storing the new JWT, login captures the
+  guest snapshot. A stable `Idempotency-Key` and exact payload are retained for
+  safe replay if the merge response is lost.
+- **Checkout**: waits for component and shared cart mutations, compares the
+  reviewed cart with the current snapshot, then submits that authoritative
+  snapshot with an `Idempotency-Key`. A lost order response can be retried
   without creating a second order.
 
 ## Known Limitations

@@ -5,7 +5,8 @@ import { getAllTheLoai } from "../../api/TheLoaiApi";
 import { getGoiYTimKiem, SachGoiYModel } from "../../api/SachApi";
 import { getJwtPayload } from "../../api/Request";
 import { TheLoaiModel } from "../../models/TheLoaiModel";
-import { readCart } from "../../api/CartStorage";
+import { loadCart, readCartForCurrentSession, signOutCartSession } from "../../api/CartSession";
+import { AUTH_SESSION_CHANGED_EVENT } from "../../api/SessionCleanup";
 import dinhDangSo from "../utils/DinhDangSo";
 import AnhSach from "../utils/AnhSach";
 
@@ -61,7 +62,7 @@ function Navbar() {
 
   useEffect(() => {
     const loadSoLuongGioHang = () => {
-      const tongSoLuong = readCart().reduce((total, item) => total + item.soLuong, 0);
+      const tongSoLuong = readCartForCurrentSession().reduce((total, item) => total + item.soLuong, 0);
       setSoLuongGioHang(tongSoLuong);
     };
 
@@ -72,6 +73,38 @@ function Navbar() {
     return () => {
       window.removeEventListener("storage", loadSoLuongGioHang);
       window.removeEventListener("cartUpdated", loadSoLuongGioHang);
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    const syncSession = () => {
+      const nextJwt = localStorage.getItem("jwt") || "";
+      setJwt(nextJwt);
+      if (!nextJwt) {
+        setSoLuongGioHang(0);
+        return;
+      }
+      loadCart()
+        .then(items => {
+          if (active && localStorage.getItem("jwt") === nextJwt) {
+            setSoLuongGioHang(items.reduce((total, item) => total + item.soLuong, 0));
+          }
+        })
+        .catch(() => {
+          // Cart pages expose actionable load errors. Navbar keeps the last safe
+          // cache count instead of showing another global toast.
+        });
+    };
+    const syncStoredSession = (event: StorageEvent) => {
+      if (event.key === "jwt") syncSession();
+    };
+    window.addEventListener(AUTH_SESSION_CHANGED_EVENT, syncSession);
+    window.addEventListener("storage", syncStoredSession);
+    return () => {
+      active = false;
+      window.removeEventListener(AUTH_SESSION_CHANGED_EVENT, syncSession);
+      window.removeEventListener("storage", syncStoredSession);
     };
   }, []);
 
@@ -90,7 +123,7 @@ function Navbar() {
   }, [jwt]);
 
   const handleLogout = () => {
-    localStorage.removeItem("jwt");
+    signOutCartSession();
     setJwt("");
     setIsDropdownOpen(false);
     navigate("/");

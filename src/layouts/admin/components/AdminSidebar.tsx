@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { getJwtPayload } from '../../../api/Request';
+import { signOutCartSession } from '../../../api/CartSession';
 
 const AdminSidebar = () => {
   const [openSubMenu, setOpenSubMenu] = useState<string | null>(null);
@@ -33,7 +34,7 @@ const AdminSidebar = () => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('jwt');
+    signOutCartSession();
     setJwt('');
     navigate('/');
   };

@@ -1,7 +1,7 @@
 # Codebase Summary
 
 **Generated**: 2026-07-08
-**Updated**: 2026-08-07
+**Updated**: 2026-08-11
 **Framework**: React 18.3 + TypeScript 4.9  
 **Build**: Create React App (react-scripts 5.0.1)
 
@@ -37,11 +37,15 @@ Fetch-based API modules (no axios). Backend request sites use `src/api/ApiUrl.ts
 | `NguoiDungApi.ts` | `getUserList` | Admin user listing |
 | `UserApi.ts` | `getProfile`, `updateProfile`, `changePassword`, `requestPasswordReset`, `resetPassword` | User profile & auth |
 | `YeuThichApi.ts` | `getWishlist`, `addToWishlist`, `removeFromWishlist` | Wishlist management |
-| `GioHang.ts` | `useGioHang()` hook | Client-side localStorage cart (not a server API) |
+| `CartStorage.ts` | Cart read/write helpers, fingerprints and `CartItem` | Sole direct owner of `localStorage.gioHang`; guest source of truth with a 100-unique-line limit; authenticated render cache |
+| `CartSession.ts` | `loadCart`, cart mutations, login merge, checkout refresh | Selects guest/server behavior; owns account/exact-token cache isolation, stable merge replay and FIFO mutation ordering |
+| `CartApi.ts` | Server cart CRUD and merge | Validates typed `/api/gio-hang` summaries and calls the boundary through `authRequest` and `apiUrl` |
+| `GioHang.ts` | `useGioHang()` hook | Compatibility hook built on `CartSession` |
 
 **Notes**:
-- Login, Register, Account Activation implemented as raw `fetch()` calls directly in page components (not in api/ modules)
-- No shared HTTP client wrapper; each module imports `Request.ts` helpers
+- Application API calls use domain modules and the shared `Request.ts` fetch boundary.
+- `CartSession.ts` binds authenticated cart cache effects to both account owner and the exact JWT that started the request. It serializes authenticated writes and keeps a stable pending merge key/payload for safe replay.
+- Checkout waits for page-level and shared cart mutations, then builds its order request from the current fingerprint-validated cart snapshot.
 - No axios dependency; Fetch API only
 
 ### src/models/ — Domain Types
@@ -83,10 +87,10 @@ Organized by feature area. Each layout composes child components.
 | `HinhAnhSanPham.tsx` (components/) | Multi-image carousel (react-responsive-carousel) |
 | `SachProps.tsx` (components/) | Product card component (reusable in grids) |
 | `DanhGiaSanPham.tsx` (components/) | Reviews section + submit form (raw fetch to `/danh-gia/them`) |
-| `GioHang.tsx` | Shopping cart page; review items, adjust quantities, coupon input |
-| `CartItemsTable.tsx` | Cart items table (presentational sub-component) |
+| `GioHang.tsx` | Shopping cart page; authoritative loading/error states, quantity drafts and per-line mutation locks |
+| `CartItemsTable.tsx` | Checkout cart rows with accessible controls and quantity commit on blur/Enter |
 | `CheckoutSidebar.tsx` | Cart summary sidebar (price, tax, total) |
-| `ThanhToan.tsx` | 2-step checkout page; order review → VNPay link generation |
+| `ThanhToan.tsx` | 2-step checkout page; waits for cart mutations, verifies the current cart snapshot, creates an idempotent order, then generates a VNPay link |
 | `DonHangUser.tsx` | User order history page (uses `api/DonHangApi.ts`) |
 | `KetQuaThanhToan.tsx` | VNPay payment result handler (uses `api/DonHangApi.ts`) |
 
@@ -172,7 +176,7 @@ Organized by feature area. Each layout composes child components.
 | `ProtectedRoute.tsx` | Route guard for guest-only routes (currently unused/unwired) |
 | `PhanTrang.tsx` | Pagination component |
 | `DinhDangSo.tsx` | Vietnamese number formatter (for prices) |
-| `GioHangUtils.tsx` | localStorage cart helpers; dispatches `storage` event for sync |
+| `GioHangUtils.tsx` | Add-to-cart utility | Delegates to `CartSession.addCartItem`; it does not access `localStorage.gioHang` directly |
 
 ### src/hooks/ — Custom Hooks
 
@@ -273,7 +277,7 @@ Defines all routes using react-router-dom v6.
 ### State Management
 - **No Redux/Context**: All state client-side via component `useState` or localStorage
 - **localStorage.jwt**: Global auth token; cleared on logout or 401
-- **GioHang (cart)**: Client-side localStorage; `GioHangUtils.tsx` dispatches `storage` event for multi-tab sync
+- **GioHang (cart)**: `CartStorage.ts` exclusively owns `localStorage.gioHang`. For guests it is the local source of truth (maximum 100 unique book lines); for authenticated sessions it is only a cache of the backend cart, bound to the account and exact JWT token. `CartSession.ts` serializes authenticated writes and safely replays a retained login-merge intent after a lost response.
 
 ### Component Organization
 - **Feature-area folders**: Products, User, Admin, Categories; colocates related components

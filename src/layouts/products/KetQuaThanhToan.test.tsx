@@ -3,14 +3,19 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import KetQuaThanhToan from './KetQuaThanhToan';
 import { getVNPayCallbackResult } from '../../api/DonHangApi';
+import { refreshCartAfterCheckout } from '../../api/CartSession';
 
 jest.mock('../../api/DonHangApi', () => ({ getVNPayCallbackResult: jest.fn() }));
+jest.mock('../../api/CartSession', () => ({ refreshCartAfterCheckout: jest.fn() }));
 
 const mockedGetVNPayCallbackResult = getVNPayCallbackResult as jest.MockedFunction<typeof getVNPayCallbackResult>;
+const mockedRefreshCart = refreshCartAfterCheckout as jest.MockedFunction<typeof refreshCartAfterCheckout>;
 
 describe('KetQuaThanhToan behavior', () => {
   beforeEach(() => {
+    localStorage.clear();
     jest.clearAllMocks();
+    mockedRefreshCart.mockResolvedValue([]);
     window.history.pushState({}, '', '/xu-ly-kq-thanh-toan?vnp_ResponseCode=00&vnp_OrderInfo=9');
   });
 
@@ -20,6 +25,15 @@ describe('KetQuaThanhToan behavior', () => {
 
     expect(await screen.findByText('Thanh toán thành công')).toBeInTheDocument();
     expect(mockedGetVNPayCallbackResult).toHaveBeenCalledWith('?vnp_ResponseCode=00&vnp_OrderInfo=9');
+  });
+
+  it('refreshes the authenticated server cart after a successful callback', async () => {
+    localStorage.setItem('jwt', 'authenticated');
+    mockedGetVNPayCallbackResult.mockResolvedValue('ordersuccess');
+    render(<MemoryRouter><KetQuaThanhToan /></MemoryRouter>);
+
+    expect(await screen.findByText('Thanh toán thành công')).toBeInTheDocument();
+    expect(mockedRefreshCart).toHaveBeenCalledTimes(1);
   });
 
   it.each([

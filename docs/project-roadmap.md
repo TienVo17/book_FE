@@ -1,9 +1,9 @@
 # Project Roadmap
 
 **Version**: 1.0  
-**Last Updated**: 2026-07-24
+**Last Updated**: 2026-08-11
 
-**Current Phase**: MVP (Active)
+**Current Phase**: V1.2 (Active; server-side cart synchronization delivered)
 
 ## Phase Overview
 
@@ -11,7 +11,7 @@
 |-------|----------|--------|-------|
 | MVP | Current | Active | Core features: browse, search, cart, checkout, auth, admin |
 | V1.1 | Next | Planned | Code quality, refactoring, env config |
-| V1.2 | Q3 2026 | Planned | Features: wishlist sync, cart sync, emails |
+| V1.2 | Q3 2026 | Active | Features: wishlist sync, emails, filtering, pagination; server-side cart sync delivered |
 | V2.0 | Q4 2026 | Planned | Advanced features: recommendations, analytics |
 
 ## Current Phase: MVP (Active)
@@ -23,8 +23,8 @@
 - [x] Product browsing & search
 - [x] Product detail pages with reviews
 - [x] Category filtering
-- [x] Shopping cart (client-side localStorage)
-- [x] Checkout flow (VNPay payment)
+- [x] Guest local cart (100 unique lines) + authenticated backend cart with stable replay-safe login merge
+- [x] Checkout flow (VNPay payment) using the current authoritative cart snapshot
 - [x] User authentication (register, login, password reset)
 - [x] User profile & address management
 - [x] Wishlist (basic add/remove)
@@ -37,7 +37,7 @@
 2. **Mixed API patterns** — Some pages bypass api/ modules and call fetch directly
 3. **Cart shape divergence** — Two different GioHangItem interfaces
 4. **Dead code** — Test.tsx, RequireAdmin.tsx, ProtectedRoute.tsx
-5. **No cart sync** — Cart only client-side; lost on browser clear
+5. **Guest storage boundary** — Guest cart remains browser-local; authenticated cart restores from backend
 
 ## Phase V1.1: Code Quality & Refactoring
 
@@ -186,22 +186,23 @@
 **Priority**: MEDIUM  
 **Goals**: Enhanced user experience and backend integration.
 
-### V1.2.1: Server-Side Cart Sync
+### V1.2.1: Server-Side Cart Sync — DONE
 
-**Objective**: Persist and sync cart to backend.
+**Objective**: Persist authenticated carts while preserving a fast guest cart.
 
-**Description**: Cart currently lives in localStorage only. Add backend /cart/sync endpoint to save cart state, enabling cart recovery and analytics.
-
-**Tasks**:
-- [ ] Create `CartApi.ts` with `syncCart`, `getCart` endpoints
-- [ ] Call `CartApi.syncCart` on checkout, before logout
-- [ ] Call `CartApi.getCart` on app load to restore cart
-- [ ] Handle merge logic if cart exists both locally and on server
+**Delivered 2026-08-11**:
+- [x] `CartApi.ts` validates server cart CRUD and guest-merge responses through shared request helpers
+- [x] Guests remain local; authenticated users load and mutate the backend cart, which is the source of truth
+- [x] Login captures the latest guest snapshot before storing the JWT, then merges with stable key/payload replay after a lost response
+- [x] Cache is bound to account and exact JWT session; stale responses cannot overwrite a newer session
+- [x] Authenticated mutations are FIFO; checkout awaits page and shared mutations, detects stale review state, and builds the order from the current authoritative snapshot
+- [x] Guest cart is capped at the backend contract of 100 unique lines
 
 **Acceptance Criteria**:
-- Cart persists after logout/login
-- Cart restored from backend if localStorage is cleared
-- Works in multi-tab scenario
+- Authenticated cart persists after logout/login and restores after local cache deletion
+- Lost merge responses replay without duplicating quantities
+- Account/session transitions cannot expose stale cart cache or intent
+- Checkout submits the latest authoritative cart snapshot
 
 ### V1.2.2: Server-Side Wishlist Sync
 
@@ -336,7 +337,7 @@
 | Page Load Time (Lighthouse) | — | > 80 | > 85 |
 | Bundle Size (gzipped) | ~500KB | < 500KB | < 450KB |
 | TypeScript Strict Coverage | — | 100% | 100% |
-| Test Coverage | 190 test trên 26 suite (chưa đo % dòng) | Giữ xanh các luồng tới hạn | > 60% |
+| Test Coverage | 368 tests trên 47 suites (chưa đo % dòng) | Giữ xanh các luồng tới hạn | > 60% |
 | Checkout Conversion | TBD | > 70% | > 75% |
 | Mobile Accessibility | — | > 85 | > 90 |
 
@@ -355,8 +356,8 @@
 - Frontend refactor
 
 ### V1.2.1: Cart Sync
-- **Backend Required**: POST /api/cart/sync, GET /api/cart/me
-- **Status**: Not yet implemented
+- **Backend Required**: `/api/gio-hang` CRUD plus `POST /api/gio-hang/merge`
+- **Status**: Implemented and integrated 2026-08-11
 
 ### V1.2.2: Wishlist Sync
 - **Backend Required**: GET /api/wishlist/me returns user wishlist
@@ -389,7 +390,7 @@
 - **End Date**: 2026-09-02 (estimated)
 - **Duration**: 4 weeks
 - **Focus**: Features, UX
-- **Blockers**: Backend cart/email/filter APIs must be ready
+- **Blockers**: Cart APIs are integrated; email and filtering APIs must be ready
 
 ### V2.0 (Long-Term)
 - **Start Date**: 2026-10-01 (estimated)

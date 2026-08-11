@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { getVNPayCallbackResult } from '../../api/DonHangApi';
+import { refreshCartAfterCheckout } from '../../api/CartSession';
 
 function KetQuaThanhToan() {
     const [trangThai, setTrangThai] = useState<boolean>(false);
@@ -10,8 +11,17 @@ function KetQuaThanhToan() {
         const queryString = window.location.search;
 
         getVNPayCallbackResult(queryString)
-            .then(data => {
-                setTrangThai(data === 'ordersuccess');
+            .then(async data => {
+                const success = data === 'ordersuccess';
+                setTrangThai(success);
+                if (success && localStorage.getItem('jwt')) {
+                    try {
+                        await refreshCartAfterCheckout();
+                    } catch {
+                        // Payment status is already committed. CartSession will
+                        // retry hydration on the next cart access.
+                    }
+                }
             })
             .catch(() => {
                 setTrangThai(false);
@@ -57,8 +67,8 @@ function KetQuaThanhToan() {
                             ) : (
                                 <>
                                     <Link to="/order" className="btn-modern-primary" style={{ textDecoration: 'none' }}>
-                                        <i className="fas fa-redo"></i>
-                                        Thử lại
+                                        <i className="fas fa-receipt"></i>
+                                        Kiểm tra đơn hàng
                                     </Link>
                                     <Link to="/" className="btn-modern-outline" style={{ textDecoration: 'none' }}>
                                         <i className="fas fa-home"></i>
