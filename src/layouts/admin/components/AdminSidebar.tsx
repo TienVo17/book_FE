@@ -1,156 +1,265 @@
-import React, { useState, useEffect } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import React, { useEffect, useRef, useState } from 'react';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import {
+  Bag,
+  Book,
+  BoxArrowRight,
+  ChatDots,
+  ChevronDown,
+  ChevronRight,
+  List,
+  People,
+  Person,
+  PieChart,
+  Tags,
+  TicketPerforated,
+  XLg,
+} from 'react-bootstrap-icons';
 import { getJwtPayload } from '../../../api/Request';
 import { signOutCartSession } from '../../../api/CartSession';
 
-const AdminSidebar = () => {
-  const [openSubMenu, setOpenSubMenu] = useState<string | null>(null);
+interface AdminSidebarProps {
+  isOpen: boolean;
+  menuButtonRef: React.RefObject<HTMLButtonElement>;
+  onRequestOpen: () => void;
+  onRequestClose: () => void;
+}
+
+type SubMenuName = 'sach' | 'donhang' | 'nguoidung' | 'binhluan';
+
+const routeSubMenus: Array<{ prefix: string; menu: SubMenuName }> = [
+  { prefix: '/quan-ly/danh-sach-sach', menu: 'sach' },
+  { prefix: '/quan-ly/them-sach', menu: 'sach' },
+  { prefix: '/quan-ly/cap-nhat-sach', menu: 'sach' },
+  { prefix: '/quan-ly/danh-sach-don-hang', menu: 'donhang' },
+  { prefix: '/quan-ly/danh-sach-nguoi-dung', menu: 'nguoidung' },
+  { prefix: '/quan-ly/danh-sach-binh-luan', menu: 'binhluan' },
+];
+
+const getSubMenuForPath = (pathname: string): SubMenuName | null => (
+  routeSubMenus.find(({ prefix }) => pathname.startsWith(prefix))?.menu ?? null
+);
+
+const AdminSidebar: React.FC<AdminSidebarProps> = ({
+  isOpen,
+  menuButtonRef,
+  onRequestOpen,
+  onRequestClose,
+}) => {
+  const [openSubMenu, setOpenSubMenu] = useState<SubMenuName | null>(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [jwt, setJwt] = useState(localStorage.getItem('jwt') || '');
-  const [userInfo, setUserInfo] = useState<any>(null);
+  const [jwt, setJwt] = useState(() => localStorage.getItem('jwt') || '');
+  const [userInfo, setUserInfo] = useState(() => getJwtPayload(localStorage.getItem('jwt')));
+  const profileRef = useRef<HTMLDivElement>(null);
+  const location = useLocation();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (jwt) {
-      const decodedJwt = getJwtPayload(jwt);
-      setUserInfo(decodedJwt);
-    }
+    setUserInfo(getJwtPayload(jwt));
   }, [jwt]);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (!target.closest('.admin-profile-btn') && !target.closest('.admin-profile-dropdown')) {
+    const activeSubMenu = getSubMenuForPath(location.pathname);
+    if (activeSubMenu) {
+      setOpenSubMenu(activeSubMenu);
+    }
+    setIsDropdownOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!profileRef.current?.contains(event.target as Node)) {
         setIsDropdownOpen(false);
       }
     };
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
   }, []);
 
-  const toggleSubMenu = (menu: string) => {
-    setOpenSubMenu(openSubMenu === menu ? null : menu);
+  const toggleSubMenu = (menu: SubMenuName) => {
+    setOpenSubMenu((current) => current === menu ? null : menu);
+  };
+
+  const handleNavigation = () => {
+    setIsDropdownOpen(false);
+    onRequestClose();
   };
 
   const handleLogout = () => {
     signOutCartSession();
     setJwt('');
+    setIsDropdownOpen(false);
+    onRequestClose();
     navigate('/');
   };
 
-  const getInitials = (name: string) => {
-    return name?.charAt(0)?.toUpperCase() || 'A';
+  const getInitials = (name?: string) => name?.trim().charAt(0).toUpperCase() || 'A';
+
+  const renderSubMenu = (
+    menu: SubMenuName,
+    label: string,
+    icon: React.ReactNode,
+    links: Array<{ to: string; label: string }>,
+  ) => {
+    const isExpanded = openSubMenu === menu;
+    const submenuId = `admin-submenu-${menu}`;
+
+    return (
+      <li>
+        <button
+          type="button"
+          className="admin-nav-item"
+          onClick={() => toggleSubMenu(menu)}
+          aria-expanded={isExpanded}
+          aria-controls={submenuId}
+        >
+          {icon}
+          <span>{label}</span>
+          <ChevronRight className={`nav-chevron ${isExpanded ? 'open' : ''}`} size={12} aria-hidden="true" />
+        </button>
+        <ul id={submenuId} className={`admin-sub-menu ${isExpanded ? 'open' : ''}`}>
+          {links.map((link) => (
+            <li key={link.to}>
+              <NavLink to={link.to} onClick={handleNavigation}>
+                <List size={13} aria-hidden="true" />
+                {link.label}
+              </NavLink>
+            </li>
+          ))}
+        </ul>
+      </li>
+    );
   };
 
   return (
     <>
-      {/* Sidebar */}
-      <aside className="admin-sidebar">
+      <div className="admin-topbar">
+        <button
+          ref={menuButtonRef}
+          type="button"
+          className="admin-menu-toggle"
+          onClick={onRequestOpen}
+          aria-label="Mở menu quản trị"
+          aria-expanded={isOpen}
+          aria-controls="admin-sidebar"
+        >
+          <List size={20} aria-hidden="true" />
+        </button>
+
+        <div className="admin-profile" ref={profileRef}>
+          <button
+            type="button"
+            className="admin-profile-btn"
+            onClick={() => setIsDropdownOpen((current) => !current)}
+            aria-haspopup="menu"
+            aria-expanded={isDropdownOpen}
+            aria-controls="admin-profile-menu"
+          >
+            <span className="admin-profile-avatar" aria-hidden="true">
+              {getInitials(userInfo?.sub)}
+            </span>
+            <span className="admin-profile-name">{userInfo?.sub || 'Admin'}</span>
+            <ChevronDown size={11} aria-hidden="true" />
+          </button>
+
+          {isDropdownOpen && (
+            <div id="admin-profile-menu" className="admin-profile-dropdown" role="menu">
+              <NavLink to="/profile" role="menuitem" onClick={handleNavigation}>
+                <Person size={16} aria-hidden="true" />
+                Tài khoản
+              </NavLink>
+              <NavLink to="/settings" role="menuitem" onClick={handleNavigation}>
+                <Tags size={16} aria-hidden="true" />
+                Cài đặt
+              </NavLink>
+              <div className="divider" />
+              <button type="button" className="logout-btn" role="menuitem" onClick={handleLogout}>
+                <BoxArrowRight size={16} aria-hidden="true" />
+                Đăng xuất
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <aside
+        id="admin-sidebar"
+        className={`admin-sidebar ${isOpen ? 'open' : ''}`}
+        aria-label="Điều hướng quản trị"
+      >
         <div className="admin-sidebar-brand">
-          <i className="fas fa-book-reader" />
+          <Book size={20} aria-hidden="true" />
           <h4>BookStore</h4>
+          <button
+            type="button"
+            className="admin-sidebar-close"
+            onClick={onRequestClose}
+            aria-label="Đóng menu quản trị"
+          >
+            <XLg size={18} aria-hidden="true" />
+          </button>
         </div>
 
         <ul className="admin-sidebar-nav">
-          {/* Overview section */}
           <li className="admin-sidebar-section">Tổng quan</li>
-
           {userInfo?.isAdmin && (
             <li>
-              <NavLink to="/quan-ly/dashboard" className="admin-nav-item">
-                <i className="fas fa-chart-pie" />
+              <NavLink to="/quan-ly/dashboard" className="admin-nav-item" onClick={handleNavigation}>
+                <PieChart size={16} aria-hidden="true" />
                 Dashboard
               </NavLink>
             </li>
           )}
 
-          {/* Management section */}
           <li className="admin-sidebar-section">Quản lý</li>
+          {renderSubMenu('sach', 'Quản lý sách', <Book size={16} aria-hidden="true" />, [
+            { to: '/quan-ly/danh-sach-sach', label: 'Danh sách sách' },
+          ])}
 
-          {/* Book management */}
-          <li>
-            <div className="admin-nav-item" onClick={() => toggleSubMenu('sach')}>
-              <i className="fas fa-book" />
-              Quản lý sách
-              <i className={`fas fa-chevron-right nav-chevron ${openSubMenu === 'sach' ? 'open' : ''}`} />
-            </div>
-            <ul className={`admin-sub-menu ${openSubMenu === 'sach' ? 'open' : ''}`}>
-              <li>
-                <NavLink to="danh-sach-sach">
-                  <i className="fas fa-list" /> Danh sách sách
-                </NavLink>
-              </li>
-            </ul>
-          </li>
-
-          {/* Order management */}
-          {userInfo?.isAdmin && (
-            <li>
-              <div className="admin-nav-item" onClick={() => toggleSubMenu('donhang')}>
-                <i className="fas fa-shopping-bag" />
-                Quản lý đơn hàng
-                <i className={`fas fa-chevron-right nav-chevron ${openSubMenu === 'donhang' ? 'open' : ''}`} />
-              </div>
-              <ul className={`admin-sub-menu ${openSubMenu === 'donhang' ? 'open' : ''}`}>
-                <li>
-                  <NavLink to="/quan-ly/danh-sach-don-hang">
-                    <i className="fas fa-list" /> Danh sách đơn hàng
-                  </NavLink>
-                </li>
-              </ul>
-            </li>
+          {userInfo?.isAdmin && renderSubMenu(
+            'donhang',
+            'Quản lý đơn hàng',
+            <Bag size={16} aria-hidden="true" />,
+            [{ to: '/quan-ly/danh-sach-don-hang', label: 'Danh sách đơn hàng' }],
           )}
 
-          {/* User management */}
-          {userInfo?.isAdmin && (
-            <li>
-              <div className="admin-nav-item" onClick={() => toggleSubMenu('nguoidung')}>
-                <i className="fas fa-users" />
-                Quản lý người dùng
-                <i className={`fas fa-chevron-right nav-chevron ${openSubMenu === 'nguoidung' ? 'open' : ''}`} />
-              </div>
-              <ul className={`admin-sub-menu ${openSubMenu === 'nguoidung' ? 'open' : ''}`}>
-                <li>
-                  <NavLink to="/quan-ly/danh-sach-nguoi-dung">
-                    <i className="fas fa-list" /> Danh sách người dùng
-                  </NavLink>
-                </li>
-              </ul>
-            </li>
+          {userInfo?.isAdmin && renderSubMenu(
+            'nguoidung',
+            'Quản lý người dùng',
+            <People size={16} aria-hidden="true" />,
+            [{ to: '/quan-ly/danh-sach-nguoi-dung', label: 'Danh sách người dùng' }],
           )}
 
-          {/* Comment management */}
-          <li>
-            <div className="admin-nav-item" onClick={() => toggleSubMenu('binhluan')}>
-              <i className="fas fa-comments" />
-              Quản lý bình luận
-              <i className={`fas fa-chevron-right nav-chevron ${openSubMenu === 'binhluan' ? 'open' : ''}`} />
-            </div>
-            <ul className={`admin-sub-menu ${openSubMenu === 'binhluan' ? 'open' : ''}`}>
-              <li>
-                <NavLink to="danh-sach-binh-luan">
-                  <i className="fas fa-list" /> Danh sách bình luận
-                </NavLink>
-              </li>
-            </ul>
-          </li>
+          {renderSubMenu(
+            'binhluan',
+            'Quản lý bình luận',
+            <ChatDots size={16} aria-hidden="true" />,
+            [{ to: '/quan-ly/danh-sach-binh-luan', label: 'Danh sách bình luận' }],
+          )}
 
-          {/* Category management */}
           {userInfo?.isAdmin && (
             <li>
-              <NavLink to="/quan-ly/quan-ly-the-loai" className="admin-nav-item">
-                <i className="fas fa-tags" />
+              <NavLink to="/quan-ly/quan-ly-the-loai" className="admin-nav-item" onClick={handleNavigation}>
+                <Tags size={16} aria-hidden="true" />
                 Quản lý thể loại
               </NavLink>
             </li>
           )}
-
-          {/* Coupon management */}
           {userInfo?.isAdmin && (
             <li>
-              <NavLink to="/quan-ly/quan-ly-coupon" className="admin-nav-item">
-                <i className="fas fa-ticket-alt" />
+              <NavLink to="/quan-ly/quan-ly-coupon" className="admin-nav-item" onClick={handleNavigation}>
+                <TicketPerforated size={16} aria-hidden="true" />
                 Quản lý coupon
               </NavLink>
             </li>
@@ -158,33 +267,6 @@ const AdminSidebar = () => {
         </ul>
       </aside>
 
-      {/* Profile button - top right */}
-      <div
-        className="admin-profile-btn"
-        onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-      >
-        <div className="admin-profile-avatar">
-          {getInitials(userInfo?.sub)}
-        </div>
-        <span>{userInfo?.sub || 'Admin'}</span>
-        <i className={`fas fa-chevron-${isDropdownOpen ? 'up' : 'down'}`} style={{ fontSize: '0.65rem' }} />
-      </div>
-
-      {/* Profile dropdown */}
-      {isDropdownOpen && (
-        <div className="admin-profile-dropdown">
-          <NavLink to="/profile">
-            <i className="fas fa-user" /> Tài khoản
-          </NavLink>
-          <NavLink to="/settings">
-            <i className="fas fa-cog" /> Cài đặt
-          </NavLink>
-          <div className="divider" />
-          <button className="logout-btn" onClick={handleLogout}>
-            <i className="fas fa-sign-out-alt" /> Đăng xuất
-          </button>
-        </div>
-      )}
     </>
   );
 };
