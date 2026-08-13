@@ -35,8 +35,8 @@ Web Bán Sách is a client-side single-page application (SPA) that interfaces wi
              │
         ┌────────────────────────────────┐
         │   Spring Boot Backend API      │
-        │ REACT_APP_API_BASE_URL origin │
-        │ (local: http://localhost:8080) │
+        │ prod: Vercel same-origin proxy │
+        │ local: http://localhost:8080   │
         ├────────────────────────────────┤
         │   Controllers (REST endpoints) │
         │   - /sach/*, /tai-khoan/*      │
@@ -98,8 +98,8 @@ api/SachApi.ts
     ↓
 Request.ts::my_request (GET)
     ↓
-Fetch to {REACT_APP_API_BASE_URL}/api/sach/{id}
-(or local fallback origin)
+Fetch to /api/sach/{id} in production
+(or http://localhost:8080/api/sach/{id} locally)
     ↓
 Backend returns SachModel (with nested images, categories, reviews)
     ↓
@@ -121,7 +121,7 @@ api/YeuThichApi.ts
     ↓
 Request.ts::authRequest (GET/POST)
     ↓
-Fetch to {REACT_APP_API_BASE_URL}/api/yeu-thich/{bookId}
+Fetch to /api/yeu-thich/{bookId} in production (localhost origin locally)
 Header: Authorization: Bearer {jwt}
     ↓
 Backend validates JWT, updates wishlist
@@ -388,11 +388,17 @@ try {
 
 `RouteGuard.tsx` is the active guard for user and admin routes. It rejects missing, malformed and expired tokens; admin routes additionally require `isAdmin === true`. Invalid-session cleanup also clears account-owned cart cache and checkout intent. Legacy unused guard files remain dead-code cleanup candidates but are not wired into routing.
 
-### 2. Build-Time API Base URL
+### 2. API Routing by Deployment
 
-Backend request sites use `src/api/ApiUrl.ts`. It accepts a credential-free HTTP(S) origin from `REACT_APP_API_BASE_URL`, normalizes it, and falls back to `http://localhost:8080` for local development.
+Backend request sites use `src/api/ApiUrl.ts`. Vercel production resolves to
+root-relative paths and forwards `/api/**`, `/tai-khoan/**`, and
+`/nguoi-dung/**` through exact rewrites. Local development and the supported
+Docker Compose build use the explicit `http://localhost:8080` override.
 
-Create React App embeds this value in the static bundle during `npm run build`. Vercel or Docker production builds must therefore provide the deployed backend origin before the build starts; changing a runtime container variable does not update an existing bundle.
+Create React App embeds `REACT_APP_*` values during `npm run build`, but the
+resolver intentionally ignores non-local production API origins. The sitemap
+backend origin is a separate post-build concern controlled by
+`SITEMAP_BACKEND_ORIGIN`.
 
 ### 3. Single Data-Access Boundary (resolved)
 
@@ -407,9 +413,15 @@ direct `fetch()` calls from reappearing outside `Request.ts`.
 
 ### 4. Browser-Reachable Docker API Origin
 
-**Constraint**: The static bundle calls the absolute origin embedded through `REACT_APP_API_BASE_URL`; nginx does not proxy those requests. The value must therefore be reachable by the user's browser, not only from the frontend container.
+The supported local Docker Compose image embeds
+`REACT_APP_API_BASE_URL=http://localhost:8080`; the browser reaches the backend
+through the host's published port. A value such as `http://backend:8080` is
+invalid because `backend` is only a Docker network hostname.
 
-For local Docker Compose, the default `http://localhost:8080` works while the backend publishes port 8080 to the host. A value such as `http://backend:8080` is invalid for browser clients because `backend` is only a Docker network hostname. Production Docker builds must embed the public HTTPS backend origin with `--build-arg REACT_APP_API_BASE_URL=...`.
+Non-local production API origins are ignored to preserve the same-origin browser
+contract. A public Docker deployment must therefore add reverse-proxy routes for
+`/api/`, `/tai-khoan/`, and `/nguoi-dung/`; the current nginx configuration is
+not a supported public same-origin deployment until all three are present.
 
 ### 5. Two Divergent Cart-Item Shapes
 

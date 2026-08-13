@@ -107,8 +107,11 @@ customer data, and no SLA. See
 
 - **Bearer token in `localStorage`**: readable by any script on the page. Adequate
   for a demo; a production go-live would need HttpOnly cookies plus CSRF defence.
-- **API deployment configuration**: `REACT_APP_API_BASE_URL` is embedded at build
-  time, so a production build must be given the deployed backend origin.
+- **API deployment configuration**: production browser requests are root-relative
+  and Vercel rewrites `/api/**`, `/tai-khoan/**`, and `/nguoi-dung/**` to the
+  backend. `REACT_APP_API_BASE_URL` is development-only and accepts a localhost
+  HTTP(S) origin. `SITEMAP_BACKEND_ORIGIN` independently selects the backend
+  origin used in the generated `robots.txt` sitemap line.
 - **SPA 404s**: unknown routes render a client `NotFound` screen, but the origin
   still answers HTTP 200 because of the history fallback.
 - **VNPay**: sandbox contract only; a live callback has not been demonstrated.
@@ -133,7 +136,11 @@ npm run eject  # Expose Create React App config (one-way)
 
 ## Backend
 
-Resolves Spring Boot API requests from the credential-free HTTP(S) origin in `REACT_APP_API_BASE_URL`; local development falls back to `http://localhost:8080`.
+Production requests stay on the frontend origin and are forwarded by the exact
+Vercel rewrites in `vercel.json`. Local development falls back to
+`http://localhost:8080`; `REACT_APP_API_BASE_URL` may override it only with a
+localhost HTTP(S) origin. Set `SITEMAP_BACKEND_ORIGIN` only when the generated
+sitemap must use a backend origin other than the production default.
 
 For backend docs, see the paired repository at `../book_BE`.
 

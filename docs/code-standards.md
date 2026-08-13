@@ -437,9 +437,14 @@ Failures surface as `ApiRequestError` carrying `status`, `code`, `traceId` and
 
 ### API Base URL
 
-All backend request sites resolve URLs through `src/api/ApiUrl.ts`. `REACT_APP_API_BASE_URL` must be a credential-free HTTP(S) origin; local development falls back to `http://localhost:8080`.
+All backend request sites resolve URLs through `src/api/ApiUrl.ts`. Vercel
+production uses root-relative paths and exact rewrites for `/api/**`,
+`/tai-khoan/**`, and `/nguoi-dung/**`. `REACT_APP_API_BASE_URL` is limited to a
+credential-free localhost HTTP(S) origin for development and local Docker
+Compose; non-local production values are ignored.
 
-Because Create React App substitutes `REACT_APP_*` values at build time, production deployments must configure the backend origin before running `npm run build`.
+Sitemap generation is independent: use `SITEMAP_BACKEND_ORIGIN` when the
+production backend differs from the canonical default.
 
 ### Cart Compatibility Types
 

@@ -53,15 +53,16 @@
 
 **Delivered**:
 - [x] Centralized URL resolution in `src/api/ApiUrl.ts`
-- [x] Migrated API modules and direct request sites to `REACT_APP_API_BASE_URL`
-- [x] Added source-level regression tests for loopback request hosts
-- [x] Ignored local `.env` inputs
-- [x] Added Docker build argument wiring
+- [x] Migrated API modules and direct request sites to the resolver
+- [x] Added exact Vercel rewrites for `/api/**`, `/tai-khoan/**`, and `/nguoi-dung/**`
+- [x] Added source/config regression tests for same-origin production routing
+- [x] Preserved the localhost override for development and local Docker Compose
+- [x] Separated sitemap backend origin from browser API routing
 
 **Acceptance Criteria**:
-- Builds successfully with a browser-reachable API origin supplied at build time
-- Local development falls back to `http://localhost:8080`
-- No loopback request host remains outside the deliberate resolver fallback
+- Vercel production browser requests remain root-relative and preserve backend prefixes
+- Local development and supported Docker Compose use `http://localhost:8080`
+- Non-local production `REACT_APP_API_BASE_URL` values cannot bypass the proxy
 
 ### V1.1.2: Consolidate Auth Guards — DONE
 

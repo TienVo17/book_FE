@@ -175,7 +175,7 @@ Web Bán Sách is a React-based e-commerce frontend for an online bookstore, pro
 3. **No State Management Library**: Avoid Redux/Context; use localStorage + component state
 4. **Native Fetch**: No axios; use native browser Fetch API
 5. **Create React App**: Locked to react-scripts 5.0.1; eject only as last resort
-6. **API Base URL**: Backend request sites resolve from build-time `REACT_APP_API_BASE_URL`, with `http://localhost:8080` as the local-development fallback.
+6. **API Routing**: Vercel production uses root-relative requests through exact same-origin rewrites; development and local Docker Compose may use the explicit `http://localhost:8080` override.
 
 ## Success Metrics
 
@@ -191,7 +191,7 @@ Web Bán Sách is a React-based e-commerce frontend for an online bookstore, pro
 ## Dependencies
 
 ### Backend
-- Spring Boot 3.x API; local development defaults to `http://localhost:8080`, while deployed builds use `REACT_APP_API_BASE_URL`
+- Spring Boot 3.x API; local development defaults to `http://localhost:8080`, while Vercel production reaches the canonical backend through same-origin rewrites
 - Requires MySQL database for user, book, order, review data
 
 ### Frontend Runtime
@@ -209,7 +209,7 @@ Web Bán Sách is a React-based e-commerce frontend for an online bookstore, pro
 |------|------------|
 | XSS via localStorage JWT | CSP headers in nginx; sanitize user inputs |
 | Guest cart lost on localStorage clear | Explain guest storage boundary; authenticated carts restore from backend |
-| Incorrect API origin in production | Validate `REACT_APP_API_BASE_URL` during the production build and verify backend CORS |
+| Incorrect production API routing | Test exact Vercel rewrites, canonical backend destination, no-store headers, and backend canonical-origin policy |
 | Mixed API patterns (fetch vs modules) | Standardize on api/ modules (code review) |
 
 ## Roadmap

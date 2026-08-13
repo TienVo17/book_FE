@@ -20,6 +20,6 @@ Disallow: /kich-hoat
 Allow: /
 
 # The sitemap is served by the backend, so its host differs per environment.
-# `npm run build` rewrites this line from REACT_APP_API_BASE_URL; the committed
+# `npm run build` rewrites this line from SITEMAP_BACKEND_ORIGIN; the committed
 # value is the local default. See docs/deployment-guide.md.
 Sitemap: http://localhost:8080/sitemap.xml

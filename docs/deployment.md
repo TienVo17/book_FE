@@ -13,7 +13,7 @@ The frontend is deployed to Vercel from the GitHub repository `TienVo17/book_FE`
 
 ## Production URL
 
-- Public application: https://book-fe-gray.vercel.app
+- Public application: https://tienvo17.vercel.app
 
 Vercel also assigns team and branch aliases. Those aliases may require Vercel authentication when Deployment Protection is enabled, so use the public application URL for external health checks.
 
@@ -39,18 +39,26 @@ No manual `vercel --prod` command is required for the normal release flow.
 
 ## Environment Variables
 
-The frontend resolves every backend request from the following Vercel build-time variable:
+Production browser requests are root-relative. `vercel.json` forwards the exact
+`/api/**`, `/tai-khoan/**`, and `/nguoi-dung/**` prefixes to the backend, so the
+browser never needs a direct Render origin.
 
-- `REACT_APP_API_BASE_URL` — credential-free backend HTTP(S) origin with no path, query, or fragment, for example `https://api.example.com`
+- `REACT_APP_API_BASE_URL` — optional localhost-only override for development or
+  the supported local Docker Compose build. Non-local production values are
+  ignored so Vercel remains same-origin.
+- `SITEMAP_BACKEND_ORIGIN` — optional credential-free HTTP(S) backend origin used
+  only to generate the `Sitemap:` line in `build/robots.txt`. Production defaults
+  to `https://book-be-jakn.onrender.com`.
 
-Whitespace and trailing slashes are removed before requests are constructed. When the variable is absent, local development falls back to `http://localhost:8080`; production builds therefore require an appropriate backend origin to make backend-dependent features available. Store values in Vercel project settings. Do not commit production values or credentials to the repository. Changing a build-time variable requires a new deployment.
+Do not commit environment-specific values or credentials. Changing a Create
+React App build-time variable requires a new deployment.
 
 ## Health Check
 
 Verify the production root returns HTTP 200 and the React HTML shell:
 
 ```bash
-curl -fsS https://book-fe-gray.vercel.app/
+curl -fsS https://tienvo17.vercel.app/
 ```
 
 Also test a React Router deep link such as `/sach/1` after routing changes.
@@ -68,4 +76,8 @@ For an urgent service restoration, promote a known-good deployment from the Verc
 
 ## Backend Connectivity
 
-A production build needs `REACT_APP_API_BASE_URL` to point to the deployed backend, and that backend must permit the Vercel origin through CORS. This document does not assert that either configuration has been applied.
+Vercel preserves the browser request prefix while proxying to
+`https://book-be-jakn.onrender.com`. The backend must allow the canonical
+`https://tienvo17.vercel.app` origin for the credentialed auth/session routes.
+Verify the three rewrite prefixes, response status/body, `Set-Cookie`, relative
+`Location`, `X-Trace-Id`, and no-store headers before enabling refresh sessions.

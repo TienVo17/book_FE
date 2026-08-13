@@ -22,7 +22,7 @@ src/
 
 ### src/api/ — HTTP & Data Access
 
-Fetch-based API modules (no axios). Backend request sites use `src/api/ApiUrl.ts`, which resolves the credential-free HTTP(S) origin from `REACT_APP_API_BASE_URL` and falls back to `http://localhost:8080` for local development.
+Fetch-based API modules (no axios). Backend request sites use `src/api/ApiUrl.ts`: Vercel production emits root-relative URLs for exact same-origin rewrites, while development and the supported local Docker Compose bundle may use the credential-free `http://localhost:8080` override.
 
 | File | Exports | Purpose |
 |------|---------|---------|
