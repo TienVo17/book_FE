@@ -1,215 +1,149 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  ArrowClockwise,
-  Bag,
-  Book,
-  BoxSeam,
-  CurrencyDollar,
-  ExclamationTriangle,
-  GraphUpArrow,
-  People,
-  PieChart,
-  Truck,
-  Trophy,
-} from 'react-bootstrap-icons';
+import React, { useState, useEffect } from 'react';
 import { getThongKe } from '../../../../api/AdminApi';
 import { ThongKeModel } from '../../../../models/ThongKeModel';
 
-const BlueprintCorners: React.FC = () => (
-  <>
-    <span className="admin-blueprint-corner admin-blueprint-corner--tl" aria-hidden="true" />
-    <span className="admin-blueprint-corner admin-blueprint-corner--tr" aria-hidden="true" />
-    <span className="admin-blueprint-corner admin-blueprint-corner--bl" aria-hidden="true" />
-    <span className="admin-blueprint-corner admin-blueprint-corner--br" aria-hidden="true" />
-  </>
-);
-
-interface StatDefinition {
-  key: keyof Pick<
-    ThongKeModel,
-    'tongDoanhThu' | 'donHangHomNay' | 'doanhThuHomNay' | 'tongDonHang' | 'donChoXuLy' | 'tongNguoiDung'
-  >;
-  label: string;
-  icon: React.ReactNode;
-  currency?: boolean;
-}
-
-const stats: StatDefinition[] = [
-  { key: 'tongDoanhThu', label: 'Tổng doanh thu', icon: <CurrencyDollar size={19} />, currency: true },
-  { key: 'donHangHomNay', label: 'Đơn hàng hôm nay', icon: <Bag size={19} /> },
-  { key: 'doanhThuHomNay', label: 'Doanh thu hôm nay', icon: <GraphUpArrow size={19} />, currency: true },
-  { key: 'tongDonHang', label: 'Tổng đơn hàng', icon: <BoxSeam size={19} /> },
-  { key: 'donChoXuLy', label: 'Đơn chưa giao', icon: <Truck size={19} /> },
-  { key: 'tongNguoiDung', label: 'Tổng người dùng', icon: <People size={19} /> },
-];
-
-const formatStatValue = (value: number, currency = false) => {
-  const formatted = value.toLocaleString('vi-VN');
-  return currency ? `${formatted}đ` : formatted;
-};
-
-const DashboardHeader: React.FC = () => (
-  <header className="admin-dashboard-header">
-    <h1 className="admin-dashboard-title">
-      <PieChart size={20} aria-hidden="true" />
-      Dashboard
-    </h1>
-    <p>Tổng quan hoạt động hệ thống</p>
-  </header>
-);
-
-const DashboardLoading: React.FC = () => (
-  <div className="admin-dashboard" role="status" aria-live="polite">
-    <DashboardHeader />
-    <p className="admin-dashboard-loading-text">Đang tải thống kê...</p>
-    <div className="admin-dashboard-stat-grid" aria-hidden="true">
-      {stats.map((stat) => (
-        <div className="admin-blueprint-card admin-dashboard-stat-card" key={stat.key}>
-          <BlueprintCorners />
-          <span className="admin-dashboard-skeleton admin-dashboard-skeleton-icon" />
-          <span className="admin-dashboard-skeleton-copy">
-            <span className="admin-dashboard-skeleton admin-dashboard-skeleton-line admin-dashboard-skeleton-line--short" />
-            <span className="admin-dashboard-skeleton admin-dashboard-skeleton-line" />
-          </span>
-        </div>
-      ))}
-    </div>
-    <div className="admin-blueprint-card admin-dashboard-skeleton admin-dashboard-skeleton-table" aria-hidden="true">
-      <BlueprintCorners />
-    </div>
-  </div>
-);
-
-const getRankClassName = (rank: number) => {
-  if (rank === 1) return 'admin-dashboard-rank--gold';
-  if (rank === 2) return 'admin-dashboard-rank--silver';
-  if (rank === 3) return 'admin-dashboard-rank--bronze';
-  return 'admin-dashboard-rank--plain';
-};
-
 const ThongKeDashboard: React.FC = () => {
-  const [thongKe, setThongKe] = useState<ThongKeModel | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const requestVersionRef = useRef(0);
+    const [thongKe, setThongKe] = useState<ThongKeModel | null>(null);
+    const [loading, setLoading] = useState(true);
 
-  const loadThongKe = useCallback(async () => {
-    const requestVersion = ++requestVersionRef.current;
-    setLoading(true);
-    setError(null);
+    useEffect(() => {
+        getThongKe()
+            .then(data => setThongKe(data))
+            .catch(err => console.error('Lỗi tải thống kê:', err))
+            .finally(() => setLoading(false));
+    }, []);
 
-    try {
-      const data = await getThongKe();
-      if (requestVersion === requestVersionRef.current) {
-        setThongKe(data);
-      }
-    } catch {
-      if (requestVersion === requestVersionRef.current) {
-        setError('Không thể tải dữ liệu thống kê. Hãy kiểm tra kết nối và thử lại.');
-      }
-    } finally {
-      if (requestVersion === requestVersionRef.current) {
-        setLoading(false);
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    loadThongKe();
-    return () => {
-      requestVersionRef.current += 1;
-    };
-  }, [loadThongKe]);
-
-  if (loading) {
-    return <DashboardLoading />;
-  }
-
-  if (error || !thongKe) {
-    return (
-      <div className="admin-dashboard">
-        <DashboardHeader />
-        <section className="admin-blueprint-card admin-dashboard-state" role="alert">
-          <BlueprintCorners />
-          <span className="admin-dashboard-state-icon" aria-hidden="true">
-            <ExclamationTriangle size={20} />
-          </span>
-          <h2>Chưa tải được thống kê</h2>
-          <p>{error || 'Dữ liệu thống kê hiện không khả dụng.'}</p>
-          <button type="button" className="admin-dashboard-retry" onClick={loadThongKe}>
-            <ArrowClockwise size={16} aria-hidden="true" />
-            Thử lại
-          </button>
-        </section>
-      </div>
-    );
-  }
-
-  return (
-    <div className="admin-dashboard">
-      <DashboardHeader />
-
-      <section className="admin-dashboard-stat-grid" aria-label="Chỉ số hoạt động">
-        {stats.map((stat) => (
-          <article className="admin-blueprint-card admin-dashboard-stat-card" key={stat.key}>
-            <BlueprintCorners />
-            <span className="admin-dashboard-stat-icon" aria-hidden="true">{stat.icon}</span>
-            <div>
-              <p className="admin-dashboard-stat-value">
-                {formatStatValue(thongKe[stat.key], stat.currency)}
-              </p>
-              <span className="admin-dashboard-stat-label">{stat.label}</span>
+    if (loading) {
+        return (
+            <div className="text-center py-5">
+                <div className="spinner-border text-primary" role="status"></div>
+                <p className="mt-2" style={{ color: 'var(--color-text-muted)' }}>Đang tải thống kê...</p>
             </div>
-          </article>
-        ))}
-      </section>
+        );
+    }
 
-      <section className="admin-blueprint-card admin-dashboard-table-card" aria-labelledby="top-books-title">
-        <BlueprintCorners />
-        <div className="admin-dashboard-table-heading">
-          <Trophy size={15} aria-hidden="true" />
-          <h2 id="top-books-title">Top sách bán chạy</h2>
+    return (
+        <div className="animate-fade-in">
+            {/* Header */}
+            <div className="admin-page-header">
+                <h4><i className="fas fa-chart-pie me-2" />Dashboard</h4>
+                <p>Tổng quan hoạt động hệ thống</p>
+            </div>
+
+            {/* Cảnh báo "bình luận chờ xét duyệt" đã bị gỡ: không có hàng đợi nào
+                như vậy. Kiểm duyệt đánh giá chỉ có HIEN_THI và DA_AN, và backend
+                không trả con số đó — ô cảnh báo cũ đọc một trường luôn luôn
+                `undefined` nên không bao giờ hiện, kể cả khi có gì cần xem. */}
+
+            {/* Stat cards */}
+            <div className="stats-grid">
+                <div className="stat-card stagger-1">
+                    <div className="stat-card-icon stat-card-icon--primary">
+                        <i className="fas fa-dollar-sign" />
+                    </div>
+                    <div className="stat-card-info">
+                        <h3>{thongKe?.tongDoanhThu?.toLocaleString('vi-VN') || 0}đ</h3>
+                        <span>Tổng doanh thu</span>
+                    </div>
+                </div>
+
+                <div className="stat-card stagger-2">
+                    <div className="stat-card-icon stat-card-icon--warning">
+                        <i className="fas fa-shopping-bag" />
+                    </div>
+                    <div className="stat-card-info">
+                        <h3>{thongKe?.donHangHomNay ?? 0}</h3>
+                        <span>Đơn hàng hôm nay</span>
+                    </div>
+                </div>
+
+                <div className="stat-card stagger-3">
+                    <div className="stat-card-icon stat-card-icon--success">
+                        <i className="fas fa-chart-line" />
+                    </div>
+                    <div className="stat-card-info">
+                        <h3>{thongKe?.doanhThuHomNay?.toLocaleString('vi-VN') || 0}đ</h3>
+                        <span>Doanh thu hôm nay</span>
+                    </div>
+                </div>
+
+                <div className="stat-card stagger-4">
+                    <div className="stat-card-icon stat-card-icon--accent">
+                        <i className="fas fa-boxes" />
+                    </div>
+                    <div className="stat-card-info">
+                        <h3>{thongKe?.tongDonHang ?? 0}</h3>
+                        <span>Tổng đơn hàng</span>
+                    </div>
+                </div>
+
+                {/* Hai ô dưới đây đọc `pendingOrders` và `totalUsers` — backend đã
+                    trả sẵn từ trước nhưng màn hình chưa từng hiển thị. */}
+                <div className="stat-card stagger-5">
+                    <div className="stat-card-icon stat-card-icon--warning">
+                        <i className="fas fa-truck" />
+                    </div>
+                    <div className="stat-card-info">
+                        <h3>{thongKe?.donChoXuLy ?? 0}</h3>
+                        <span>Đơn chưa giao</span>
+                    </div>
+                </div>
+
+                <div className="stat-card stagger-6">
+                    <div className="stat-card-icon stat-card-icon--primary">
+                        <i className="fas fa-users" />
+                    </div>
+                    <div className="stat-card-info">
+                        <h3>{thongKe?.tongNguoiDung ?? 0}</h3>
+                        <span>Tổng người dùng</span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Top selling books */}
+            <div className="order-table-wrapper">
+                <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid var(--color-border-light)' }}>
+                    <h6 className="mb-0" style={{ fontFamily: 'var(--font-heading)', fontWeight: 600 }}>
+                        <i className="fas fa-trophy me-2" style={{ color: '#FBBF24' }} />
+                        Top sách bán chạy
+                    </h6>
+                </div>
+                {!thongKe?.topSachBanChay?.length ? (
+                    <div className="empty-state" style={{ padding: '2rem' }}>
+                        <div className="empty-state-icon"><i className="fas fa-book-open" /></div>
+                        <h5>Chưa có dữ liệu</h5>
+                        <p>Dữ liệu sách bán chạy sẽ hiển thị ở đây</p>
+                    </div>
+                ) : (
+                    <table className="order-table">
+                        <thead>
+                            <tr>
+                                <th style={{ width: '60px' }}>#</th>
+                                <th>Tên sách</th>
+                                <th style={{ textAlign: 'right' }}>Số lượng bán</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {thongKe.topSachBanChay.map((sach, idx) => (
+                                <tr key={idx}>
+                                    <td>
+                                        {idx === 0 && <span className="badge" style={{ background: '#FBBF24', color: '#78350F' }}>1</span>}
+                                        {idx === 1 && <span className="badge bg-secondary">2</span>}
+                                        {idx === 2 && <span className="badge" style={{ background: '#CD7F32', color: 'white' }}>3</span>}
+                                        {idx > 2 && <span style={{ color: 'var(--color-text-muted)' }}>{idx + 1}</span>}
+                                    </td>
+                                    <td style={{ fontWeight: 500 }}>{sach.tenSach}</td>
+                                    <td style={{ textAlign: 'right', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+                                        {sach.soLuongBan}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                )}
+            </div>
         </div>
-
-        {!thongKe.topSachBanChay.length ? (
-          <div className="admin-dashboard-state">
-            <span className="admin-dashboard-state-icon" aria-hidden="true">
-              <Book size={20} />
-            </span>
-            <h2>Chưa có dữ liệu</h2>
-            <p>Dữ liệu sách bán chạy sẽ hiển thị ở đây.</p>
-          </div>
-        ) : (
-          <div className="admin-dashboard-table-scroll">
-            <table className="admin-dashboard-table">
-              <caption className="visually-hidden">Xếp hạng sách theo số lượng đã bán</caption>
-              <thead>
-                <tr>
-                  <th scope="col" style={{ width: 60 }}>#</th>
-                  <th scope="col">Tên sách</th>
-                  <th scope="col" style={{ textAlign: 'right' }}>Số lượng bán</th>
-                </tr>
-              </thead>
-              <tbody>
-                {thongKe.topSachBanChay.map((sach, index) => {
-                  const rank = index + 1;
-                  return (
-                    <tr key={`${sach.maSach}-${sach.tenSach}`}>
-                      <td>
-                        <span className={`admin-dashboard-rank ${getRankClassName(rank)}`}>{rank}</span>
-                      </td>
-                      <td style={{ fontWeight: 500 }}>{sach.tenSach}</td>
-                      <td className="admin-dashboard-number">{sach.soLuongBan.toLocaleString('vi-VN')}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
-    </div>
-  );
+    );
 };
 
 export default ThongKeDashboard;
