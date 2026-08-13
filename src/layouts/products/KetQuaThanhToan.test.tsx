@@ -46,6 +46,19 @@ describe('KetQuaThanhToan behavior', () => {
     expect(await screen.findByText('Thanh toán thất bại')).toBeInTheDocument();
   });
 
+  it('shows a distinct support result when payment arrives after cancellation', async () => {
+    localStorage.setItem('jwt', 'authenticated');
+    mockedGetVNPayCallbackResult.mockResolvedValue('ordercancelledpaid');
+    render(<MemoryRouter><KetQuaThanhToan /></MemoryRouter>);
+
+    expect(await screen.findByText('Đã nhận thanh toán, nhưng đơn hàng đã hủy')).toBeInTheDocument();
+    expect(screen.getByText(/VNPay đã xác nhận thanh toán, nhưng đơn hàng đã bị hủy trước đó/)).toBeInTheDocument();
+    expect(screen.getByText(/Vui lòng liên hệ hỗ trợ để được kiểm tra và hướng dẫn xử lý khoản tiền này/)).toBeInTheDocument();
+    expect(screen.queryByText(/đơn hàng.*sẽ được giao/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/tự động hoàn tiền/i)).not.toBeInTheDocument();
+    expect(mockedRefreshCart).not.toHaveBeenCalled();
+  });
+
   it('shows failure when the callback request itself fails', async () => {
     mockedGetVNPayCallbackResult.mockRejectedValue(new Error('network'));
     render(<MemoryRouter><KetQuaThanhToan /></MemoryRouter>);

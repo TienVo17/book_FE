@@ -1,14 +1,16 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { ApiRequestError } from '../../api/Request';
-import { getDonHangDetail } from '../../api/DonHangApi';
+import { createVNPayPaymentUrl, getDonHangDetail } from '../../api/DonHangApi';
 import ChiTietDonHangUser from './ChiTietDonHangUser';
 
 jest.mock('../../api/DonHangApi', () => ({
+  createVNPayPaymentUrl: jest.fn(),
   getDonHangDetail: jest.fn(),
 }));
 
+const mockedCreateVNPayPaymentUrl = createVNPayPaymentUrl as jest.MockedFunction<typeof createVNPayPaymentUrl>;
 const mockedGetDonHangDetail = getDonHangDetail as jest.MockedFunction<typeof getDonHangDetail>;
 
 const detail = {
@@ -107,5 +109,113 @@ describe('ChiTietDonHangUser', () => {
 
     expect(await screen.findByText('Miễn phí')).toBeInTheDocument();
     expect(screen.queryByText(/Giảm giá/)).not.toBeInTheDocument();
+  });
+
+  it('shows resume payment only for a pending VNPay order', async () => {
+    mockedGetDonHangDetail.mockResolvedValue({
+      ...detail,
+      phuongThucThanhToan: 'VNPAY',
+      tenPhuongThucThanhToan: 'Thanh toán VNPay',
+      trangThaiThanhToan: 0,
+      trangThaiGiaoHang: 0,
+    });
+    renderAt('/order/91');
+
+    expect(await screen.findByRole('button', {
+      name: 'Tiếp tục thanh toán đơn hàng #91',
+    })).toBeInTheDocument();
+  });
+
+  it.each([
+    ['COD', 0, 0],
+    ['VNPAY', 1, 0],
+    ['VNPAY', 0, 1],
+    ['VNPAY', 0, 2],
+    ['VNPAY', 0, 3],
+  ])('does not show resume payment for method=%s payment=%s delivery=%s', async (
+    phuongThucThanhToan,
+    trangThaiThanhToan,
+    trangThaiGiaoHang,
+  ) => {
+    mockedGetDonHangDetail.mockResolvedValue({
+      ...detail,
+      phuongThucThanhToan,
+      trangThaiThanhToan,
+      trangThaiGiaoHang,
+    });
+    renderAt('/order/91');
+
+    await screen.findByRole('heading', { name: 'Chi tiết đơn hàng #91' });
+    expect(screen.queryByRole('button', { name: /Tiếp tục thanh toán đơn hàng/ })).not.toBeInTheDocument();
+  });
+
+  it('requests a payment URL once and blocks repeated clicks while pending', async () => {
+    mockedGetDonHangDetail.mockResolvedValue({
+      ...detail,
+      phuongThucThanhToan: 'VNPAY',
+      trangThaiThanhToan: 0,
+      trangThaiGiaoHang: 0,
+    });
+    mockedCreateVNPayPaymentUrl.mockReturnValue(new Promise(() => undefined));
+    renderAt('/order/91');
+
+    const button = await screen.findByRole('button', {
+      name: 'Tiếp tục thanh toán đơn hàng #91',
+    });
+    fireEvent.click(button);
+    fireEvent.click(button);
+
+    expect(mockedCreateVNPayPaymentUrl).toHaveBeenCalledTimes(1);
+    expect(mockedCreateVNPayPaymentUrl).toHaveBeenCalledWith(91);
+    await waitFor(() => expect(button).toBeDisabled());
+    expect(button).toHaveAttribute('aria-busy', 'true');
+  });
+
+  it('keeps the detail visible and shows a safe API error with trace ID', async () => {
+    mockedGetDonHangDetail.mockResolvedValue({
+      ...detail,
+      phuongThucThanhToan: 'VNPAY',
+      trangThaiThanhToan: 0,
+      trangThaiGiaoHang: 0,
+    });
+    mockedCreateVNPayPaymentUrl.mockRejectedValue(new ApiRequestError(
+      'Đơn hàng không thể tiếp tục thanh toán ở trạng thái hiện tại.',
+      400,
+      'ORDER_NOT_PAYABLE',
+      'trace-payment-91',
+    ));
+    renderAt('/order/91');
+
+    const button = await screen.findByRole('button', {
+      name: 'Tiếp tục thanh toán đơn hàng #91',
+    });
+    fireEvent.click(button);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Đơn hàng không thể tiếp tục thanh toán ở trạng thái hiện tại.',
+    );
+    expect(screen.getByRole('alert')).toHaveTextContent('trace-payment-91');
+    expect(screen.getByRole('heading', { name: 'Chi tiết đơn hàng #91' })).toBeInTheDocument();
+    expect(screen.getByText('Chưa thanh toán')).toBeInTheDocument();
+  });
+
+  it('uses a fixed fallback for an unexpected payment-link failure', async () => {
+    mockedGetDonHangDetail.mockResolvedValue({
+      ...detail,
+      phuongThucThanhToan: 'VNPAY',
+      trangThaiThanhToan: 0,
+      trangThaiGiaoHang: 0,
+    });
+    mockedCreateVNPayPaymentUrl.mockRejectedValue(new TypeError('Failed to fetch'));
+    renderAt('/order/91');
+
+    const button = await screen.findByRole('button', {
+      name: 'Tiếp tục thanh toán đơn hàng #91',
+    });
+    fireEvent.click(button);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Không thể tạo liên kết thanh toán. Vui lòng thử lại sau.',
+    );
   });
 });

@@ -220,11 +220,35 @@ describe('DonHangApi', () => {
 
   describe('createVNPayPaymentUrl', () => {
     it('GETs /api/don-hang/submitOrder with maDonHang, via authRequest', async () => {
-      await createVNPayPaymentUrl(99);
+      global.fetch = jest.fn().mockResolvedValue(new Response(JSON.stringify({
+        paymentUrl: 'https://sandbox.vnpay.vn/pay/99',
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+
+      await expect(createVNPayPaymentUrl(99)).resolves.toEqual({
+        paymentUrl: 'https://sandbox.vnpay.vn/pay/99',
+      });
 
       const [url, options] = requestOf();
       expect(url).toBe(`${BASE}/api/don-hang/submitOrder?maDonHang=99`);
       expect(new Headers(options.headers).get('Authorization')).toMatch(/^Bearer /);
+    });
+
+    it.each<unknown>([
+      null,
+      {},
+      { paymentUrl: '' },
+      { paymentUrl: 'not-a-url' },
+      { paymentUrl: 'http://sandbox.vnpay.vn/pay/99' },
+      { paymentUrl: 'https://' },
+    ])('rejects an unsafe payment URL response: %p', async invalidBody => {
+      global.fetch = jest.fn().mockResolvedValue(new Response(JSON.stringify(invalidBody), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }));
+
+      await expect(createVNPayPaymentUrl(99)).rejects.toThrow(
+        'Liên kết thanh toán không hợp lệ. Vui lòng thử lại sau.',
+      );
     });
   });
 

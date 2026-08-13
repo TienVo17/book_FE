@@ -211,7 +211,28 @@ export async function cancelDonHang(maDonHang: number): Promise<ThongBaoResponse
 
 /** Creates a VNPay payment link for an already-created order. */
 export async function createVNPayPaymentUrl(maDonHang: number): Promise<VNPayUrlResponse> {
-  return authRequest<VNPayUrlResponse>(`${BASE}/api/don-hang/submitOrder?maDonHang=${maDonHang}`);
+  const raw = await authRequest<unknown>(
+    `${BASE}/api/don-hang/submitOrder?maDonHang=${maDonHang}`,
+  );
+  if (typeof raw !== 'object' || raw === null) {
+    throw new Error('Liên kết thanh toán không hợp lệ. Vui lòng thử lại sau.');
+  }
+
+  const paymentUrl = (raw as Record<string, unknown>).paymentUrl;
+  if (typeof paymentUrl !== 'string' || paymentUrl.trim().length === 0) {
+    throw new Error('Liên kết thanh toán không hợp lệ. Vui lòng thử lại sau.');
+  }
+
+  try {
+    const parsedUrl = new URL(paymentUrl);
+    if (parsedUrl.protocol !== 'https:' || parsedUrl.hostname.length === 0) {
+      throw new Error();
+    }
+  } catch {
+    throw new Error('Liên kết thanh toán không hợp lệ. Vui lòng thử lại sau.');
+  }
+
+  return { paymentUrl };
 }
 
 /** Advances an order's delivery status by one step (admin action). */

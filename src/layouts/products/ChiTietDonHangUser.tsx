@@ -1,6 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { DonHangDetail, getDonHangDetail } from '../../api/DonHangApi';
+import {
+  createVNPayPaymentUrl,
+  DonHangDetail,
+  getDonHangDetail,
+} from '../../api/DonHangApi';
 import { ApiRequestError } from '../../api/Request';
 
 const moneyFormatter = new Intl.NumberFormat('vi-VN');
@@ -56,6 +60,10 @@ function ChiTietDonHangUser() {
   const [error, setError] = useState<string | null>(
     validId ? null : 'Mã đơn hàng không hợp lệ.',
   );
+  const [paymentPending, setPaymentPending] = useState(false);
+  const paymentRequestInFlight = useRef(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [paymentTraceId, setPaymentTraceId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!validId) {
@@ -123,6 +131,33 @@ function ChiTietDonHangUser() {
     || detail.phuongThucThanhToan
     || 'Chưa có thông tin';
   const deliveryName = detail.tenHinhThucGiaoHang || 'Chưa có thông tin';
+  const canResumeVNPay = detail.phuongThucThanhToan === 'VNPAY'
+    && detail.trangThaiThanhToan === 0
+    && detail.trangThaiGiaoHang === 0;
+
+  const handleResumeVNPay = async (): Promise<void> => {
+    if (paymentRequestInFlight.current) {
+      return;
+    }
+
+    paymentRequestInFlight.current = true;
+    setPaymentPending(true);
+    setPaymentError(null);
+    setPaymentTraceId(null);
+    try {
+      const response = await createVNPayPaymentUrl(detail.maDonHang);
+      window.location.href = response.paymentUrl;
+    } catch (requestError) {
+      if (requestError instanceof ApiRequestError) {
+        setPaymentError(requestError.message || 'Không thể tạo liên kết thanh toán. Vui lòng thử lại sau.');
+        setPaymentTraceId(requestError.traceId || null);
+      } else {
+        setPaymentError('Không thể tạo liên kết thanh toán. Vui lòng thử lại sau.');
+      }
+      paymentRequestInFlight.current = false;
+      setPaymentPending(false);
+    }
+  };
 
   return (
     <main className="container py-4 animate-fade-in">
@@ -173,6 +208,32 @@ function ChiTietDonHangUser() {
                 <dt className="col-sm-5">Giao hàng</dt>
                 <dd className="col-sm-7 mb-0">{deliveryName}</dd>
               </dl>
+              {canResumeVNPay && (
+                <div className="mt-4">
+                  <button
+                    type="button"
+                    className="btn-modern-primary w-100"
+                    aria-label={`Tiếp tục thanh toán đơn hàng #${detail.maDonHang}`}
+                    aria-busy={paymentPending ? 'true' : undefined}
+                    disabled={paymentPending}
+                    onClick={handleResumeVNPay}
+                  >
+                    <i className="fas fa-credit-card" aria-hidden="true"></i>
+                    {paymentPending ? 'Đang chuyển đến VNPay…' : 'Tiếp tục thanh toán VNPay'}
+                  </button>
+                  {paymentError && (
+                    <div className="alert alert-danger mt-3 mb-0" role="alert">
+                      <i className="fas fa-exclamation-circle me-2" aria-hidden="true"></i>
+                      {paymentError}
+                      {paymentTraceId && (
+                        <div className="mt-1 small">
+                          Mã tra soát: <code>{paymentTraceId}</code>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </section>

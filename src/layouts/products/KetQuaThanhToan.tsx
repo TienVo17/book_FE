@@ -3,17 +3,23 @@ import { Link } from 'react-router-dom';
 import { getVNPayCallbackResult } from '../../api/DonHangApi';
 import { refreshCartAfterCheckout } from '../../api/CartSession';
 
+type PaymentResult = 'loading' | 'success' | 'cancelled-paid' | 'failure';
+
 function KetQuaThanhToan() {
-    const [trangThai, setTrangThai] = useState<boolean>(false);
-    const [loading, setLoading] = useState(true);
+    const [result, setResult] = useState<PaymentResult>('loading');
 
     useEffect(() => {
         const queryString = window.location.search;
 
         getVNPayCallbackResult(queryString)
             .then(async data => {
+                if (data === 'ordercancelledpaid') {
+                    setResult('cancelled-paid');
+                    return;
+                }
+
                 const success = data === 'ordersuccess';
-                setTrangThai(success);
+                setResult(success ? 'success' : 'failure');
                 if (success && localStorage.getItem('jwt')) {
                     try {
                         await refreshCartAfterCheckout();
@@ -24,14 +30,11 @@ function KetQuaThanhToan() {
                 }
             })
             .catch(() => {
-                setTrangThai(false);
-            })
-            .finally(() => {
-                setLoading(false);
+                setResult('failure');
             });
     }, []);
 
-    if (loading) {
+    if (result === 'loading') {
         return (
             <div className="container py-5 text-center">
                 <span className="spinner-border text-primary" style={{ width: '3rem', height: '3rem' }}></span>
@@ -40,42 +43,42 @@ function KetQuaThanhToan() {
         );
     }
 
+    const success = result === 'success';
+    const cancelledPaid = result === 'cancelled-paid';
+    const heading = success
+        ? 'Thanh toán thành công'
+        : cancelledPaid
+            ? 'Đã nhận thanh toán, nhưng đơn hàng đã hủy'
+            : 'Thanh toán thất bại';
+
     return (
         <div className="container py-5">
             <div className="row justify-content-center">
                 <div className="col-md-6 col-lg-5">
-                    <div className={`result-card ${trangThai ? 'result-card--success' : 'result-card--error'}`}>
-                        <i className={`fas fa-${trangThai ? 'check-circle' : 'times-circle'} result-icon`}></i>
-                        <h3>{trangThai ? 'Thanh toán thành công' : 'Thanh toán thất bại'}</h3>
-                        <p>
-                            {trangThai
-                                ? 'Đơn hàng của bạn đã được thanh toán thành công.'
-                                : 'Có lỗi xảy ra trong quá trình thanh toán. Vui lòng thử lại.'}
-                        </p>
+                    <div className={`result-card ${success ? 'result-card--success' : 'result-card--error'}`}>
+                        <i className={`fas fa-${success ? 'check-circle' : cancelledPaid ? 'exclamation-circle' : 'times-circle'} result-icon`}></i>
+                        <h3>{heading}</h3>
+                        {cancelledPaid ? (
+                            <>
+                                <p>VNPay đã xác nhận thanh toán, nhưng đơn hàng đã bị hủy trước đó.</p>
+                                <p>Vui lòng liên hệ hỗ trợ để được kiểm tra và hướng dẫn xử lý khoản tiền này.</p>
+                            </>
+                        ) : (
+                            <p>
+                                {success
+                                    ? 'Đơn hàng của bạn đã được thanh toán thành công.'
+                                    : 'Có lỗi xảy ra trong quá trình thanh toán. Vui lòng thử lại.'}
+                            </p>
+                        )}
                         <div className="result-card-actions">
-                            {trangThai ? (
-                                <>
-                                    <Link to="/order" className="btn-modern-primary" style={{ textDecoration: 'none' }}>
-                                        <i className="fas fa-receipt"></i>
-                                        Xem đơn hàng
-                                    </Link>
-                                    <Link to="/" className="btn-modern-outline" style={{ textDecoration: 'none' }}>
-                                        <i className="fas fa-home"></i>
-                                        Về trang chủ
-                                    </Link>
-                                </>
-                            ) : (
-                                <>
-                                    <Link to="/order" className="btn-modern-primary" style={{ textDecoration: 'none' }}>
-                                        <i className="fas fa-receipt"></i>
-                                        Kiểm tra đơn hàng
-                                    </Link>
-                                    <Link to="/" className="btn-modern-outline" style={{ textDecoration: 'none' }}>
-                                        <i className="fas fa-home"></i>
-                                        Về trang chủ
-                                    </Link>
-                                </>
-                            )}
+                            <Link to="/order" className="btn-modern-primary" style={{ textDecoration: 'none' }}>
+                                <i className="fas fa-receipt"></i>
+                                {success ? 'Xem đơn hàng' : 'Kiểm tra đơn hàng'}
+                            </Link>
+                            <Link to="/" className="btn-modern-outline" style={{ textDecoration: 'none' }}>
+                                <i className="fas fa-home"></i>
+                                Về trang chủ
+                            </Link>
                         </div>
                     </div>
                 </div>

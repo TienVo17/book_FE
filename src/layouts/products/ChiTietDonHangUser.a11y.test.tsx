@@ -1,13 +1,15 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { getDonHangDetail } from '../../api/DonHangApi';
+import { createVNPayPaymentUrl, getDonHangDetail } from '../../api/DonHangApi';
 import ChiTietDonHangUser from './ChiTietDonHangUser';
 
 jest.mock('../../api/DonHangApi', () => ({
+  createVNPayPaymentUrl: jest.fn(),
   getDonHangDetail: jest.fn(),
 }));
 
+const mockedCreateVNPayPaymentUrl = createVNPayPaymentUrl as jest.MockedFunction<typeof createVNPayPaymentUrl>;
 const mockedGetDonHangDetail = getDonHangDetail as jest.MockedFunction<typeof getDonHangDetail>;
 
 const detail = {
@@ -74,5 +76,23 @@ describe('ChiTietDonHangUser accessibility', () => {
     expect(screen.getByRole('link', { name: /Quay lại đơn hàng của tôi/ })).toHaveAttribute('href', '/order');
     expect(screen.getByLabelText('Trạng thái đơn hàng')).toHaveTextContent('Đã thanh toán');
     expect(screen.getByLabelText('Trạng thái đơn hàng')).toHaveTextContent('Đã nhận hàng');
+  });
+
+  it('gives the resume CTA an order-specific name and announces pending state', async () => {
+    mockedGetDonHangDetail.mockResolvedValue({
+      ...detail,
+      trangThaiThanhToan: 0,
+      trangThaiGiaoHang: 0,
+    });
+    mockedCreateVNPayPaymentUrl.mockReturnValue(new Promise(() => undefined));
+    renderPage();
+
+    const button = await screen.findByRole('button', {
+      name: 'Tiếp tục thanh toán đơn hàng #91',
+    });
+    fireEvent.click(button);
+
+    await waitFor(() => expect(button).toBeDisabled());
+    expect(button).toHaveAttribute('aria-busy', 'true');
   });
 });
