@@ -1,6 +1,7 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { loginAuth, logoutAuth } from '../../api/AuthSession';
+import { getSocialProviderStatus, googleLoginUrl } from '../../api/SocialAuthApi';
 import {
   claimGuestCartForAccount,
   mergeGuestCartAfterLogin,
@@ -15,7 +16,24 @@ const DangNhap = () => {
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [googleAvailable, setGoogleAvailable] = useState(false);
   const loginInFlight = useRef(false);
+
+  // Nút provider chỉ hiện khi backend xác nhận đang bật. Mọi thất bại đều giữ nút ẩn:
+  // một nút dẫn tới endpoint trả 404 trông như web hỏng chứ không như tính năng đang tắt.
+  useEffect(() => {
+    let conHieuLuc = true;
+    getSocialProviderStatus()
+      .then((status) => {
+        if (conHieuLuc) setGoogleAvailable(status.google);
+      })
+      .catch(() => {
+        if (conHieuLuc) setGoogleAvailable(false);
+      });
+    return () => {
+      conHieuLuc = false;
+    };
+  }, []);
 
   const handleDangNhap = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -171,6 +189,41 @@ const DangNhap = () => {
               <i className="fas fa-exclamation-circle me-2"></i>
               {error}
             </div>
+          )}
+
+          {googleAvailable && (
+            <>
+              <div
+                className="d-flex align-items-center gap-2 mt-4"
+                style={{ color: "var(--color-text-secondary)", fontSize: "0.82rem" }}
+              >
+                <span style={{ flex: 1, height: 1, background: "var(--color-border, #e5e7eb)" }} />
+                hoặc
+                <span style={{ flex: 1, height: 1, background: "var(--color-border, #e5e7eb)" }} />
+              </div>
+
+              {/*
+                Thẻ <a> chứ không phải nút gọi fetch: luồng phải là điều hướng cả trang để
+                trình duyệt đi theo redirect của backend sang Google và lưu cookie binding.
+                Một fetch sẽ bị CORS chặn và cũng không đưa người dùng tới màn hình đồng ý.
+              */}
+              <a
+                href={googleLoginUrl()}
+                className="btn-modern-outline-primary w-100 mt-3"
+                style={{
+                  padding: "0.7rem",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  fontSize: "0.95rem",
+                  textDecoration: "none",
+                }}
+              >
+                <i className="fab fa-google" aria-hidden="true"></i>
+                Đăng nhập bằng Google
+              </a>
+            </>
           )}
 
           <div className="text-center mt-4" style={{ fontSize: "0.9rem", color: "var(--color-text-secondary)" }}>

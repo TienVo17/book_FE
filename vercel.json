@@ -6,6 +6,10 @@
       "destination": "https://book-be-jakn.onrender.com/api/:path*"
     },
     {
+      "source": "/tai-khoan/oauth/ket-qua",
+      "destination": "/index.html"
+    },
+    {
       "source": "/tai-khoan/:path*",
       "destination": "https://book-be-jakn.onrender.com/tai-khoan/:path*"
     },

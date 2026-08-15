@@ -30,6 +30,7 @@ import ChinhSachPage from "./layouts/chinh-sach/ChinhSachPage";
 import HuyNhanTin from "./layouts/nhan-tin/HuyNhanTin";
 import XacNhanNhanTin from "./layouts/nhan-tin/XacNhanNhanTin";
 import WishlistBootstrap from "./layouts/utils/WishlistBootstrap";
+import KetQuaDangNhapSocial from "./layouts/user/KetQuaDangNhapSocial";
 import { bootstrapAuth, useAuthSession } from "./api/AuthSession";
 
 
@@ -98,6 +99,9 @@ function App() {
               <Route path="/order" element={<RouteGuard require="user"><DonHangUser /></RouteGuard>} />
               <Route path="/kich-hoat/:email/:maKichHoat" element={<KichHoatTaiKhoan />} />
               <Route path="/dang-nhap" element={<DangNhap />} />
+              {/* Đích quay về của callback provider. Công khai vì phiên chưa tồn tại ở
+                  thời điểm này; trang tự bootstrap rồi mới điều hướng tiếp. */}
+              <Route path="/tai-khoan/oauth/ket-qua" element={<KetQuaDangNhapSocial />} />
               <Route path="/gio-hang" element={<GioHang />} />
               <Route path="/profile" element={<RouteGuard require="user"><HoSoNguoiDung /></RouteGuard>} />
               <Route path="/dia-chi" element={<RouteGuard require="user"><DiaChiNguoiDung /></RouteGuard>} />

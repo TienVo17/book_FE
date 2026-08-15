@@ -16,6 +16,10 @@ describe('production same-origin proxy configuration', () => {
         destination: 'https://book-be-jakn.onrender.com/api/:path*',
       },
       {
+        source: '/tai-khoan/oauth/ket-qua',
+        destination: '/index.html',
+      },
+      {
         source: '/tai-khoan/:path*',
         destination: 'https://book-be-jakn.onrender.com/tai-khoan/:path*',
       },
@@ -32,6 +36,19 @@ describe('production same-origin proxy configuration', () => {
         { key: 'CDN-Cache-Control', value: 'no-store' },
       ]));
     }
+  });
+
+  /**
+   * The social result page is a SPA route that happens to sit under /tai-khoan. Without an
+   * earlier, more specific rewrite it would be proxied to the backend, which has no such
+   * route, so every Google login would end on an error instead of the result page.
+   */
+  it('serves the social result route from the SPA instead of proxying it', () => {
+    const spaRoute = config.rewrites.find((rule) => rule.source === '/tai-khoan/oauth/ket-qua');
+    const backendPrefix = config.rewrites.findIndex((rule) => rule.source === '/tai-khoan/:path*');
+
+    expect(spaRoute?.destination).toBe('/index.html');
+    expect(config.rewrites.indexOf(spaRoute!)).toBeLessThan(backendPrefix);
   });
 
   it('keeps browser connections same-origin and excludes direct Render access', () => {
