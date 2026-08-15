@@ -98,4 +98,47 @@ describe('DangNhap Google provider button', () => {
     expect(screen.getByLabelText('Tên đăng nhập')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Đăng nhập' })).toBeInTheDocument();
   });
+
+  /**
+   * Google's brand terms require the four-colour mark to be used as-is. A monochrome icon
+   * font would inherit the site's text colour, and the hover state that flips text to white
+   * would erase the logo entirely.
+   */
+  it('renders the four-colour Google mark rather than a recolourable glyph', async () => {
+    mockedStatus.mockResolvedValue({ google: true });
+
+    renderLogin();
+
+    const link = await screen.findByRole('link', { name: GOOGLE_LABEL });
+    const logo = link.querySelector('svg.social-logo');
+    expect(logo).toBeInTheDocument();
+
+    const fills = Array.from(logo!.querySelectorAll('path'))
+      .map((node) => node.getAttribute('fill'));
+    expect(fills).toEqual(
+      expect.arrayContaining(['#EA4335', '#4285F4', '#FBBC05', '#34A853']));
+    expect(link.querySelector('i.fab')).toBeNull();
+  });
+
+  /** The site's outline button flips its text to white on hover, which would hide the mark. */
+  it('does not reuse the site button style that recolours its contents', async () => {
+    mockedStatus.mockResolvedValue({ google: true });
+
+    renderLogin();
+
+    const link = await screen.findByRole('link', { name: GOOGLE_LABEL });
+    expect(link).toHaveClass('btn-social-google');
+    expect(link).not.toHaveClass('btn-modern-outline-primary');
+  });
+
+  /** The mark is decorative; the visible label already names the action. */
+  it('hides the decorative logo from assistive technology', async () => {
+    mockedStatus.mockResolvedValue({ google: true });
+
+    renderLogin();
+
+    const link = await screen.findByRole('link', { name: GOOGLE_LABEL });
+    expect(link.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+    expect(link).toHaveAccessibleName(GOOGLE_LABEL);
+  });
 });
