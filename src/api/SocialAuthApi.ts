@@ -3,9 +3,10 @@ import { publicRequest } from './Request';
 
 export interface SocialProviderStatus {
   readonly google: boolean;
+  readonly facebook: boolean;
 }
 
-const UNAVAILABLE: SocialProviderStatus = Object.freeze({ google: false });
+const UNAVAILABLE: SocialProviderStatus = Object.freeze({ google: false, facebook: false });
 
 /**
  * Hỏi backend provider nào đang bật.
@@ -22,9 +23,13 @@ export async function getSocialProviderStatus(): Promise<SocialProviderStatus> {
     if (!payload || typeof payload !== 'object') {
       return UNAVAILABLE;
     }
-    const google = (payload as Record<string, unknown>).google;
+    const status = payload as Record<string, unknown>;
     // Chỉ chấp nhận đúng boolean true; "yes" hay 1 đều không phải câu trả lời hợp lệ.
-    return Object.freeze({ google: google === true });
+    // Mỗi provider đọc riêng: backend cũ chưa biết Facebook sẽ thiếu hẳn trường đó.
+    return Object.freeze({
+      google: status.google === true,
+      facebook: status.facebook === true,
+    });
   } catch {
     return UNAVAILABLE;
   }
@@ -37,4 +42,8 @@ export async function getSocialProviderStatus(): Promise<SocialProviderStatus> {
  */
 export function googleLoginUrl(): string {
   return apiUrl('/tai-khoan/oauth/google/start');
+}
+
+export function facebookLoginUrl(): string {
+  return apiUrl('/tai-khoan/oauth/facebook/start');
 }

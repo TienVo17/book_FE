@@ -1096,6 +1096,47 @@
   flex-shrink: 0;
 }
 
+/* Facebook yeu cau logo "f" dat tren dung mau xanh thuong hieu, khong doi mau. Nut nay
+   dac mau nen tuong phan chu trang da du; hover chi lam nen toi hon mot bac. */
+.btn-social-facebook {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0.7rem 1rem;
+  background: #1877F2;
+  color: #FFFFFF;
+  border: 1px solid #1877F2;
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  font-size: 0.93rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background var(--anim-fast) var(--ease-out),
+    border-color var(--anim-fast) var(--ease-out),
+    box-shadow var(--anim-fast) var(--ease-out);
+}
+
+.btn-social-facebook:hover {
+  background: #166FE5;
+  border-color: #166FE5;
+  color: #FFFFFF;
+  text-decoration: none;
+  box-shadow: 0 1px 2px rgba(24, 119, 242, 0.25);
+}
+
+.btn-social-facebook:active {
+  background: #1464CC;
+}
+
+.btn-social-facebook:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
 .auth-divider {
   display: flex;
   align-items: center;
