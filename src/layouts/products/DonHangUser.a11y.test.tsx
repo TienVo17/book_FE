@@ -4,14 +4,19 @@ import { MemoryRouter } from 'react-router-dom';
 import DonHangUser from './DonHangUser';
 import { ApiRequestError } from '../../api/Request';
 import { cancelDonHang, getDonHangHistory } from '../../api/DonHangApi';
+import { useAuthSession } from '../../api/AuthSession';
 
 jest.mock('../../api/DonHangApi', () => ({
   cancelDonHang: jest.fn(),
   getDonHangHistory: jest.fn(),
 }));
+jest.mock('../../api/AuthSession', () => ({
+  useAuthSession: jest.fn(),
+}));
 
 const mockedCancelDonHang = cancelDonHang as jest.MockedFunction<typeof cancelDonHang>;
 const mockedGetDonHangHistory = getDonHangHistory as jest.MockedFunction<typeof getDonHangHistory>;
+const mockedUseAuth = useAuthSession as jest.MockedFunction<typeof useAuthSession>;
 
 const pendingOrder = {
   maDonHang: 7,
@@ -26,6 +31,9 @@ const pendingOrder = {
 describe('DonHangUser accessibility', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockedUseAuth.mockReturnValue({
+      status: 'authenticated', uid: 1, username: 'reader-a', roles: ['USER'], capabilities: ['USER'],
+    });
     mockedGetDonHangHistory.mockResolvedValue({ content: [pendingOrder], totalPages: 1, totalElements: 1 });
     jest.spyOn(window, 'confirm').mockReturnValue(true);
   });

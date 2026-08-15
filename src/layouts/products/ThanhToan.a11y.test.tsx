@@ -7,6 +7,7 @@ import { getOneImageOfOneBook } from '../../api/HinhAnhApi';
 import { createDonHang, getHinhThucGiaoHang } from '../../api/DonHangApi';
 import { ApiRequestError } from '../../api/Request';
 import { addOrUpdateItem } from '../../api/CartStorage';
+import { getAuthSnapshot, useAuthSession } from '../../api/AuthSession';
 
 jest.mock('../../api/DiaChiApi', () => ({ getDanhSachDiaChi: jest.fn() }));
 jest.mock('../../api/HinhAnhApi', () => ({ getOneImageOfOneBook: jest.fn() }));
@@ -17,11 +18,22 @@ jest.mock('../../api/DonHangApi', () => ({
   getHinhThucGiaoHang: jest.fn(),
 }));
 jest.mock('react-toastify', () => ({ toast: { success: jest.fn(), error: jest.fn() } }));
+jest.mock('../../api/AuthSession', () => ({
+  useAuthSession: jest.fn(),
+  getAuthSnapshot: jest.fn(() => ({
+    status: 'guest', uid: null, username: null, roles: [], capabilities: [],
+  })),
+  captureAuthenticatedRequest: jest.fn(() => null),
+  isCurrentAuthCapture: jest.fn(() => false),
+  subscribeAuthTransition: jest.fn(() => () => undefined),
+}));
 
 const mockedGetDanhSachDiaChi = getDanhSachDiaChi as jest.MockedFunction<typeof getDanhSachDiaChi>;
 const mockedGetOneImage = getOneImageOfOneBook as jest.MockedFunction<typeof getOneImageOfOneBook>;
 const mockedCreateDonHang = createDonHang as jest.MockedFunction<typeof createDonHang>;
 const mockedGetHinhThucGiaoHang = getHinhThucGiaoHang as jest.MockedFunction<typeof getHinhThucGiaoHang>;
+const mockedUseAuth = useAuthSession as jest.MockedFunction<typeof useAuthSession>;
+const mockedGetAuthSnapshot = getAuthSnapshot as jest.MockedFunction<typeof getAuthSnapshot>;
 
 const address = {
   maDiaChi: 5,
@@ -51,6 +63,9 @@ describe('ThanhToan accessibility', () => {
   beforeEach(() => {
     localStorage.clear();
     jest.clearAllMocks();
+    const guestAuth = { status: 'guest' as const, uid: null, username: null, roles: [], capabilities: [] };
+    mockedUseAuth.mockReturnValue(guestAuth);
+    mockedGetAuthSnapshot.mockReturnValue(guestAuth);
     mockedGetDanhSachDiaChi.mockResolvedValue([address]);
     mockedGetOneImage.mockResolvedValue([]);
     mockedGetHinhThucGiaoHang.mockResolvedValue([

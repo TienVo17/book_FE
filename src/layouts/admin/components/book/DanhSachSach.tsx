@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { xoaSach, findAll } from "../../../../api/SachApi";
 import AnhSach from "../../../utils/AnhSach";
 import { setSachActive } from '../../../../api/AdminApi';
+import { useAuthSession } from '../../../../api/AuthSession';
 
 export default function DanhSachSach() {
   const [danhSachSach, setDanhSachSach] = useState<SachModel[]>([]);
@@ -11,7 +12,8 @@ export default function DanhSachSach() {
   const [baoLoi, setBaoLoi] = useState<string | null>(null);
   const [trangHienTai, setTrangHienTai] = useState(1);
   const [tongSoTrang, setTongSoTrang] = useState(0);
-  const [userInfo, setUserInfo] = useState<any>(null);
+  const auth = useAuthSession();
+  const isAdmin = auth.status === 'authenticated' && auth.capabilities.includes('ADMIN');
   const [searchTerm, setSearchTerm] = useState('');
   const navigate = useNavigate();
 
@@ -30,11 +32,6 @@ export default function DanhSachSach() {
   }, [trangHienTai]);
 
   useEffect(() => {
-    const jwt = localStorage.getItem('jwt') || '';
-    if (jwt) {
-      const decodedJwt = JSON.parse(atob(jwt.split('.')[1]));
-      setUserInfo(decodedJwt);
-    }
     loadData();
   }, [loadData]);
 
@@ -88,7 +85,7 @@ export default function DanhSachSach() {
             spellCheck={false}
           />
         </div>
-        {userInfo?.isAdmin && (
+        {isAdmin && (
           <button className="admin-btn-add" onClick={() => navigate('/quan-ly/them-sach')}>
             <i className="fas fa-plus" /> Thêm sách
           </button>
@@ -166,7 +163,7 @@ export default function DanhSachSach() {
                     </td>
                     <td style={{ textAlign: 'center' }}>
                       <div className="d-flex gap-1 justify-content-center flex-wrap">
-                        {userInfo?.isAdmin && (
+                        {isAdmin && (
                           <>
                             <button
                               className="order-action-btn"
@@ -185,13 +182,15 @@ export default function DanhSachSach() {
                             </button>
                           </>
                         )}
-                        <button
-                          className={`order-action-btn ${sach.isActive ? '' : 'success'}`}
-                          title={sach.isActive ? 'Đóng bán' : 'Mở bán'}
-                          onClick={() => handleToggleActive(sach.maSach, sach.isActive ?? 0)}
-                        >
-                          <i className={`fas fa-${sach.isActive ? 'lock' : 'lock-open'}`} />
-                        </button>
+                        {isAdmin && (
+                          <button
+                            className={`order-action-btn ${sach.isActive ? '' : 'success'}`}
+                            title={sach.isActive ? 'Đóng bán' : 'Mở bán'}
+                            onClick={() => handleToggleActive(sach.maSach, sach.isActive ?? 0)}
+                          >
+                            <i className={`fas fa-${sach.isActive ? 'lock' : 'lock-open'}`} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

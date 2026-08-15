@@ -1,11 +1,8 @@
+import { loginAuth as installAuthSession, LoginAuthInput } from './AuthSession';
 import { publicRequest } from './Request';
 import { apiUrl } from './ApiUrl';
 
 const BASE = apiUrl('');
-
-export interface LoginResponse {
-  jwt: string;
-}
 
 export interface RegisterRequest {
   tenDangNhap: string;
@@ -20,12 +17,8 @@ export interface RegisterRequest {
   maKichHoat: string;
 }
 
-export function dangNhap(username: string, password: string): Promise<LoginResponse> {
-  return publicRequest(`${BASE}/tai-khoan/dang-nhap`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password }),
-  });
+export async function loginAuth(input: LoginAuthInput) {
+  return installAuthSession(input);
 }
 
 export function dangKy(request: RegisterRequest): Promise<unknown> {

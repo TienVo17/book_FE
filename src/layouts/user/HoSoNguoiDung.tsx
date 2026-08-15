@@ -1,7 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { getHoSo, capNhatHoSo, doiMatKhau } from '../../api/NguoiDungApi';
+import { useAuthSession } from '../../api/AuthSession';
+
+interface HoSoResponse {
+  hoDem?: string;
+  ten?: string;
+  email?: string;
+  soDienThoai?: string;
+  gioiTinh?: string;
+}
 
 const iconStyle: React.CSSProperties = {
   width: 64, height: 64, borderRadius: '50%',
@@ -14,7 +22,7 @@ const labelStyle: React.CSSProperties = {
 };
 
 const HoSoNguoiDung = () => {
-  const navigate = useNavigate();
+  const auth = useAuthSession();
 
   const [hoDem, setHoDem] = useState('');
   const [ten, setTen] = useState('');
@@ -30,14 +38,10 @@ const HoSoNguoiDung = () => {
   const [loiMatKhau, setLoiMatKhau] = useState('');
 
   useEffect(() => {
-    const jwt = localStorage.getItem('jwt');
-    if (!jwt) {
-      navigate('/dang-nhap');
-      return;
-    }
+    if (auth.status !== 'authenticated') return;
 
-    getHoSo()
-      .then((data: any) => {
+    getHoSo<HoSoResponse>()
+      .then((data) => {
         setHoDem(data.hoDem || '');
         setTen(data.ten || '');
         setEmail(data.email || '');
@@ -45,7 +49,7 @@ const HoSoNguoiDung = () => {
         setGioiTinh(data.gioiTinh || 'M');
       })
       .catch(() => toast.error('Không thể tải thông tin hồ sơ'));
-  }, [navigate]);
+  }, [auth.status, auth.uid]);
 
   const handleCapNhat = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,8 +95,8 @@ const HoSoNguoiDung = () => {
       setMatKhauCu('');
       setMatKhauMoi('');
       setXacNhanMatKhau('');
-    } catch (err: any) {
-      setLoiMatKhau(err?.message || 'Đổi mật khẩu thất bại. Vui lòng thử lại.');
+    } catch (error) {
+      setLoiMatKhau(error instanceof Error ? error.message : 'Đổi mật khẩu thất bại. Vui lòng thử lại.');
     } finally {
       setLoadingMatKhau(false);
     }

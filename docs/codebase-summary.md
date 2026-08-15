@@ -1,7 +1,7 @@
 # Codebase Summary
 
 **Generated**: 2026-07-08
-**Updated**: 2026-08-11
+**Updated**: 2026-08-14
 **Framework**: React 18.3 + TypeScript 4.9  
 **Build**: Create React App (react-scripts 5.0.1)
 
@@ -26,7 +26,8 @@ Fetch-based API modules (no axios). Backend request sites use `src/api/ApiUrl.ts
 
 | File | Exports | Purpose |
 |------|---------|---------|
-| `Request.ts` | `my_request`, `authRequest`, `getJwtPayload`, `getValidJwtOrThrow` | HTTP helpers; Bearer JWT injection; auto-logout on 401/403 |
+| `AuthSession.ts` | public auth snapshot/lifecycle plus private request captures | Memory-only access/CSRF credentials, refresh bootstrap, bounded cross-tab coordination |
+| `Request.ts` | `my_request`, `publicRequest`, `authRequest`, `authRequestWithCapture` | Bounded Fetch/body transport; memory-capture Bearer injection and finite GET/HEAD refresh replay |
 | `SachApi.ts` | `listBooks`, `searchBooks`, `getBookDetail`, `getBestsellers`, `getNewest`, `getRelatedBooks` | Book listing & detail retrieval |
 | `AdminApi.ts` | `getDashboardStats`, `createBook`, `updateBook`, `deleteBook`, `uploadBookImage` | Admin book CRUD & image upload |
 | `TheLoaiApi.ts` | `getCategories` (public), `getCategoryById`, `createCategory`, `updateCategory`, `deleteCategory` | Category management |
@@ -44,7 +45,7 @@ Fetch-based API modules (no axios). Backend request sites use `src/api/ApiUrl.ts
 
 **Notes**:
 - Application API calls use domain modules and the shared `Request.ts` fetch boundary.
-- `CartSession.ts` binds authenticated cart cache effects to both account owner and the exact JWT that started the request. It serializes authenticated writes and keeps a stable pending merge key/payload for safe replay.
+- `CartSession.ts` binds authenticated cart effects to canonical `account:<uid>` ownership and the exact access-token/revision capture that started each request. It serializes authenticated writes and keeps a stable pending merge key/payload for safe replay.
 - Checkout waits for page-level and shared cart mutations, then builds its order request from the current fingerprint-validated cart snapshot.
 - No axios dependency; Fetch API only
 
@@ -98,7 +99,7 @@ Organized by feature area. Each layout composes child components.
 
 | Component | Purpose |
 |-----------|---------|
-| `DangNhap.tsx` | Login form; validates email + password; stores JWT |
+| `DangNhap.tsx` | Controlled login form; sends `rememberMe`, installs the memory session, and completes the guest-cart handoff before navigation |
 | `DangKyNguoiDung.tsx` | Register form; validates email, password, phone, name |
 | `KichHoatTaiKhoan.tsx` | Account activation via email token |
 | `QuenMatKhau.tsx` | Forgot password; requests reset email |
@@ -137,8 +138,7 @@ Organized by feature area. Each layout composes child components.
 
 **Routing Shell**:
 - `layouts/AdminLayout.tsx` — Nested admin routing container
-- `layouts/utils/RouteGuard.tsx` — the single auth guard (JWT validity + expiry;
-  `require="admin"` also requires `isAdmin === true`). `isStaff` grants no admin access.
+- `layouts/utils/RouteGuard.tsx` — the single auth guard over the public AuthSession snapshot; it waits while status is `unknown`, requires authentication for private routes, and requires capability `ADMIN` for admin routes. `STAFF` alone grants no admin access.
 - `layouts/RequireAdmin.tsx` — Alternate HOC guard (dead code, not wired)
 
 **Features**:
@@ -251,8 +251,9 @@ Defines all routes using react-router-dom v6.
 - `react-toastify` 10.0.6 (toast notifications)
 
 ### Utilities
-- `jwt-decode` 4.0.0 (JWT parsing, hand-rolled base64url decode in Request.ts)
 - `date-fns` 4.1.0 (date formatting)
+
+Authentication does not use a JWT-decoding dependency in the browser. Identity and capabilities come from the normalized backend principal installed by `AuthSession.ts`.
 
 ### Testing & Types
 - `@testing-library/react` 13.4.0
@@ -269,15 +270,15 @@ Defines all routes using react-router-dom v6.
 ## Key Patterns & Observations
 
 ### Data Access
-- **Centralized API modules** in `src/api/`; modules export higher-level functions
-- **Request.ts helpers**: `my_request` (public GET), `authRequest` (authenticated, injects Bearer JWT)
-- **Auto-logout on 401/403**: authRequest clears localStorage.jwt and returns error
-- **Mixed patterns**: Some pages bypass api/ modules and call `fetch()` directly, but still resolve backend URLs through `apiUrl(...)`
+- **Centralized API modules** in `src/api/`; modules export higher-level functions.
+- **Request helpers**: `my_request`/`publicRequest` handle public calls; `authRequest` injects Bearer from an exact memory capture.
+- **Finite auth recovery**: a current GET/HEAD `401` may share one refresh and replay once; sent mutations never replay. Business `403` preserves the session.
+- **Transport boundary**: runtime `fetch()` is limited to `Request.ts` and the dedicated auth transport in `AuthSession.ts`.
 
 ### State Management
-- **No Redux/Context**: All state client-side via component `useState` or localStorage
-- **localStorage.jwt**: Global auth token; cleared on logout or 401
-- **GioHang (cart)**: `CartStorage.ts` exclusively owns `localStorage.gioHang`. For guests it is the local source of truth (maximum 100 unique book lines); for authenticated sessions it is only a cache of the backend cart, bound to the account and exact JWT token. `CartSession.ts` serializes authenticated writes and safely replays a retained login-merge intent after a lost response.
+- **No Redux or broad auth Context**: component UI state remains local; auth and wishlist use narrow immutable external stores.
+- **Auth credentials**: the access token and CSRF value exist only inside `AuthSession.ts`; the rotating opaque refresh token stays in an HttpOnly cookie.
+- **GioHang (cart)**: `CartStorage.ts` exclusively owns `localStorage.gioHang`. For guests it is the local source of truth (maximum 100 unique book lines); for authenticated sessions it is only a backend-derived render cache bound to canonical `account:<uid>` ownership. Exact request captures prevent stale responses from an older token/revision from writing current state, and `CartSession.ts` safely replays a retained login-merge intent after a lost response.
 
 ### Component Organization
 - **Feature-area folders**: Products, User, Admin, Categories; colocates related components

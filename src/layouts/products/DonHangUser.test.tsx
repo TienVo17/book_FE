@@ -1,17 +1,22 @@
-import React from 'react';
+import React, { act } from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import DonHangUser from './DonHangUser';
 import { ApiRequestError } from '../../api/Request';
 import { cancelDonHang, getDonHangHistory } from '../../api/DonHangApi';
+import { useAuthSession } from '../../api/AuthSession';
 
 jest.mock('../../api/DonHangApi', () => ({
   cancelDonHang: jest.fn(),
   getDonHangHistory: jest.fn(),
 }));
+jest.mock('../../api/AuthSession', () => ({
+  useAuthSession: jest.fn(),
+}));
 
 const mockedCancelDonHang = cancelDonHang as jest.MockedFunction<typeof cancelDonHang>;
 const mockedGetDonHangHistory = getDonHangHistory as jest.MockedFunction<typeof getDonHangHistory>;
+const mockedUseAuth = useAuthSession as jest.MockedFunction<typeof useAuthSession>;
 
 const pendingOrder = {
   maDonHang: 7,
@@ -30,6 +35,9 @@ function page(content = [pendingOrder]) {
 describe('DonHangUser behavior', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockedUseAuth.mockReturnValue({
+      status: 'authenticated', uid: 1, username: 'reader-a', roles: ['USER'], capabilities: ['USER'],
+    });
     mockedGetDonHangHistory.mockResolvedValue(page());
     jest.spyOn(window, 'confirm').mockReturnValue(true);
     jest.spyOn(window, 'alert').mockImplementation(() => undefined);
@@ -54,6 +62,49 @@ describe('DonHangUser behavior', () => {
 
     expect(await screen.findByRole('link', { name: 'Xem chi tiết đơn hàng #7' })).toBeInTheDocument();
     expect(mockedGetDonHangHistory).toHaveBeenCalledTimes(2);
+  });
+
+  it('reloads history for a different authenticated account and ignores the old response', async () => {
+    const accountA = {
+      status: 'authenticated' as const, uid: 1, username: 'reader-a', roles: ['USER'], capabilities: ['USER'],
+    };
+    const accountB = {
+      ...accountA, uid: 2, username: 'reader-b',
+    };
+    let currentAuth = accountA;
+    mockedUseAuth.mockImplementation(() => currentAuth);
+
+    let resolveAccountA!: (value: ReturnType<typeof page>) => void;
+    mockedGetDonHangHistory
+      .mockReturnValueOnce(new Promise(resolve => { resolveAccountA = resolve; }))
+      .mockResolvedValueOnce(page([{
+        ...pendingOrder,
+        maDonHang: 8,
+      }]));
+
+    const view = render(
+      <MemoryRouter>
+        <DonHangUser />
+      </MemoryRouter>,
+    );
+
+    currentAuth = accountB;
+    act(() => {
+      view.rerender(
+        <MemoryRouter>
+          <DonHangUser />
+        </MemoryRouter>,
+      );
+    });
+
+    expect(await screen.findByRole('link', { name: 'Xem chi tiết đơn hàng #8' })).toBeInTheDocument();
+    expect(mockedGetDonHangHistory).toHaveBeenCalledTimes(2);
+
+    resolveAccountA(page());
+    await waitFor(() => {
+      expect(screen.queryByText('#7')).not.toBeInTheDocument();
+      expect(screen.getByText('#8')).toBeInTheDocument();
+    });
   });
 
   it('links each order to its protected detail page', async () => {

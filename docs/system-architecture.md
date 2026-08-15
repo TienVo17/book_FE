@@ -1,7 +1,7 @@
 # System Architecture
 
-**Version**: 1.1
-**Last Updated**: 2026-08-11
+**Version**: 1.2
+**Last Updated**: 2026-08-14
 
 ## Architecture Overview
 
@@ -26,9 +26,13 @@ Web Bán Sách is a client-side single-page application (SPA) that interfaces wi
 │ │ │   (my_request, authRequest)  │    │ │
 │ │ └──────────────────────────────┘    │ │
 │ └─────────────────────────────────────┘ │
-│                   │                      │
-│              localStorage               │
-│ (jwt, guest cart, account cart cache)   │
+│ │ ┌──────────────────────────────┐    │ │
+│ │ │ AuthSession (memory only)    │    │ │
+│ │ │ access token + public state  │    │ │
+│ │ └──────────────────────────────┘    │ │
+│ └─────────────────────────────────────┘ │
+│ localStorage: guest cart + scoped cache │
+│ HttpOnly cookie: opaque refresh token   │
 └─────────────────────────────────────────┘
              │
          HTTPS/HTTP
@@ -108,47 +112,33 @@ Component setState(product)
 Render HinhAnhSanPham, DanhGiaSanPham, RelatedProducts
 ```
 
-### Authenticated Request (with JWT)
+### Authenticated Request (memory-only access token)
 
 ```
 User clicks "Add to Wishlist"
     ↓
-DanhSachYeuThich.tsx
-    ↓
 YeuThichApi.themYeuThich(bookId)
     ↓
-api/YeuThichApi.ts
+Request.ts::authRequest captures {accessToken, revision} from AuthSession
     ↓
-Request.ts::authRequest (GET/POST)
+Fetch /api/yeu-thich/{bookId}
+Header: Authorization: Bearer {memory-only access token}
     ↓
-Fetch to /api/yeu-thich/{bookId} in production (localhost origin locally)
-Header: Authorization: Bearer {jwt}
-    ↓
-Backend validates JWT, updates wishlist
-    ↓
-Response OK (200) → setState(wishlist)
-    ↓
-Display toast: "Added to wishlist"
-
------ Or -----
-
-Response 401/403 for the token that started the request
-    ↓
-authRequest invokes shared authenticated-session cleanup
-    ↓
-JWT, account cart cache and checkout intent are cleared
-    ↓
-authSessionChanged refreshes mounted auth/cart UI
-
-A late 401/403 from an older token never clears a newer session.
+Backend authorizes and returns the result
 ```
+
+For a current capture, a `GET`/`HEAD` response with `401` starts one shared
+refresh and replays the original request at most once. A mutation that already
+reached the server is never replayed; refresh may only repair later requests.
+Business `403` responses do not refresh or log the user out. Stale failures from
+an older token/revision cannot clear a newly installed session.
 
 ### Shopping Cart (Guest Local, Account Server-Side)
 
 ```
 Add/update/remove cart item
     ↓
-CartSession.ts checks valid JWT owner
+CartSession.ts checks the AuthSession snapshot and request capture
     ├── Guest → CartStorage.ts → localStorage.gioHang
     └── Authenticated → CartApi.ts → authRequest → /api/gio-hang
                                       ↓
@@ -159,11 +149,11 @@ CartSession.ts checks valid JWT owner
                          cartUpdated / storage events refresh UI
 ```
 
-`CartStorage.ts` is the only direct owner of `localStorage.gioHang`. Guest carts use it as the source of truth and cannot exceed 100 unique book lines. Authenticated carts use the backend as the source of truth; the local value is only a render cache associated with `cartCacheOwner`, which uses the account subject when present and otherwise a token fingerprint.
+`CartStorage.ts` is the only direct owner of `localStorage.gioHang`. Guest carts use it as the source of truth and cannot exceed 100 unique book lines. Authenticated carts use the backend as the source of truth; the local value is only a render cache whose canonical `cartCacheOwner` is `account:<positive numeric uid>`. Legacy username/token/fingerprint owners are cleared rather than mapped.
 
-Immediately before storing a newly issued JWT, `DangNhap.tsx` captures the latest guest snapshot and passes it to `CartSession.mergeGuestCartAfterLogin()`. The merge request carries a stable `Idempotency-Key` and exact payload. If the response is lost, `cartMergeIntent` retains the same owner, key, and items so the next login/cart load safely replays the request instead of adding quantity twice.
+After a valid login response arrives but before the session is published, `DangNhap.tsx` captures the latest guest snapshot and passes it to `CartSession.mergeGuestCartAfterLogin()`. The merge request carries a stable `Idempotency-Key` and exact payload. If the response is lost, `cartMergeIntent` retains the same owner, key, and items so the next login/cart load safely replays the request instead of adding quantity twice.
 
-Authenticated mutations run through a FIFO queue. Cache writes and pending-intent cleanup require the account owner and exact JWT captured when the request started, so a late response cannot overwrite a rotated or replacement session. Checkout waits for its component mutations and the shared queue, then compares its reviewed cart with the current snapshot. It either asks for review after an external change or creates the order from that authoritative snapshot.
+Authenticated mutations run through a FIFO queue. Cache writes and pending-intent cleanup require the immutable account uid and exact access-token/revision capture from request start, so a late response cannot overwrite a rotated or replacement session. Same-uid token rotation preserves cart and wishlist state; logout or uid change clears private state before public auth subscribers observe the transition. Checkout waits for its component mutations and the shared queue, then compares its reviewed cart with the current snapshot. It either asks for review after an external change or creates the order from that authoritative snapshot.
 
 ### Checkout Flow
 
@@ -204,7 +194,7 @@ Admin on /quan-ly/cap-nhat-sach/:maSach
     ↓
 CapNhatSach.tsx (guarded by RouteGuard require="admin")
     ↓
-RouteGuard checks: JWT validity/expiry + isAdmin === true
+RouteGuard checks: authenticated AuthSession snapshot + ADMIN capability
     ↓
 AdminApi.getBookDetail(maSach)  // Calls authRequest
     ↓
@@ -227,11 +217,19 @@ navigate(-1)  (back to list)
 
 | Key | Type | Lifecycle | Scope |
 |-----|------|-----------|-------|
-| `jwt` | string (JWT) | Login → Logout / 401 | Global auth token |
 | `gioHang` | JSON array | Guest persistence / authenticated render cache | Canonical cart snapshot |
-| `cartCacheOwner` | string | Authenticated session | Binds cached cart to an account subject or fallback token fingerprint |
+| `cartCacheOwner` | string | Authenticated session | Canonical `account:<positive numeric uid>` owner |
 | `cartMergeIntent` | JSON object | Login merge until acknowledged | Owner + stable merge key + exact payload for safe replay |
 | `nextPay` | boolean-like string | Buy-now login handoff | Continue to checkout after successful merge |
+| `checkoutIdempotencyIntent` | JSON object | Checkout retry until committed response | Stable key + exact checkout fingerprint |
+| `book-fe-auth-coordination` | short-lived JSON metadata | Cross-tab auth notification | Signal type, nonce, sender, expiry only; never credentials |
+| `book-fe-auth-coordination-lease` | short-lived JSON metadata | Web Locks fallback | Bounded owner/expiry lease; never credentials |
+
+Auth coordination prefers `navigator.locks` with bounded acquisition. Browsers
+without Web Locks use the expiring lease key with periodic renewal and a bounded
+wait. The fallback proves lease ownership immediately before publishing local auth
+state; later lease-metadata changes cannot turn an already-installed session into a
+reported failure.
 
 ### Component State
 
@@ -242,27 +240,25 @@ navigate(-1)  (back to list)
 | Modal open/close | Local component | Admin delete confirmation |
 | Filtered/sorted | Local component | DanhSachSanPham current filters |
 
-**Rule**: No global state library (Redux, Context). Keep component state local or in localStorage.
+**Rule**: No global state library (Redux, broad auth Context). Keep component UI state local; `AuthSession.ts` and `WishlistSession.ts` use immutable external stores, while localStorage is limited to approved cart/checkout metadata.
 
-### JWT Token
+### Auth Session
 
-**Structure** (via jwt-decode):
+`AuthSession.ts` owns the only in-memory access token, CSRF value, expiry, and monotonic revision. Its frozen public snapshot exposes only:
+
 ```typescript
 {
-  sub: "user@example.com",
-  email: "user@example.com",
-  roles: ["ROLE_USER"] | ["ROLE_ADMIN"] | ["ROLE_STAFF"],
-  iat: 1234567890,
-  exp: 1234571490  // 1 hour typical
+  status: 'unknown' | 'guest' | 'authenticated',
+  uid: number | null,
+  username: string | null,
+  roles: readonly string[],
+  capabilities: readonly string[]
 }
 ```
 
-**Storage**: `localStorage.jwt` (plain text). Token nằm trong localStorage nên script chạy được trong trang sẽ đọc được — đây là đánh đổi đã biết, chưa chuyển sang HttpOnly cookie. Giảm thiểu bằng hai lớp: mô tả sách render dưới dạng text thuần (không `dangerouslySetInnerHTML`), và CSP giới hạn `script-src` (khai báo trong `vercel.json` cho Vercel, `nginx.conf` cho Docker).
+Bootstrap obtains CSRF and rotates the refresh session through same-origin `/tai-khoan/**` endpoints with `credentials: 'include'`. The opaque refresh token remains in a Secure, SameSite, HttpOnly cookie and never becomes JavaScript state. Unchecked remember-me creates a browser-session cookie; checked creates a refresh session with a hard 30-day absolute expiry. The password is sent only for the login request and is never persisted.
 
-**Usage**:
-- `Request.ts` reads it and injects as `Authorization: Bearer {jwt}`
-- `RouteGuard` là guard duy nhất; kiểm tra token hợp lệ và chưa hết hạn, `require="admin"` yêu cầu thêm `isAdmin === true`
-- Guard phía client chỉ để điều hướng; quyền thực sự do backend quyết định trên từng request
+`Request.ts` obtains an exact `{accessToken, revision}` capture and injects Bearer for `/api/**`. Components, route guards, cart, and wishlist never decode JWTs. `RouteGuard` is UX only; the backend remains the authorization authority.
 
 ## API Request Patterns
 
@@ -285,26 +281,9 @@ useEffect(() => {
 - Easy to update if backend changes
 - Type-safe via TypeScript
 
-### Pattern 2: Raw Fetch (Discouraged, but present in codebase)
+### Pattern 2: Raw Fetch (Forbidden outside transport boundaries)
 
-```typescript
-// Inside a page component
-useEffect(() => {
-  fetch(apiUrl('/api/don-hang/findAll'), {
-    headers: { 'Authorization': `Bearer ${localStorage.getItem('jwt')}` }
-  })
-    .then(r => r.json())
-    .then(setOrders)
-    .catch(err => toast.error(err.message));
-}, []);
-```
-
-**Issues**:
-- Duplicates Bearer logic (`authRequest` does this)
-- Error handling varies per component
-- Makes authentication behavior harder to update centrally
-
-**Action**: Gradually move these to api/ modules (see [roadmap](./project-roadmap.md)).
+Page components and domain API modules must not construct Bearer headers or call `fetch()` directly. `Request.ts` is the business transport boundary; `AuthSession.ts` is the dedicated CSRF/login/refresh/logout transport boundary. Source-scan tests keep direct fetch and credential sinks from spreading beyond them.
 
 ## Error Handling Architecture
 
@@ -312,25 +291,12 @@ useEffect(() => {
 
 Handled by `Request.ts::authRequest`:
 
-```typescript
-export async function authRequest(url: string): Promise<any> {
-  const jwt = getValidJwtOrThrow();
-  const response = await fetch(url, {
-    headers: { 'Authorization': `Bearer ${jwt}` }
-  });
-  
-  if (response.status === 401 || response.status === 403) {
-    localStorage.removeItem('jwt');  // Auto-logout
-    throw new Error('Session expired');
-  }
-  
-  if (!response.ok) {
-    throw new Error(`Error: ${response.status}`);
-  }
-  
-  return response.json();
-}
-```
+- Current-capture `GET`/`HEAD` `401`: one shared refresh, then at most one replay.
+- Stale `401`: no refresh, replay, or clearing of the replacement session.
+- Mutation `401`: may refresh for future requests but never replays the sent mutation.
+- Business `403`: surfaces as `ApiRequestError` and preserves the session.
+- Network/timeout mutations are not blindly retried; idempotency remains a domain concern.
+- Other failures preserve `ApiRequestError` status, code, trace ID, and path.
 
 ### Application-Level Errors
 
@@ -356,16 +322,16 @@ try {
 
 ### Authentication
 
-- **Type**: Stateless JWT (no server-side session)
-- **Storage**: localStorage.jwt (XSS risk, trade-off accepted for simplicity)
-- **Flow**: Backend issues JWT on login; frontend stores and injects on authorized requests
-- **Expiry**: Backend-controlled (typically 1 hour)
-- **No refresh token**: Single JWT per session; extend by re-logging in
+- **Type**: 15-minute Bearer access JWT plus server-side rotating refresh session
+- **Storage**: access token/CSRF in module memory; opaque refresh token in Secure HttpOnly cookie
+- **Flow**: bootstrap and login install a normalized principal; refresh rotates the cookie session and replaces the memory access token
+- **Remember me**: browser-session cookie when unchecked; hard 30-day absolute refresh expiry when checked
+- **Cross-tab**: only bounded `auth-changed`/`auth-invalidated` metadata is shared; credentials and principal data are never broadcast
 
 ### Authorization
 
 - **Role-based**: Users have roles (USER, ADMIN, STAFF) embedded in JWT claims
-- **Frontend guards**: `RouteGuard` kiểm tra `isAdmin === true` cho khu vực quản trị (token chỉ có `STAFF` bị từ chối)
+- **Frontend guards**: `RouteGuard` yêu cầu capability `ADMIN` cho khu vực quản trị (`STAFF` không có `ADMIN` bị từ chối)
 - **Backend enforcement**: Spring Boot @PreAuthorize annotations on endpoints
 
 ### Network Security
@@ -386,7 +352,7 @@ try {
 
 ### 1. Auth Guard Consolidation (Resolved)
 
-`RouteGuard.tsx` is the active guard for user and admin routes. It rejects missing, malformed and expired tokens; admin routes additionally require `isAdmin === true`. Invalid-session cleanup also clears account-owned cart cache and checkout intent. Legacy unused guard files remain dead-code cleanup candidates but are not wired into routing.
+`RouteGuard.tsx` is the active guard for user and admin routes. While auth is `unknown` it renders a neutral pending state and does not redirect. User routes require an authenticated principal; admin routes additionally require the `ADMIN` capability (`STAFF` alone is denied). Auth transitions clear account-owned private state before public subscribers observe logout or uid replacement. Legacy unused guard files remain dead-code cleanup candidates but are not wired into routing.
 
 ### 2. API Routing by Deployment
 
@@ -402,14 +368,7 @@ backend origin is a separate post-build concern controlled by
 
 ### 3. Single Data-Access Boundary (resolved)
 
-Every application API call now goes through a module in `src/api/`.
-`Request.ts` holds the only two `fetch()` call sites — `publicRequest` for
-public endpoints and `authRequest` for authenticated ones — so Bearer-token
-injection, error parsing and trace-id extraction live in one place.
-
-Errors surface as `ApiRequestError` with `status`, `code`, `traceId` and
-`path`; `401`/`403` clears the stored JWT. A source-scan test keeps new
-direct `fetch()` calls from reappearing outside `Request.ts`.
+Every application API call goes through a module in `src/api/`. `Request.ts` owns public/business fetch behavior and Bearer injection; `AuthSession.ts` separately owns CSRF, login, refresh, and logout transport to avoid an import cycle. Errors surface as `ApiRequestError` with `status`, `code`, `traceId`, and `path`. Only terminal current-session `401` invalidates auth; business `403` does not. Source-scan tests keep direct fetch calls and credential sinks outside these two boundaries from reappearing.
 
 ### 4. Browser-Reachable Docker API Origin
 
@@ -423,31 +382,13 @@ contract. A public Docker deployment must therefore add reverse-proxy routes for
 `/api/`, `/tai-khoan/`, and `/nguoi-dung/`; the current nginx configuration is
 not a supported public same-origin deployment until all three are present.
 
-### 5. Two Divergent Cart-Item Shapes
+### 5. Canonical Cart-Item Shape (resolved)
 
-**Issue**: Two different TypeScript interfaces for cart items.
-
-```typescript
-// src/models/GioHangModel.ts
-interface GioHangItem {
-  id: string;
-  sachId: string;
-  soLuong: number;
-}
-
-// src/api/GioHang.ts (inline)
-interface GioHangItem {
-  id: string;
-  sachId: string;
-  soLuong: number;
-  sachDto: SachModel;    // Extra fields
-  soLuongTon: number;
-}
-```
-
-**Impact**: Type inconsistency; unclear which one to use in new code.
-
-**Mitigation**: Consolidate into one model in `src/models/GioHangModel.ts`.
+`src/models/GioHangModel.ts` re-exports the canonical cart types owned by
+`src/api/CartStorage.ts`, and `src/api/GioHang.ts` consumes the same shape. New
+cart code must use this canonical model rather than declaring another inline
+interface. `CartStorage.ts` remains the sole owner of the guest/cart-cache
+`localStorage.gioHang` representation.
 
 ### 6. Guest Cart Is Device-Local
 
@@ -485,7 +426,7 @@ Current dependencies: ~500KB gzipped (typical CRA project).
 
 **Current strengths**:
 - Client-side routing (no full page reloads)
-- localStorage caching (cart, auth token)
+- narrowly scoped localStorage caching for guest cart and authenticated render metadata
 - Component memoization available (React.memo, useMemo)
 
 **Current weaknesses**:

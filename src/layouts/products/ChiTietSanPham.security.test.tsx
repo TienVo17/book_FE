@@ -4,6 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 import ChiTietSanPham from "./ChiTietSanPham";
 import { getBookByIdentifier, getSachLienQuan } from "../../api/SachApi";
 import { getDanhSachYeuThich } from "../../api/YeuThichApi";
+import { useAuthSession } from "../../api/AuthSession";
 
 jest.mock("../../api/SachApi", () => ({
   getBookByIdentifier: jest.fn(),
@@ -14,6 +15,16 @@ jest.mock("../../api/YeuThichApi", () => ({
   getDanhSachYeuThich: jest.fn(),
   themYeuThich: jest.fn(),
   xoaYeuThich: jest.fn(),
+}));
+
+jest.mock("../../api/AuthSession", () => ({
+  useAuthSession: jest.fn(),
+  getAuthSnapshot: jest.fn(() => ({
+    status: 'guest', uid: null, username: null, roles: [], capabilities: [],
+  })),
+  captureAuthenticatedRequest: jest.fn(() => null),
+  isCurrentAuthCapture: jest.fn(() => false),
+  subscribeAuthTransition: jest.fn(() => () => undefined),
 }));
 
 jest.mock("./components/HinhAnhSanPham", () => ({
@@ -35,6 +46,7 @@ jest.mock("./components/SachProps", () => ({
 const mockedGetBookById = getBookByIdentifier as jest.MockedFunction<typeof getBookByIdentifier>;
 const mockedGetSachLienQuan = getSachLienQuan as jest.MockedFunction<typeof getSachLienQuan>;
 const mockedGetDanhSachYeuThich = getDanhSachYeuThich as jest.MockedFunction<typeof getDanhSachYeuThich>;
+const mockedUseAuth = useAuthSession as jest.MockedFunction<typeof useAuthSession>;
 
 function renderTrangChiTiet(): void {
   render(
@@ -61,6 +73,9 @@ describe("ChiTietSanPham product description security", () => {
     localStorage.clear();
     (window as any).__xss_script_executed = undefined;
     (window as any).__xss_onerror_executed = undefined;
+    mockedUseAuth.mockReturnValue({
+      status: 'guest', uid: null, username: null, roles: [], capabilities: [],
+    });
     mockedGetSachLienQuan.mockResolvedValue([]);
     mockedGetDanhSachYeuThich.mockResolvedValue([]);
   });

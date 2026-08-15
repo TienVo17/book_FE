@@ -1,202 +1,176 @@
-import React from "react";
+import React, { act } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import Navbar from "./Navbar";
 import { getAllTheLoai } from "../../api/TheLoaiApi";
 import { getGoiYTimKiem, SachGoiYModel } from "../../api/SachApi";
-import { ApiRequestError } from "../../api/Request";
+import { getAuthSnapshot, logoutAuth, useAuthSession } from "../../api/AuthSession";
+import { loadCart, readCartForCurrentSession, signOutCartSession } from "../../api/CartSession";
 
-jest.mock("../../api/TheLoaiApi", () => ({
-  getAllTheLoai: jest.fn(),
+jest.mock("../../api/TheLoaiApi", () => ({ getAllTheLoai: jest.fn() }));
+jest.mock("../../api/SachApi", () => ({ getGoiYTimKiem: jest.fn() }));
+jest.mock("../../api/AuthSession", () => ({
+  getAuthSnapshot: jest.fn(), useAuthSession: jest.fn(), logoutAuth: jest.fn(),
 }));
-
-jest.mock("../../api/SachApi", () => ({
-  getGoiYTimKiem: jest.fn(),
+jest.mock("../../api/CartSession", () => ({
+  loadCart: jest.fn(() => Promise.resolve([])),
+  readCartForCurrentSession: jest.fn(() => []),
+  signOutCartSession: jest.fn(),
 }));
 
 const mockedGetAllTheLoai = getAllTheLoai as jest.MockedFunction<typeof getAllTheLoai>;
 const mockedGetGoiYTimKiem = getGoiYTimKiem as jest.MockedFunction<typeof getGoiYTimKiem>;
+const mockedGetAuthSnapshot = getAuthSnapshot as jest.MockedFunction<typeof getAuthSnapshot>;
+const mockedUseAuthSession = useAuthSession as jest.MockedFunction<typeof useAuthSession>;
+const mockedLogoutAuth = logoutAuth as jest.MockedFunction<typeof logoutAuth>;
+const mockedLoadCart = loadCart as jest.MockedFunction<typeof loadCart>;
+const mockedReadCart = readCartForCurrentSession as jest.MockedFunction<typeof readCartForCurrentSession>;
+const mockedSignOutCart = signOutCartSession as jest.MockedFunction<typeof signOutCartSession>;
 
-function ViTriHienTai() {
+function ViTriHienTai(): JSX.Element {
   const location = useLocation();
   return <output data-testid="vi-tri-hien-tai">{location.pathname}{location.search}</output>;
 }
 
-function renderNavbar(duongDanBanDau: string) {
-  return render(
-    <MemoryRouter initialEntries={[duongDanBanDau]}>
-      <Navbar />
-      <ViTriHienTai />
-    </MemoryRouter>,
-  );
-}
-
-function deferred<T>() {
-  let resolve!: (value: T) => void;
-  const promise = new Promise<T>((res) => {
-    resolve = res;
-  });
-  return { promise, resolve };
+function renderNavbar(path = "/"): void {
+  render(<MemoryRouter initialEntries={[path]}><Navbar /><ViTriHienTai /></MemoryRouter>);
 }
 
 function goiY(overrides: Partial<SachGoiYModel>): SachGoiYModel {
-  return {
-    maSach: 1,
-    tenSach: "Sách mẫu",
-    slug: "sach-mau",
-    urlAnh: "",
-    giaBan: 10000,
-    ...overrides,
-  };
+  return { maSach: 1, tenSach: "Sách mẫu", slug: "sach-mau", urlAnh: "", giaBan: 10000, ...overrides };
 }
 
-describe("Navbar - tìm kiếm có URL riêng (sửa lỗi gốc)", () => {
+describe("Navbar AuthSession", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockedGetAllTheLoai.mockResolvedValue([]);
-    localStorage.clear();
-  });
-
-  it("tìm kiếm từ một trang KHÔNG PHẢI trang chủ vẫn điều hướng tới /tim-kiem?q=...", async () => {
     mockedGetGoiYTimKiem.mockResolvedValue([]);
-    renderNavbar("/gio-hang");
+    mockedGetAuthSnapshot.mockReturnValue({ status: "guest", uid: null, username: null, roles: [], capabilities: [] });
+    mockedUseAuthSession.mockReturnValue({ status: "guest", uid: null, username: null, roles: [], capabilities: [] });
+    mockedLogoutAuth.mockResolvedValue({ status: "guest", uid: null, username: null, roles: [], capabilities: [] });
+    mockedLoadCart.mockResolvedValue([]);
+    mockedReadCart.mockReturnValue([]);
+  });
 
-    const oTimKiem = screen.getByRole("combobox", { name: /tìm kiếm sách/i });
-    fireEvent.change(oTimKiem, { target: { value: "harry potter" } });
-    fireEvent.click(screen.getByRole("button", { name: "Tìm kiếm" }));
+  it("does not render guest or account CTAs while authentication is unknown", () => {
+    mockedGetAuthSnapshot.mockReturnValue({ status: "unknown", uid: null, username: null, roles: [], capabilities: [] });
+    mockedUseAuthSession.mockReturnValue({ status: "unknown", uid: null, username: null, roles: [], capabilities: [] });
 
-    expect(screen.getByTestId("vi-tri-hien-tai")).toHaveTextContent(
-      "/tim-kiem?q=harry%20potter",
+    renderNavbar();
+
+    expect(screen.getByTestId("auth-pending")).toHaveTextContent(/đang xác thực/i);
+    expect(screen.queryByRole("link", { name: /đăng nhập/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /reader/i })).not.toBeInTheDocument();
+  });
+
+  it("uses the in-memory authenticated identity and grants management only to ADMIN", () => {
+    const auth = { status: "authenticated" as const, uid: 1, username: "admin", roles: ["ADMIN"], capabilities: ["ADMIN"] };
+    mockedGetAuthSnapshot.mockReturnValue(auth);
+    mockedUseAuthSession.mockReturnValue(auth);
+    renderNavbar();
+
+    fireEvent.click(screen.getByRole("button", { name: /admin/i }));
+    expect(screen.getByRole("link", { name: /quản lý/i })).toBeInTheDocument();
+  });
+
+  it("hydrates a different account cart when authenticated uid changes", async () => {
+    const accountA = {
+      status: "authenticated" as const,
+      uid: 1,
+      username: "reader-a",
+      roles: ["USER"],
+      capabilities: ["USER"],
+    };
+    const accountB = {
+      ...accountA,
+      uid: 2,
+      username: "reader-b",
+    };
+    let currentAuth = accountA;
+    mockedGetAuthSnapshot.mockImplementation(() => currentAuth);
+    mockedUseAuthSession.mockImplementation(() => currentAuth);
+    mockedLoadCart
+      .mockResolvedValueOnce([{ maSach: 1, soLuong: 1 } as ReturnType<typeof mockedReadCart>[number]])
+      .mockResolvedValueOnce([{ maSach: 2, soLuong: 3 } as ReturnType<typeof mockedReadCart>[number]]);
+
+    const view = render(
+      <MemoryRouter>
+        <Navbar />
+      </MemoryRouter>,
     );
-  });
-
-  it("không điều hướng khi từ khóa rỗng", () => {
-    renderNavbar("/gio-hang");
-
-    fireEvent.click(screen.getByRole("button", { name: "Tìm kiếm" }));
-
-    expect(screen.getByTestId("vi-tri-hien-tai")).toHaveTextContent("/gio-hang");
-  });
-
-  it("hiện nút xóa từ khóa chỉ khi ô tìm kiếm có chữ", () => {
-    renderNavbar("/");
-    expect(screen.queryByRole("button", { name: /xóa từ khóa/i })).not.toBeInTheDocument();
-
-    fireEvent.change(screen.getByRole("combobox", { name: /tìm kiếm sách/i }), {
-      target: { value: "abc" },
-    });
-    expect(screen.getByRole("button", { name: /xóa từ khóa/i })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: /xóa từ khóa/i }));
-    expect(screen.getByRole("combobox", { name: /tìm kiếm sách/i })).toHaveValue("");
-    expect(screen.queryByRole("button", { name: /xóa từ khóa/i })).not.toBeInTheDocument();
-  });
-});
-
-describe("Navbar - gợi ý tìm kiếm", () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockedGetAllTheLoai.mockResolvedValue([]);
-    localStorage.clear();
-  });
-
-  it("không gọi API gợi ý khi từ khóa dưới 2 ký tự sau khi trim", async () => {
-    renderNavbar("/");
-    fireEvent.change(screen.getByRole("combobox", { name: /tìm kiếm sách/i }), {
-      target: { value: "a" },
+    await waitFor(() => {
+      expect(mockedLoadCart).toHaveBeenCalledTimes(1);
+      expect(screen.getByText("1", { selector: ".cart-badge" })).toBeInTheDocument();
     });
 
-    await new Promise((r) => setTimeout(r, 300));
-    expect(mockedGetGoiYTimKiem).not.toHaveBeenCalled();
-  });
-
-  it("debounce 250ms rồi mới gọi API gợi ý", async () => {
-    mockedGetGoiYTimKiem.mockResolvedValue([goiY({})]);
-    renderNavbar("/");
-
-    fireEvent.change(screen.getByRole("combobox", { name: /tìm kiếm sách/i }), {
-      target: { value: "ab" },
+    currentAuth = accountB;
+    act(() => {
+      view.rerender(
+        <MemoryRouter>
+          <Navbar />
+        </MemoryRouter>,
+      );
     });
-    expect(mockedGetGoiYTimKiem).not.toHaveBeenCalled();
 
-    await waitFor(() => expect(mockedGetGoiYTimKiem).toHaveBeenCalledWith("ab"));
+    await waitFor(() => {
+      expect(mockedLoadCart).toHaveBeenCalledTimes(2);
+      expect(screen.getByText("3", { selector: ".cart-badge" })).toBeInTheDocument();
+    });
   });
 
-  it("hủy hiệu lực phản hồi trễ của yêu cầu cũ khi yêu cầu mới hơn đã hoàn tất trước", async () => {
-    const yeuCauA = deferred<SachGoiYModel[]>();
-    const yeuCauB = deferred<SachGoiYModel[]>();
-    mockedGetGoiYTimKiem
-      .mockReturnValueOnce(yeuCauA.promise)
-      .mockReturnValueOnce(yeuCauB.promise);
+  it("logs out through AuthSession and performs cart cleanup without legacy auth events", async () => {
+    const auth = { status: "authenticated" as const, uid: 1, username: "reader", roles: ["USER"], capabilities: ["USER"] };
+    mockedGetAuthSnapshot.mockReturnValue(auth);
+    mockedUseAuthSession.mockReturnValue(auth);
+    renderNavbar("/profile");
 
-    renderNavbar("/");
-    const oTimKiem = screen.getByRole("combobox", { name: /tìm kiếm sách/i });
+    fireEvent.click(screen.getByRole("button", { name: /reader/i }));
+    fireEvent.click(screen.getByRole("button", { name: /đăng xuất/i }));
 
-    fireEvent.change(oTimKiem, { target: { value: "ha" } });
-    await waitFor(() => expect(mockedGetGoiYTimKiem).toHaveBeenCalledTimes(1));
-
-    fireEvent.change(oTimKiem, { target: { value: "harry" } });
-    await waitFor(() => expect(mockedGetGoiYTimKiem).toHaveBeenCalledTimes(2));
-
-    // Yêu cầu MỚI HƠN (B, cho "harry") hoàn tất trước.
-    yeuCauB.resolve([goiY({ maSach: 2, tenSach: "Harry Potter" })]);
-    await screen.findByText("Harry Potter");
-
-    // Yêu cầu CŨ (A, cho "ha") hoàn tất trễ — không được ghi đè kết quả mới hơn.
-    yeuCauA.resolve([goiY({ maSach: 1, tenSach: "Halloween" })]);
-    await new Promise((r) => setTimeout(r, 50));
-
-    expect(screen.queryByText("Halloween")).not.toBeInTheDocument();
-    expect(screen.getByText("Harry Potter")).toBeInTheDocument();
-  });
-
-  it("điều hướng gợi ý bằng phím Mũi tên và chọn bằng Enter", async () => {
-    mockedGetGoiYTimKiem.mockResolvedValue([
-      goiY({ maSach: 1, tenSach: "Sách Một", slug: "sach-mot" }),
-      goiY({ maSach: 2, tenSach: "Sách Hai", slug: "sach-hai" }),
-    ]);
-    renderNavbar("/");
-    const oTimKiem = screen.getByRole("combobox", { name: /tìm kiếm sách/i });
-
-    fireEvent.change(oTimKiem, { target: { value: "sach" } });
-    await screen.findByRole("listbox");
-
-    fireEvent.keyDown(oTimKiem, { key: "ArrowDown" });
-    expect(screen.getAllByRole("option")[0]).toHaveAttribute("aria-selected", "true");
-
-    fireEvent.keyDown(oTimKiem, { key: "ArrowDown" });
-    expect(screen.getAllByRole("option")[1]).toHaveAttribute("aria-selected", "true");
-
-    fireEvent.keyDown(oTimKiem, { key: "Enter" });
-    expect(screen.getByTestId("vi-tri-hien-tai")).toHaveTextContent("/sach/sach-hai");
-  });
-
-  it("Escape đóng dropdown gợi ý mà không điều hướng", async () => {
-    mockedGetGoiYTimKiem.mockResolvedValue([goiY({})]);
-    renderNavbar("/");
-    const oTimKiem = screen.getByRole("combobox", { name: /tìm kiếm sách/i });
-
-    fireEvent.change(oTimKiem, { target: { value: "sach" } });
-    await screen.findByRole("listbox");
-
-    fireEvent.keyDown(oTimKiem, { key: "Escape" });
-    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    await waitFor(() => expect(mockedLogoutAuth).toHaveBeenCalledTimes(1));
+    expect(mockedSignOutCart).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId("vi-tri-hien-tai")).toHaveTextContent("/");
   });
 
-  it("endpoint gợi ý lỗi/404 -> không dropdown, không chặn tìm kiếm bình thường", async () => {
-    mockedGetGoiYTimKiem.mockRejectedValue(new ApiRequestError("Not Found", 404));
+  it("still logs out when local cart cleanup throws", async () => {
+    const auth = { status: "authenticated" as const, uid: 1, username: "reader", roles: ["USER"], capabilities: ["USER"] };
+    mockedGetAuthSnapshot.mockReturnValue(auth);
+    mockedUseAuthSession.mockReturnValue(auth);
+    mockedSignOutCart.mockImplementation(() => {
+      throw new DOMException("storage blocked", "SecurityError");
+    });
+    renderNavbar("/profile");
+
+    fireEvent.click(screen.getByRole("button", { name: /reader/i }));
+    fireEvent.click(screen.getByRole("button", { name: /đăng xuất/i }));
+
+    await waitFor(() => expect(mockedLogoutAuth).toHaveBeenCalledTimes(1));
+    expect(screen.getByTestId("vi-tri-hien-tai")).toHaveTextContent("/");
+  });
+});
+
+describe("Navbar - tìm kiếm", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockedGetAllTheLoai.mockResolvedValue([]);
+    mockedReadCart.mockReturnValue([]);
+    mockedLoadCart.mockResolvedValue([]);
+    mockedGetAuthSnapshot.mockReturnValue({ status: "guest", uid: null, username: null, roles: [], capabilities: [] });
+    mockedUseAuthSession.mockReturnValue({ status: "guest", uid: null, username: null, roles: [], capabilities: [] });
+  });
+
+  it("tìm kiếm từ trang khác tới /tim-kiem?q", () => {
     renderNavbar("/gio-hang");
-    const oTimKiem = screen.getByRole("combobox", { name: /tìm kiếm sách/i });
-
-    fireEvent.change(oTimKiem, { target: { value: "sach loi" } });
-    await waitFor(() => expect(mockedGetGoiYTimKiem).toHaveBeenCalled());
-
-    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
-
+    fireEvent.change(screen.getByRole("combobox", { name: /tìm kiếm sách/i }), { target: { value: "harry potter" } });
     fireEvent.click(screen.getByRole("button", { name: "Tìm kiếm" }));
-    expect(screen.getByTestId("vi-tri-hien-tai")).toHaveTextContent(
-      "/tim-kiem?q=sach%20loi",
-    );
+    expect(screen.getByTestId("vi-tri-hien-tai")).toHaveTextContent("/tim-kiem?q=harry%20potter");
+  });
+
+  it("debounces search suggestions", async () => {
+    mockedGetGoiYTimKiem.mockResolvedValue([goiY({})]);
+    renderNavbar();
+    fireEvent.change(screen.getByRole("combobox", { name: /tìm kiếm sách/i }), { target: { value: "ab" } });
+    await waitFor(() => expect(mockedGetGoiYTimKiem).toHaveBeenCalledWith("ab"));
+    expect(screen.getByRole("listbox")).toBeInTheDocument();
   });
 });

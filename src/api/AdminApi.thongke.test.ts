@@ -1,11 +1,12 @@
 import { getThongKe } from './AdminApi';
 
-function createJwt(expirationOffsetMs: number): string {
-  const payload = btoa(
-    JSON.stringify({ exp: Math.floor((Date.now() + expirationOffsetMs) / 1000) })
-  );
-  return `header.${payload}.signature`;
-}
+jest.mock('./AuthSession', () => ({
+  __esModule: true,
+  captureAuthenticatedRequest: () => ({ accessToken: 'test-access-token', revision: 1 }),
+  isCurrentAuthCapture: () => true,
+  refreshForRequest: () => Promise.resolve(false),
+  invalidateAuthCapture: () => false,
+}));
 
 function mockThongKe(body: unknown): void {
   global.fetch = jest.fn().mockResolvedValue(
@@ -36,10 +37,6 @@ const RESPONSE_BACKEND = {
 
 describe('AdminApi.getThongKe', () => {
   const originalFetch = global.fetch;
-
-  beforeEach(() => {
-    localStorage.setItem('jwt', createJwt(60_000));
-  });
 
   afterEach(() => {
     localStorage.clear();

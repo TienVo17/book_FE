@@ -1,6 +1,6 @@
 import { apiUrl } from './ApiUrl';
 import { CartItem } from './CartStorage';
-import { authRequest } from './Request';
+import { authRequest, authRequestWithCapture } from './Request';
 
 export interface ServerCartSummary {
   items: CartItem[];
@@ -139,7 +139,15 @@ function mapMergeResponse(raw: unknown): ServerCartMergeResponse {
 }
 
 export async function getServerCart(): Promise<ServerCartSummary> {
-  return mapSummary(await authRequest(apiUrl('/api/gio-hang')));
+  return (await getServerCartWithCapture()).summary;
+}
+
+export async function getServerCartWithCapture() {
+  const result = await authRequestWithCapture(apiUrl('/api/gio-hang'));
+  return {
+    summary: mapSummary(result.data),
+    capture: result.capture,
+  };
 }
 
 export async function addServerCartItem(maSach: number, soLuong: number): Promise<ServerCartSummary> {

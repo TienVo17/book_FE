@@ -40,18 +40,21 @@ describe('backend request source migration', () => {
     expect(filesWithForbiddenHost).toEqual([]);
   });
 
-  it('keeps direct fetch() calls exclusively inside the shared request module', () => {
+  it('keeps direct fetch() calls exclusively inside the request and auth transport modules', () => {
     const sourceDirectory = path.join(process.cwd(), 'src');
-    const requestPath = path.join(sourceDirectory, 'api', 'Request.ts');
+    const directFetchBoundaries = [
+      path.join(sourceDirectory, 'api', 'Request.ts'),
+      path.join(sourceDirectory, 'api', 'AuthSession.ts'),
+    ].map((filePath) => path.resolve(filePath));
     // `fetch(` preceded by a word char (e.g. `prefetch(`) is not a call to the
     // global; require a boundary before it.
     const directFetchPattern = /(^|[^\w.])fetch\s*\(/;
 
-    const filesOutsideRequest = sourceFiles(sourceDirectory)
-      .filter((filePath) => path.resolve(filePath) !== path.resolve(requestPath))
+    const filesOutsideBoundaries = sourceFiles(sourceDirectory)
+      .filter((filePath) => !directFetchBoundaries.includes(path.resolve(filePath)))
       .filter((filePath) => !testFilePattern.test(filePath));
 
-    const filesWithDirectFetch = filesOutsideRequest.filter((filePath) =>
+    const filesWithDirectFetch = filesOutsideBoundaries.filter((filePath) =>
       directFetchPattern.test(fs.readFileSync(filePath, 'utf8')),
     );
 

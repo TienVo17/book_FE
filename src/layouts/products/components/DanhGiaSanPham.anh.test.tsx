@@ -11,8 +11,10 @@ import {
   xoaAnhDanhGia,
 } from "../../../api/DanhGiaAPI";
 import { ApiRequestError } from "../../../api/Request";
+import { useAuthSession } from "../../../api/AuthSession";
 
 jest.mock("date-fns/locale", () => ({ vi: {} }));
+jest.mock("../../../api/AuthSession", () => ({ useAuthSession: jest.fn() }));
 jest.mock("react-toastify", () => ({ toast: { error: jest.fn(), success: jest.fn() } }));
 jest.mock("../../../api/DanhGiaAPI", () => {
   const actual = jest.requireActual("../../../api/DanhGiaAPI");
@@ -35,10 +37,7 @@ const themAnhMock = themAnhDanhGia as jest.MockedFunction<typeof themAnhDanhGia>
 const xoaAnhMock = xoaAnhDanhGia as jest.MockedFunction<typeof xoaAnhDanhGia>;
 const createObjectURLMock = jest.fn(() => "blob:preview");
 const revokeObjectURLMock = jest.fn();
-
-function jwtConHan(): string {
-  return `header.${btoa(JSON.stringify({ exp: Math.floor(Date.now() / 1000) + 3600 }))}.signature`;
-}
+const mockedUseAuth = useAuthSession as jest.MockedFunction<typeof useAuthSession>;
 
 function danhGia(laCuaToi = true) {
   return {
@@ -91,7 +90,7 @@ beforeEach(() => {
     value: revokeObjectURLMock,
   });
   localStorage.clear();
-  localStorage.setItem("jwt", jwtConHan());
+  mockedUseAuth.mockReturnValue({ status: "authenticated", uid: 1, username: "reader", roles: ["USER"], capabilities: ["USER"] });
   layQuyenMock.mockResolvedValue({ coThe: true, maDonHang: 42, lyDo: null });
   layTrangMock.mockResolvedValue(trang());
   themMock.mockResolvedValue(danhGia());
@@ -114,6 +113,31 @@ describe("DanhGiaSanPham — ảnh đánh giá", () => {
     expect(themAnhMock).toHaveBeenNthCalledWith(1, 99, anh1, expect.any(String));
     expect(themAnhMock).toHaveBeenNthCalledWith(2, 99, anh2, expect.any(String));
     expect(themAnhMock.mock.calls[0][2]).not.toBe(themAnhMock.mock.calls[1][2]);
+  });
+
+  it("không tiếp tục tải ảnh của tài khoản cũ sau khi uid thay đổi", async () => {
+    let auth = { status: "authenticated" as const, uid: 1, username: "reader-a", roles: ["USER"], capabilities: ["USER"] };
+    mockedUseAuth.mockImplementation(() => auth);
+    let resolveReview!: (value: ReturnType<typeof danhGia>) => void;
+    themMock.mockReturnValue(new Promise(resolve => { resolveReview = resolve; }));
+
+    const view = renderComponent();
+    await screen.findByRole("button", { name: "Gửi đánh giá" });
+    const file = new File(["jpeg"], "draft.jpg", { type: "image/jpeg" });
+    await userEvent.upload(screen.getByLabelText("Chọn ảnh đánh giá"), file);
+    await userEvent.type(screen.getByLabelText("Nhận xét:"), "Bản nháp tài khoản A");
+    await userEvent.click(screen.getByRole("button", { name: "Gửi đánh giá" }));
+
+    auth = { status: "authenticated", uid: 2, username: "reader-b", roles: ["USER"], capabilities: ["USER"] };
+    view.rerender(
+      <MemoryRouter>
+        <DanhGiaSanPham maSach={7} />
+      </MemoryRouter>
+    );
+    resolveReview(danhGia());
+
+    await waitFor(() => expect(screen.queryByDisplayValue("Bản nháp tài khoản A")).not.toBeInTheDocument());
+    expect(themAnhMock).not.toHaveBeenCalled();
   });
 
   it("báo rõ review chữ đã lưu và cho tải lại ảnh còn thiếu", async () => {

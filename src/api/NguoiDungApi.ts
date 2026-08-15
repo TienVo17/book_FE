@@ -12,8 +12,8 @@ async function postJson(url: string, body: Record<string, string>) {
   });
 }
 
-export async function getHoSo() {
-  return authRequest(`${BASE}/api/nguoi-dung/ho-so`);
+export async function getHoSo<T = unknown>(): Promise<T> {
+  return authRequest<T>(`${BASE}/api/nguoi-dung/ho-so`);
 }
 
 export async function capNhatHoSo(data: any) {

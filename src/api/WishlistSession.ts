@@ -1,5 +1,12 @@
 import { useSyncExternalStore } from 'react';
 import {
+  captureAuthenticatedRequest,
+  getAuthSnapshot,
+  isCurrentAuthCapture,
+  subscribeAuthTransition,
+  type AuthenticatedRequestCapture,
+} from './AuthSession';
+import {
   getDanhSachYeuThich,
   themYeuThich,
   xoaYeuThich,
@@ -16,8 +23,9 @@ export interface WishlistSnapshot {
 }
 
 interface WishlistSessionIdentity {
-  token: string;
-  revision: number;
+  uid: number;
+  capture: AuthenticatedRequestCapture;
+  epoch: number;
 }
 
 const EMPTY_PENDING_BOOK_IDS = Object.freeze([]) as readonly number[];
@@ -29,14 +37,15 @@ const GUEST_SNAPSHOT: WishlistSnapshot = Object.freeze({
 });
 
 let snapshot: WishlistSnapshot = GUEST_SNAPSHOT;
-let sessionToken: string | null = null;
-let sessionRevision = 0;
+let sessionUid: number | null = null;
+let retainedUnknownUid: number | null = null;
+let sessionEpoch = 0;
 let loadFlight: Promise<readonly YeuThichItem[]> | null = null;
-let loadFlightToken: string | null = null;
+let loadFlightCapture: AuthenticatedRequestCapture | null = null;
 const listeners = new Set<() => void>();
 const mutationTails = new Map<number, Promise<void>>();
 const activeMutationCounts = new Map<number, number>();
-const overlappingMutationRevisions = new Set<number>();
+const overlappingMutationEpochs = new Set<number>();
 const reconciliationFlights = new Map<number, Promise<boolean>>();
 const mutationIdleWaiters = new Set<() => void>();
 let mutationActivityRevision = 0;
@@ -54,56 +63,73 @@ function publish(next: WishlistSnapshot): void {
   listeners.forEach(listener => listener());
 }
 
-function readStoredToken(): string | null {
-  return localStorage.getItem('jwt');
+function resetToGuest(): void {
+  if (sessionUid === null && snapshot.status === 'guest') return;
+  sessionUid = null;
+  sessionEpoch += 1;
+  loadFlight = null;
+  loadFlightCapture = null;
+  mutationTails.clear();
+  activeMutationCounts.clear();
+  releaseMutationIdleWaiters();
+  overlappingMutationEpochs.clear();
+  reconciliationFlights.clear();
+  mutationActivityRevision = 0;
+  snapshot = GUEST_SNAPSHOT;
+  listeners.forEach(listener => listener());
 }
 
-function beginStoredSession(): WishlistSessionIdentity | null {
-  const token = readStoredToken();
-  if (!token) {
-    if (sessionToken !== null || snapshot.status !== 'guest') {
-      sessionToken = null;
-      sessionRevision += 1;
-      loadFlight = null;
-      loadFlightToken = null;
-      mutationTails.clear();
-      activeMutationCounts.clear();
-      releaseMutationIdleWaiters();
-      overlappingMutationRevisions.clear();
-      reconciliationFlights.clear();
-      mutationActivityRevision = 0;
-      snapshot = GUEST_SNAPSHOT;
-      listeners.forEach(listener => listener());
+function beginAuthSession(): WishlistSessionIdentity | null {
+  const auth = getAuthSnapshot();
+  if (auth.status !== 'authenticated') {
+    if (auth.status === 'guest' && (sessionUid !== null || snapshot.status !== 'guest')) {
+      resetToGuest();
     }
     return null;
   }
+  if (typeof auth.uid !== 'number' || !Number.isInteger(auth.uid) || auth.uid <= 0) {
+    resetToGuest();
+    return null;
+  }
+  const capture = captureAuthenticatedRequest();
+  if (!capture) return null;
 
-  if (sessionToken !== token) {
-    sessionToken = token;
-    sessionRevision += 1;
+  if (sessionUid !== auth.uid) {
+    sessionUid = auth.uid;
+    sessionEpoch += 1;
     loadFlight = null;
-    loadFlightToken = null;
+    loadFlightCapture = null;
     mutationTails.clear();
     activeMutationCounts.clear();
     releaseMutationIdleWaiters();
-    overlappingMutationRevisions.clear();
+    overlappingMutationEpochs.clear();
     reconciliationFlights.clear();
     mutationActivityRevision = 0;
-    publish({
-      items: [],
-      status: 'loading',
-      error: null,
-      pendingBookIds: EMPTY_PENDING_BOOK_IDS,
-    });
+    publish({ items: [], status: 'loading', error: null, pendingBookIds: EMPTY_PENDING_BOOK_IDS });
   }
+  return { uid: auth.uid, capture, epoch: sessionEpoch };
+}
 
-  return { token, revision: sessionRevision };
+function isCurrentEpoch(identity: WishlistSessionIdentity): boolean {
+  const auth = getAuthSnapshot();
+  return auth.status === 'authenticated' && auth.uid === identity.uid &&
+    sessionUid === identity.uid && sessionEpoch === identity.epoch;
 }
 
 function isCurrentSession(identity: WishlistSessionIdentity): boolean {
-  return sessionToken === identity.token &&
-    sessionRevision === identity.revision &&
-    readStoredToken() === identity.token;
+  return isCurrentEpoch(identity) && isCurrentAuthCapture(identity.capture);
+}
+
+/**
+ * Queued work captures its token when it is enqueued, but only runs once the
+ * previous operation for the same book settles. Rotating the access token of the
+ * same account in between must not silently drop the requested desired state, so
+ * the operation re-reads the token while the immutable account identity holds.
+ */
+function withCurrentCapture(identity: WishlistSessionIdentity): WishlistSessionIdentity | null {
+  if (!isCurrentEpoch(identity)) return null;
+  const capture = captureAuthenticatedRequest();
+  return capture ? { ...identity, capture } : null;
 }
 
 function messageFrom(error: unknown): string {
@@ -112,15 +138,10 @@ function messageFrom(error: unknown): string {
     : 'Không thể đồng bộ danh sách yêu thích. Vui lòng thử lại.';
 }
 
-function beginPendingBook(
-  maSach: number,
-  identity: WishlistSessionIdentity,
-): number {
+function beginPendingBook(maSach: number, identity: WishlistSessionIdentity): number {
   mutationActivityRevision += 1;
   activeMutationCounts.set(maSach, (activeMutationCounts.get(maSach) ?? 0) + 1);
-  if (activeMutationCounts.size > 1) {
-    overlappingMutationRevisions.add(identity.revision);
-  }
+  if (activeMutationCounts.size > 1) overlappingMutationEpochs.add(identity.epoch);
   const pendingBookIds = snapshot.pendingBookIds.includes(maSach)
     ? snapshot.pendingBookIds
     : [...snapshot.pendingBookIds, maSach];
@@ -136,13 +157,8 @@ function finishPendingBook(maSach: number): void {
     return;
   }
   activeMutationCounts.delete(maSach);
-  const pendingBookIds = snapshot.pendingBookIds.filter(
-    pendingId => pendingId !== maSach,
-  );
-  publish({ ...snapshot, pendingBookIds });
-  if (activeMutationCounts.size === 0) {
-    releaseMutationIdleWaiters();
-  }
+  publish({ ...snapshot, pendingBookIds: snapshot.pendingBookIds.filter(id => id !== maSach) });
+  if (activeMutationCounts.size === 0) releaseMutationIdleWaiters();
 }
 
 function releaseMutationIdleWaiters(): void {
@@ -151,52 +167,33 @@ function releaseMutationIdleWaiters(): void {
   waiters.forEach(resolve => resolve());
 }
 
-function waitForMutationIdle(
-  identity: WishlistSessionIdentity,
-): Promise<void> {
-  if (!isCurrentSession(identity) || activeMutationCounts.size === 0) {
-    return Promise.resolve();
-  }
+function waitForMutationIdle(identity: WishlistSessionIdentity): Promise<void> {
+  if (!isCurrentSession(identity) || activeMutationCounts.size === 0) return Promise.resolve();
   return new Promise(resolve => mutationIdleWaiters.add(resolve));
 }
 
-function reconcileMutationSession(
-  identity: WishlistSessionIdentity,
-): Promise<boolean> {
+function reconcileMutationSession(identity: WishlistSessionIdentity): Promise<boolean> {
   if (!isCurrentSession(identity)) return Promise.resolve(false);
-
-  const existing = reconciliationFlights.get(identity.revision);
+  const existing = reconciliationFlights.get(identity.epoch);
   if (existing) return existing;
 
   const flight = (async () => {
     while (isCurrentSession(identity)) {
       await waitForMutationIdle(identity);
       if (!isCurrentSession(identity)) return false;
-
       const activityAtStart = mutationActivityRevision;
       const items = await getDanhSachYeuThich();
       if (!isCurrentSession(identity)) return false;
-      if (
-        activeMutationCounts.size === 0 &&
-        activityAtStart === mutationActivityRevision
-      ) {
-        publish({
-          items,
-          status: 'ready',
-          error: null,
-          pendingBookIds: snapshot.pendingBookIds,
-        });
+      if (activeMutationCounts.size === 0 && activityAtStart === mutationActivityRevision) {
+        publish({ items, status: 'ready', error: null, pendingBookIds: snapshot.pendingBookIds });
         return true;
       }
     }
     return false;
   })().finally(() => {
-    if (reconciliationFlights.get(identity.revision) === flight) {
-      reconciliationFlights.delete(identity.revision);
-    }
+    if (reconciliationFlights.get(identity.epoch) === flight) reconciliationFlights.delete(identity.epoch);
   });
-
-  reconciliationFlights.set(identity.revision, flight);
+  reconciliationFlights.set(identity.epoch, flight);
   return flight;
 }
 
@@ -210,11 +207,7 @@ export function getWishlistSnapshot(): WishlistSnapshot {
 }
 
 export function useWishlist(): WishlistSnapshot {
-  return useSyncExternalStore(
-    subscribeWishlist,
-    getWishlistSnapshot,
-    getWishlistSnapshot,
-  );
+  return useSyncExternalStore(subscribeWishlist, getWishlistSnapshot, getWishlistSnapshot);
 }
 
 export function isBookWishlisted(maSach: number, state = snapshot): boolean {
@@ -222,163 +215,108 @@ export function isBookWishlisted(maSach: number, state = snapshot): boolean {
 }
 
 export async function syncWishlistSession(): Promise<readonly YeuThichItem[]> {
-  const identity = beginStoredSession();
+  const identity = beginAuthSession();
   if (!identity) return GUEST_SNAPSHOT.items;
-
-  if (loadFlight && loadFlightToken === identity.token) {
+  if (loadFlight && loadFlightCapture &&
+    loadFlightCapture.revision === identity.capture.revision &&
+    loadFlightCapture.accessToken === identity.capture.accessToken) {
     return loadFlight;
   }
 
-  publish({
-    items: snapshot.items,
-    status: 'loading',
-    error: null,
-    pendingBookIds: snapshot.pendingBookIds,
-  });
+  publish({ items: snapshot.items, status: 'loading', error: null, pendingBookIds: snapshot.pendingBookIds });
   const activityAtStart = mutationActivityRevision;
-
   const flight = getDanhSachYeuThich()
     .then(items => {
-      if (
-        isCurrentSession(identity) &&
-        activityAtStart === mutationActivityRevision
-      ) {
-        publish({
-          items,
-          status: 'ready',
-          error: null,
-          pendingBookIds: snapshot.pendingBookIds,
-        });
+      if (isCurrentSession(identity) && activityAtStart === mutationActivityRevision) {
+        publish({ items, status: 'ready', error: null, pendingBookIds: snapshot.pendingBookIds });
       }
       return isCurrentSession(identity) ? snapshot.items : [];
     })
     .catch(error => {
-      if (
-        isCurrentSession(identity) &&
-        activityAtStart === mutationActivityRevision
-      ) {
-        publish({
-          items: snapshot.items,
-          status: 'error',
-          error: messageFrom(error),
-          pendingBookIds: snapshot.pendingBookIds,
-        });
+      if (isCurrentSession(identity) && activityAtStart === mutationActivityRevision) {
+        publish({ items: snapshot.items, status: 'error', error: messageFrom(error), pendingBookIds: snapshot.pendingBookIds });
       }
       throw error;
     })
     .finally(() => {
       if (loadFlight === flight) {
         loadFlight = null;
-        loadFlightToken = null;
+        loadFlightCapture = null;
       }
     });
-
   loadFlight = flight;
-  loadFlightToken = identity.token;
+  loadFlightCapture = identity.capture;
   return flight;
 }
 
 export function clearWishlistSession(): void {
-  sessionToken = null;
-  sessionRevision += 1;
-  loadFlight = null;
-  loadFlightToken = null;
-  mutationTails.clear();
-  activeMutationCounts.clear();
-  releaseMutationIdleWaiters();
-  overlappingMutationRevisions.clear();
-  reconciliationFlights.clear();
-  mutationActivityRevision = 0;
-  snapshot = GUEST_SNAPSHOT;
-  listeners.forEach(listener => listener());
+  resetToGuest();
 }
 
-export async function setBookWishlisted(
-  maSach: number,
-  desired: boolean,
-): Promise<readonly YeuThichItem[]> {
-  const identity = beginStoredSession();
-  if (!identity) {
-    throw new Error('Vui lòng đăng nhập để sử dụng tính năng yêu thích.');
+// AuthSession invokes this before publishing uid/logout/unknown transitions.
+// Matching uid deliberately retains the current server-authoritative items.
+subscribeAuthTransition((previous, next) => {
+  const directPreviousUid = previous.status === 'authenticated' ? previous.uid : null;
+  const previousUid = directPreviousUid ?? retainedUnknownUid;
+  const nextUid = next.status === 'authenticated' ? next.uid : null;
+
+  if (next.status === 'unknown') {
+    retainedUnknownUid = previousUid;
+    return;
   }
-  if (!Number.isInteger(maSach) || maSach <= 0) {
-    throw new Error('Mã sách không hợp lệ.');
+  retainedUnknownUid = null;
+  if (previousUid !== null && previousUid !== nextUid) {
+    resetToGuest();
   }
+});
+
+export async function setBookWishlisted(maSach: number, desired: boolean): Promise<readonly YeuThichItem[]> {
+  const queuedIdentity = beginAuthSession();
+  if (!queuedIdentity) throw new Error('Vui lòng đăng nhập để sử dụng tính năng yêu thích.');
+  if (!Number.isInteger(maSach) || maSach <= 0) throw new Error('Mã sách không hợp lệ.');
 
   const previous = mutationTails.get(maSach) ?? Promise.resolve();
-  const operation = previous
-    .catch(() => undefined)
-    .then(async () => {
-      if (!isCurrentSession(identity) || isBookWishlisted(maSach) === desired) {
-        return;
-      }
+  const operation = previous.catch(() => undefined).then(async () => {
+    const identity = withCurrentCapture(queuedIdentity);
+    if (!identity || isBookWishlisted(maSach) === desired) return;
 
-      const activityAtStart = beginPendingBook(maSach, identity);
-      try {
-        const items = desired
-          ? await themYeuThich(maSach)
-          : await xoaYeuThich(maSach);
-        if (
-          isCurrentSession(identity) &&
-          !overlappingMutationRevisions.has(identity.revision) &&
-          activityAtStart === mutationActivityRevision
-        ) {
-          publish({
-            items,
-            status: 'ready',
-            error: null,
-            pendingBookIds: snapshot.pendingBookIds,
-          });
-        }
-      } catch (error) {
-        if (isCurrentSession(identity)) {
-          publish({
-            items: snapshot.items,
-            status: 'error',
-            error: messageFrom(error),
-            pendingBookIds: snapshot.pendingBookIds,
-          });
-        }
-        throw error;
-      } finally {
-        if (isCurrentSession(identity)) {
-          finishPendingBook(maSach);
-          if (
-            activeMutationCounts.size === 0 &&
-            overlappingMutationRevisions.has(identity.revision)
-          ) {
-            try {
-              await reconcileMutationSession(identity);
-            } catch (error) {
-              if (isCurrentSession(identity)) {
-                publish({
-                  items: snapshot.items,
-                  status: 'error',
-                  error: messageFrom(error),
-                  pendingBookIds: snapshot.pendingBookIds,
-                });
-              }
-            } finally {
-              if (isCurrentSession(identity)) {
-                overlappingMutationRevisions.delete(identity.revision);
-              }
+    const activityAtStart = beginPendingBook(maSach, identity);
+    try {
+      const items = desired ? await themYeuThich(maSach) : await xoaYeuThich(maSach);
+      if (isCurrentSession(identity) && !overlappingMutationEpochs.has(identity.epoch) && activityAtStart === mutationActivityRevision) {
+        publish({ items, status: 'ready', error: null, pendingBookIds: snapshot.pendingBookIds });
+      }
+    } catch (error) {
+      if (isCurrentSession(identity)) {
+        publish({ items: snapshot.items, status: 'error', error: messageFrom(error), pendingBookIds: snapshot.pendingBookIds });
+      }
+      throw error;
+    } finally {
+      if (isCurrentEpoch(identity)) {
+        finishPendingBook(maSach);
+        if (!isCurrentSession(identity)) {
+          const replacement = beginAuthSession();
+          if (replacement) {
+            void syncWishlistSession().catch(() => undefined);
+          }
+        } else if (activeMutationCounts.size === 0 && overlappingMutationEpochs.has(identity.epoch)) {
+          try {
+            await reconcileMutationSession(identity);
+          } catch (error) {
+            if (isCurrentSession(identity)) {
+              publish({ items: snapshot.items, status: 'error', error: messageFrom(error), pendingBookIds: snapshot.pendingBookIds });
             }
+          } finally {
+            if (isCurrentSession(identity)) overlappingMutationEpochs.delete(identity.epoch);
           }
         }
       }
-    });
-
-  const tail = operation
-    .then(() => undefined, () => undefined)
-    .finally(() => {
-      if (mutationTails.get(maSach) === tail) {
-        mutationTails.delete(maSach);
-      }
-    });
+    }
+  });
+  const tail = operation.then(() => undefined, () => undefined).finally(() => {
+    if (mutationTails.get(maSach) === tail) mutationTails.delete(maSach);
+  });
   mutationTails.set(maSach, tail);
-
   await operation;
-  const queued = mutationTails.get(maSach);
-  if (queued && queued !== tail) await queued;
-  return isCurrentSession(identity) ? snapshot.items : [];
+  return isCurrentEpoch(queuedIdentity) ? snapshot.items : [];
 }

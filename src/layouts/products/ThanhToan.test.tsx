@@ -10,6 +10,7 @@ import { kiemTraCoupon } from '../../api/CouponApi';
 import { createDonHang, createVNPayPaymentUrl, getHinhThucGiaoHang } from '../../api/DonHangApi';
 import { addOrUpdateItem, readCart } from '../../api/CartStorage';
 import { readIntent } from '../../api/CheckoutIntent';
+import { getAuthSnapshot, useAuthSession } from '../../api/AuthSession';
 
 jest.mock('../../api/DiaChiApi', () => ({ getDanhSachDiaChi: jest.fn() }));
 jest.mock('../../api/HinhAnhApi', () => ({ getOneImageOfOneBook: jest.fn() }));
@@ -22,6 +23,15 @@ jest.mock('../../api/DonHangApi', () => ({
 jest.mock('react-toastify', () => ({
   toast: { success: jest.fn(), error: jest.fn(), info: jest.fn() },
 }));
+jest.mock('../../api/AuthSession', () => ({
+  useAuthSession: jest.fn(),
+  getAuthSnapshot: jest.fn(() => ({
+    status: 'guest', uid: null, username: null, roles: [], capabilities: [],
+  })),
+  captureAuthenticatedRequest: jest.fn(() => null),
+  isCurrentAuthCapture: jest.fn(() => false),
+  subscribeAuthTransition: jest.fn(() => () => undefined),
+}));
 
 const mockedGetDanhSachDiaChi = getDanhSachDiaChi as jest.MockedFunction<typeof getDanhSachDiaChi>;
 const mockedGetOneImage = getOneImageOfOneBook as jest.MockedFunction<typeof getOneImageOfOneBook>;
@@ -30,6 +40,8 @@ const mockedCreateDonHang = createDonHang as jest.MockedFunction<typeof createDo
 const mockedCreateVNPayPaymentUrl = createVNPayPaymentUrl as jest.MockedFunction<typeof createVNPayPaymentUrl>;
 const mockedGetHinhThucGiaoHang = getHinhThucGiaoHang as jest.MockedFunction<typeof getHinhThucGiaoHang>;
 const mockedToastError = toast.error as jest.Mock;
+const mockedUseAuth = useAuthSession as jest.MockedFunction<typeof useAuthSession>;
+const mockedGetAuthSnapshot = getAuthSnapshot as jest.MockedFunction<typeof getAuthSnapshot>;
 
 const address = {
   maDiaChi: 5,
@@ -96,6 +108,9 @@ describe('ThanhToan business behavior', () => {
   beforeEach(() => {
     localStorage.clear();
     jest.clearAllMocks();
+    const guestAuth = { status: 'guest' as const, uid: null, username: null, roles: [], capabilities: [] };
+    mockedUseAuth.mockReturnValue(guestAuth);
+    mockedGetAuthSnapshot.mockReturnValue(guestAuth);
     mockedGetDanhSachDiaChi.mockResolvedValue([address]);
     mockedGetOneImage.mockResolvedValue([]);
     mockedGetHinhThucGiaoHang.mockResolvedValue(deliveryMethods);

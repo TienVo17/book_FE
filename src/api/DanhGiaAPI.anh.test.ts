@@ -4,20 +4,18 @@ import {
 } from "./DanhGiaAPI";
 import { ApiRequestError } from "./Request";
 
-function createJwt(expirationOffsetMs: number): string {
-  const payload = btoa(
-    JSON.stringify({
-      exp: Math.floor((Date.now() + expirationOffsetMs) / 1000),
-    })
-  );
-  return `header.${payload}.signature`;
-}
+jest.mock("./AuthSession", () => ({
+  __esModule: true,
+  captureAuthenticatedRequest: () => ({ accessToken: "test-access-token", revision: 1 }),
+  isCurrentAuthCapture: () => true,
+  refreshForRequest: () => Promise.resolve(false),
+  invalidateAuthCapture: () => false,
+}));
 
 describe("DanhGiaAPI — ảnh đánh giá", () => {
   const originalFetch = global.fetch;
 
   beforeEach(() => {
-    localStorage.setItem("jwt", createJwt(60_000));
     global.fetch = jest.fn().mockResolvedValue(
       new Response(
         JSON.stringify({ maHinhAnh: 10, urlHinh: "https://cdn.example/1.jpg" }),

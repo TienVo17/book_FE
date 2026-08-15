@@ -11,17 +11,30 @@ import {
   setCartItemQuantity,
 } from "../../api/CartSession";
 import { toast } from "react-toastify";
+import { useAuthSession } from "../../api/AuthSession";
 
 type SanPhamGioHang = CartItem & { hinhAnh?: string };
 
+type CartAuthIdentity = {
+  status: "unknown" | "guest" | "authenticated";
+  uid: number | null;
+};
+
+function cartMutationKey(auth: CartAuthIdentity, maSach: number): string {
+  return `${auth.status}:${auth.uid ?? "none"}:${maSach}`;
+}
+
 function GioHang() {
+  const auth = useAuthSession();
   const [gioHang, setGioHang] = useState<SanPhamGioHang[]>([]);
   const [dangTaiGioHang, setDangTaiGioHang] = useState(true);
   const [loiTaiGioHang, setLoiTaiGioHang] = useState<string | null>(null);
   const [maSachDangCapNhat, setMaSachDangCapNhat] = useState<number | null>(null);
   const [soLuongNhap, setSoLuongNhap] = useState<Record<number, string>>({});
-  const mutationInFlight = useRef(new Set<number>());
+  const mutationInFlight = useRef(new Set<string>());
   const imageLoadRevision = useRef(0);
+  const currentAuth = useRef(auth);
+  currentAuth.current = auth;
   const navigate = useNavigate();
 
   const attachImages = useCallback(async (items: CartItem[]) => {
@@ -56,18 +69,50 @@ function GioHang() {
   }, [attachImages]);
 
   useEffect(() => {
-    void reloadCart();
+    let active = true;
+    setMaSachDangCapNhat(null);
+    setSoLuongNhap({});
+
+    if (auth.status === "unknown") {
+      return () => {
+        active = false;
+        imageLoadRevision.current += 1;
+      };
+    }
+
+    const loadCurrentCart = async () => {
+      setDangTaiGioHang(true);
+      setLoiTaiGioHang(null);
+      try {
+        const items = await loadCart();
+        if (active) {
+          await attachImages(items);
+        }
+      } catch (error) {
+        if (!active) return;
+        const message = error instanceof Error ? error.message : "Không thể tải giỏ hàng.";
+        setLoiTaiGioHang(message);
+        toast.error(message);
+      } finally {
+        if (active) {
+          setDangTaiGioHang(false);
+        }
+      }
+    };
+
+    void loadCurrentCart();
     const onExternalChange = () => {
       void attachImages(readCartForCurrentSession());
     };
     window.addEventListener("storage", onExternalChange);
     window.addEventListener("cartUpdated", onExternalChange);
     return () => {
+      active = false;
       imageLoadRevision.current += 1;
       window.removeEventListener("storage", onExternalChange);
       window.removeEventListener("cartUpdated", onExternalChange);
     };
-  }, [attachImages, reloadCart]);
+  }, [attachImages, auth.status, auth.uid]);
 
   const syncLocal = (updated: CartItem[]) => {
     setGioHang((prev) =>
@@ -83,17 +128,35 @@ function GioHang() {
     maSach: number,
     operation: () => Promise<CartItem[]>,
   ) => {
-    if (mutationInFlight.current.has(maSach)) return;
-    mutationInFlight.current.add(maSach);
+    const expectedAuth = currentAuth.current;
+    const mutationKey = cartMutationKey(expectedAuth, maSach);
+    if (mutationInFlight.current.has(mutationKey)) return;
+    mutationInFlight.current.add(mutationKey);
     setMaSachDangCapNhat(maSach);
+
+    const isCurrentIdentity = () => {
+      const latestAuth = currentAuth.current;
+      return (
+        latestAuth.status === expectedAuth.status &&
+        latestAuth.uid === expectedAuth.uid
+      );
+    };
+
     try {
-      syncLocal(await operation());
+      const updated = await operation();
+      if (isCurrentIdentity()) {
+        syncLocal(updated);
+      }
     } catch (error) {
-      setSoLuongNhap({});
-      toast.error(error instanceof Error ? error.message : "Không thể cập nhật giỏ hàng.");
+      if (isCurrentIdentity()) {
+        setSoLuongNhap({});
+        toast.error(error instanceof Error ? error.message : "Không thể cập nhật giỏ hàng.");
+      }
     } finally {
-      mutationInFlight.current.delete(maSach);
-      setMaSachDangCapNhat(current => current === maSach ? null : current);
+      mutationInFlight.current.delete(mutationKey);
+      if (isCurrentIdentity()) {
+        setMaSachDangCapNhat(current => current === maSach ? null : current);
+      }
     }
   };
 
@@ -291,9 +354,9 @@ function GioHang() {
                 className="btn-modern-accent w-100"
                 style={{ padding: "0.75rem", justifyContent: "center" }}
                 onClick={() => {
-                  if (localStorage.getItem("jwt")) {
+                  if (auth.status === "authenticated") {
                     navigate("/thanh-toan");
-                  } else {
+                  } else if (auth.status === "guest") {
                     // eslint-disable-next-line no-restricted-globals
                     const result = confirm("Bạn có muốn đăng nhập để thanh toán?");
                     if (result) {

@@ -30,13 +30,50 @@ import ChinhSachPage from "./layouts/chinh-sach/ChinhSachPage";
 import HuyNhanTin from "./layouts/nhan-tin/HuyNhanTin";
 import XacNhanNhanTin from "./layouts/nhan-tin/XacNhanNhanTin";
 import WishlistBootstrap from "./layouts/utils/WishlistBootstrap";
+import { bootstrapAuth, useAuthSession } from "./api/AuthSession";
 
+
+function AuthBootstrapBoundary({ children }: { children: React.ReactNode }): JSX.Element {
+  const auth = useAuthSession();
+  const [bootstrapFailed, setBootstrapFailed] = React.useState(false);
+
+  // A refresh that ends in `unknown` resolves normally, so the retry affordance
+  // has to react to the resulting status, not only to a rejected promise.
+  const retryBootstrap = React.useCallback(() => {
+    setBootstrapFailed(false);
+    void bootstrapAuth()
+      .then(next => setBootstrapFailed(next.status === "unknown"))
+      .catch(() => setBootstrapFailed(true));
+  }, []);
+
+  React.useEffect(() => {
+    retryBootstrap();
+  }, [retryBootstrap]);
+
+  return <>
+    {auth.status === "unknown" && bootstrapFailed ? (
+      <div role="alert" className="text-center py-2">
+        Không thể kiểm tra phiên đăng nhập.{' '}
+        <button type="button" className="btn btn-link p-0" onClick={retryBootstrap}>
+          Thử lại
+        </button>
+      </div>
+    ) : null}
+    {children}
+  </>;
+}
+
+function PrivateHydrationBoundary(): JSX.Element | null {
+  const auth = useAuthSession();
+  return auth.status === "authenticated" ? <WishlistBootstrap /> : null;
+}
 
 function App() {
   return (
     <BrowserRouter>
+      <AuthBootstrapBoundary>
       <RouteMetadata />
-      <WishlistBootstrap />
+      <PrivateHydrationBoundary />
       <Routes>
         {/* Chỉ cho phép ADMIN truy cập vào /quan-ly */}
         <Route path="/quan-ly/*" element={
@@ -92,6 +129,7 @@ function App() {
         pauseOnHover
         theme="light"
       />
+      </AuthBootstrapBoundary>
     </BrowserRouter>
   );
 }

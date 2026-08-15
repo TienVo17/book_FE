@@ -9,12 +9,18 @@ import {
 } from './DonHangApi';
 import { apiUrl } from './ApiUrl';
 
-const BASE = apiUrl('');
+jest.mock('./AuthSession', () => ({
+  __esModule: true,
+  captureAuthenticatedRequest: () => ({
+    accessToken: 'test-access-token',
+    revision: 1,
+  }),
+  isCurrentAuthCapture: () => true,
+  refreshForRequest: () => Promise.resolve(false),
+  invalidateAuthCapture: () => false,
+}));
 
-function createJwt(expirationOffsetMs: number): string {
-  const payload = btoa(JSON.stringify({ exp: Math.floor((Date.now() + expirationOffsetMs) / 1000) }));
-  return `header.${payload}.signature`;
-}
+const BASE = apiUrl('');
 
 function requestOf(callIndex = 0): [string, RequestInit] {
   return (global.fetch as jest.Mock).mock.calls[callIndex] as [string, RequestInit];
@@ -24,7 +30,6 @@ describe('DonHangApi', () => {
   const originalFetch = global.fetch;
 
   beforeEach(() => {
-    localStorage.setItem('jwt', createJwt(60_000));
     global.fetch = jest.fn().mockResolvedValue(new Response('{}', { status: 200 }));
   });
 

@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { getDonHangHistory, cancelDonHang, DonHangListItem } from '../../api/DonHangApi';
 import { ApiRequestError } from '../../api/Request';
+import { useAuthSession } from '../../api/AuthSession';
 
 type DonHangItem = DonHangListItem;
 
 function DonHangUser() {
+    const auth = useAuthSession();
     const [donHangList, setDonHangList] = useState<DonHangItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [dangHuy, setDangHuy] = useState<number | null>(null);
@@ -35,7 +37,12 @@ function DonHangUser() {
     };
 
     useEffect(() => {
+        if (auth.status !== 'authenticated') return;
+
         let active = true;
+        setDonHangList([]);
+        setLoiTai(null);
+        setLoiHuy(null);
         setLoading(true);
         getDonHangHistory(0)
             .then(data => {
@@ -53,7 +60,7 @@ function DonHangUser() {
         return () => {
             active = false;
         };
-    }, []);
+    }, [auth.status, auth.uid]);
 
     const huyDon = async (maDonHang: number) => {
         if (!window.confirm(`Bạn có chắc muốn hủy đơn hàng #${maDonHang}?`)) return;

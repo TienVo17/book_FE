@@ -1,7 +1,7 @@
 # Deployment Guide
 
 **Version**: 1.0  
-**Last Updated**: 2026-07-08  
+**Last Updated**: 2026-08-14
 **Target Platforms**: Docker, nginx, Kubernetes (future)
 
 ## Quick Start
@@ -789,7 +789,9 @@ jobs:
 - [ ] Secrets (API keys) not in Dockerfile or .env committed files
 - [ ] Docker image scanned for vulnerabilities (Trivy, Snyk)
 - [ ] No debug/development code in production build
-- [ ] JWT tokens set to HttpOnly if using cookies (not implemented; currently localStorage)
+- [x] Access JWT and CSRF value remain memory-only; no auth credential is stored in Web Storage
+- [x] Opaque rotating refresh token uses a Secure, SameSite, HttpOnly cookie through same-origin `/tai-khoan/**` routes
+- [ ] Browser smoke confirms checked/unchecked cookie lifetime, reload/restart behavior, logout, and two-tab refresh before production promotion
 
 ## Related Documentation
 

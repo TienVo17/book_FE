@@ -1,10 +1,13 @@
 import { findAll, findByBook, getGoiYTimKiem } from './SachApi';
 import { apiUrl } from './ApiUrl';
 
-function createJwt(): string {
-  const payload = btoa(JSON.stringify({ exp: Math.floor(Date.now() / 1000) + 60 }));
-  return `header.${payload}.signature`;
-}
+jest.mock('./AuthSession', () => ({
+  __esModule: true,
+  captureAuthenticatedRequest: () => ({ accessToken: 'test-access-token', revision: 1 }),
+  isCurrentAuthCapture: () => true,
+  refreshForRequest: () => Promise.resolve(false),
+  invalidateAuthCapture: () => false,
+}));
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -17,7 +20,6 @@ describe('SachApi admin listing', () => {
   const originalFetch = global.fetch;
 
   beforeEach(() => {
-    localStorage.setItem('jwt', createJwt());
     global.fetch = jest.fn().mockResolvedValue(new Response(JSON.stringify({
       content: [],
       totalPages: 0,

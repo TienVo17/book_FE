@@ -10,6 +10,24 @@ import {
   setBookWishlisted,
   syncWishlistSession,
 } from './WishlistSession';
+import {
+  captureAuthenticatedRequest,
+  getAuthSnapshot,
+  isCurrentAuthCapture,
+  subscribeAuthTransition,
+} from './AuthSession';
+
+var mockAuthTransitionListener: Parameters<typeof subscribeAuthTransition>[0] | null;
+
+jest.mock('./AuthSession', () => ({
+  captureAuthenticatedRequest: jest.fn(),
+  getAuthSnapshot: jest.fn(),
+  isCurrentAuthCapture: jest.fn(),
+  subscribeAuthTransition: jest.fn((listener) => {
+    mockAuthTransitionListener = listener;
+    return () => { mockAuthTransitionListener = null; };
+  }),
+}));
 
 jest.mock('./YeuThichApi', () => ({
   getDanhSachYeuThich: jest.fn(),
@@ -20,6 +38,13 @@ jest.mock('./YeuThichApi', () => ({
 const mockedGetWishlist = getDanhSachYeuThich as jest.MockedFunction<typeof getDanhSachYeuThich>;
 const mockedAddWishlist = themYeuThich as jest.MockedFunction<typeof themYeuThich>;
 const mockedRemoveWishlist = xoaYeuThich as jest.MockedFunction<typeof xoaYeuThich>;
+const mockedCaptureAuthenticatedRequest = captureAuthenticatedRequest as jest.MockedFunction<typeof captureAuthenticatedRequest>;
+const mockedGetAuthSnapshot = getAuthSnapshot as jest.MockedFunction<typeof getAuthSnapshot>;
+const mockedIsCurrentAuthCapture = isCurrentAuthCapture as jest.MockedFunction<typeof isCurrentAuthCapture>;
+const mockedSubscribeAuthTransition = subscribeAuthTransition as jest.MockedFunction<typeof subscribeAuthTransition>;
+let mockAuthUid: number | null = null;
+let mockAuthToken: string | null = null;
+let mockAuthRevision = 0;
 
 const bookA: YeuThichItem = {
   maSach: 1,
@@ -41,7 +66,9 @@ const bookC: YeuThichItem = {
 };
 
 function setJwt(signature: string): void {
-  localStorage.setItem('jwt', `header.payload.${signature}`);
+  mockAuthUid = signature === 'a' ? 1 : signature === 'b' ? 2 : 1;
+  mockAuthToken = `token-${signature}`;
+  mockAuthRevision += 1;
 }
 
 describe('WishlistSession', () => {
@@ -49,6 +76,22 @@ describe('WishlistSession', () => {
     localStorage.clear();
     clearWishlistSession();
     jest.clearAllMocks();
+    mockAuthUid = null;
+    mockAuthToken = null;
+    mockAuthRevision = 0;
+    mockedGetAuthSnapshot.mockImplementation(() => ({
+      status: mockAuthUid === null ? 'guest' : 'authenticated',
+      uid: mockAuthUid,
+      username: null,
+      roles: [],
+      capabilities: [],
+    }));
+    mockedCaptureAuthenticatedRequest.mockImplementation(() => mockAuthToken === null
+      ? null
+      : { accessToken: mockAuthToken, revision: mockAuthRevision });
+    mockedIsCurrentAuthCapture.mockImplementation(capture => Boolean(
+      capture && capture.accessToken === mockAuthToken && capture.revision === mockAuthRevision,
+    ));
     mockedGetWishlist.mockResolvedValue([]);
   });
 
@@ -62,6 +105,32 @@ describe('WishlistSession', () => {
 
     expect(mockedGetWishlist).not.toHaveBeenCalled();
     expect(getWishlistSnapshot().status).toBe('guest');
+  });
+
+  it('clears retained account items after authenticated to unknown to guest', async () => {
+    const transition = mockAuthTransitionListener;
+    if (!transition) {
+      throw new Error('Auth transition listener was not registered');
+    }
+    setJwt('a');
+    mockedGetWishlist.mockResolvedValueOnce([bookA]);
+    await syncWishlistSession();
+    expect(getWishlistSnapshot().items).toEqual([bookA]);
+
+    mockAuthUid = null;
+    mockAuthToken = null;
+    mockAuthRevision += 1;
+    transition(
+      { status: 'authenticated', uid: 1, username: 'reader', roles: [], capabilities: [] },
+      { status: 'unknown', uid: null, username: null, roles: [], capabilities: [] },
+    );
+    expect(getWishlistSnapshot().items).toEqual([bookA]);
+
+    transition(
+      { status: 'unknown', uid: null, username: null, roles: [], capabilities: [] },
+      { status: 'guest', uid: null, username: null, roles: [], capabilities: [] },
+    );
+    expect(getWishlistSnapshot()).toMatchObject({ status: 'guest', items: [] });
   });
 
   it('coalesces hydrate calls and publishes one authoritative snapshot', async () => {
@@ -135,6 +204,76 @@ describe('WishlistSession', () => {
     expect(mockedRemoveWishlist).toHaveBeenCalledWith(1);
     expect(getWishlistSnapshot().items).toEqual([]);
     expect(getWishlistSnapshot().pendingBookIds.includes(1)).toBe(false);
+  });
+
+  it('uses the latest same-uid capture when a queued desired state begins', async () => {
+    setJwt('a');
+    await syncWishlistSession();
+    let resolveAdd!: (items: YeuThichItem[]) => void;
+    mockedAddWishlist.mockReturnValue(new Promise(resolve => { resolveAdd = resolve; }));
+    mockedRemoveWishlist.mockImplementation(async () => {
+      const capture = captureAuthenticatedRequest();
+      expect(capture?.accessToken).toBe('token-a-rotated');
+      expect(capture?.revision).toBe(mockAuthRevision);
+      return [];
+    });
+
+    const add = setBookWishlisted(1, true);
+    await new Promise(resolve => setTimeout(resolve, 0));
+    const remove = setBookWishlisted(1, false);
+
+    resolveAdd([bookA]);
+    void Promise.resolve().then(() => {
+      mockAuthToken = 'token-a-rotated';
+      mockAuthRevision += 1;
+    });
+
+    await expect(remove).resolves.toEqual([]);
+    await expect(add).resolves.toEqual([bookA]);
+    expect(mockedRemoveWishlist).toHaveBeenCalledWith(1);
+  });
+
+  it('settles each same-book caller without waiting for a later queued operation', async () => {
+    setJwt('a');
+    await syncWishlistSession();
+    let resolveAdd!: (items: YeuThichItem[]) => void;
+    let resolveRemove!: (items: YeuThichItem[]) => void;
+    mockedAddWishlist.mockReturnValue(new Promise(resolve => { resolveAdd = resolve; }));
+    mockedRemoveWishlist.mockReturnValue(new Promise(resolve => { resolveRemove = resolve; }));
+
+    let addSettled = false;
+    const add = setBookWishlisted(1, true).then(items => {
+      addSettled = true;
+      return items;
+    });
+    const remove = setBookWishlisted(1, false);
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    resolveAdd([bookA]);
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    expect(mockedRemoveWishlist).toHaveBeenCalledWith(1);
+    expect(addSettled).toBe(true);
+
+    resolveRemove([]);
+    await expect(Promise.all([add, remove])).resolves.toEqual([[bookA], []]);
+  });
+
+  it('does not start queued work after switching to another account', async () => {
+    setJwt('a');
+    await syncWishlistSession();
+    let resolveAdd!: (items: YeuThichItem[]) => void;
+    mockedAddWishlist.mockReturnValue(new Promise(resolve => { resolveAdd = resolve; }));
+
+    const add = setBookWishlisted(1, true);
+    const remove = setBookWishlisted(1, false);
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    setJwt('b');
+    resolveAdd([bookA]);
+
+    await expect(Promise.all([add, remove])).resolves.toEqual([[], []]);
+    expect(mockedRemoveWishlist).not.toHaveBeenCalled();
   });
 
   it('does not block a different book mutation behind an in-flight item', async () => {
@@ -265,6 +404,41 @@ describe('WishlistSession', () => {
     expect(getWishlistSnapshot().items).toEqual([bookA]);
     expect(getWishlistSnapshot().status).toBe('ready');
     expect(mockedGetWishlist).toHaveBeenCalledTimes(2);
+  });
+
+  it('releases pending bookkeeping when a mutation 401 rotates the same uid capture', async () => {
+    setJwt('a');
+    await syncWishlistSession();
+    mockedAddWishlist.mockImplementationOnce(async () => {
+      mockAuthToken = 'token-a-rotated';
+      mockAuthRevision += 1;
+      throw new Error('Phiên truy cập đã hết hạn');
+    });
+    mockedGetWishlist.mockResolvedValueOnce([bookA]);
+
+    await expect(setBookWishlisted(1, true)).rejects.toThrow('Phiên truy cập đã hết hạn');
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    expect(getWishlistSnapshot().pendingBookIds).toEqual([]);
+    expect(mockedGetWishlist).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps same-uid items during token rotation while rejecting an old capture response', async () => {
+    setJwt('a');
+    mockedGetWishlist.mockResolvedValueOnce([bookA]);
+    await syncWishlistSession();
+    let resolveOld!: (items: YeuThichItem[]) => void;
+    mockedGetWishlist.mockReturnValueOnce(new Promise(resolve => { resolveOld = resolve; }));
+    const oldLoad = syncWishlistSession();
+
+    mockAuthToken = 'token-a-rotated';
+    mockAuthRevision += 1;
+    mockedGetWishlist.mockResolvedValueOnce([bookB]);
+    await expect(syncWishlistSession()).resolves.toEqual([bookB]);
+    resolveOld([bookA]);
+    await expect(oldLoad).resolves.toEqual([]);
+
+    expect(getWishlistSnapshot().items).toEqual([bookB]);
   });
 
   it('keeps the last safe snapshot on failure and supports retry', async () => {

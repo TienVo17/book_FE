@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   CoTheDanhGia,
   DanhGiaHinhAnhCongKhai,
@@ -22,8 +22,8 @@ import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { toast } from "react-toastify";
 import { useNavigate } from 'react-router-dom';
-import { jwtDecode } from "jwt-decode";
 import { generateIdempotencyKey } from "../../../api/CheckoutIntent";
+import { useAuthSession } from "../../../api/AuthSession";
 
 
 
@@ -39,6 +39,23 @@ interface AnhDangXem {
 interface AnhChoTai {
   file: File;
   idempotencyKey: string;
+}
+
+function accountKey(status: string, uid: number | null): string {
+  return status === "authenticated" && uid !== null ? `account:${uid}` : "guest";
+}
+
+/**
+ * `unknown` is retryable, so it must not discard the draft of the account that is
+ * being re-verified. The key only changes once the session resolves to a
+ * different account or to a guest.
+ */
+function useAccountBoundaryKey(status: string, uid: number | null): string {
+  const lastResolvedKey = useRef("guest");
+  if (status !== "unknown") {
+    lastResolvedKey.current = accountKey(status, uid);
+  }
+  return lastResolvedKey.current;
 }
 
 export const renderStars = (rating: number) => {
@@ -79,7 +96,9 @@ const THONG_DIEP_KHONG_DANH_GIA_DUOC: Record<LyDoKhongDanhGiaDuoc, string> = {
   DA_BI_AN: "Đánh giá của bạn cho cuốn sách này đã bị ẩn nên không thể đăng lại.",
 };
 
-const DanhGiaSanPham: React.FC<DanhGiaSanPhamProps> = ({ maSach }) => {
+const DanhGiaSanPhamContent: React.FC<
+  DanhGiaSanPhamProps & { authUid: number | null; authStatus: string }
+> = ({ maSach, authUid, authStatus }) => {
   const [trangDanhGia, setTrangDanhGia] = useState<TrangDanhGia | null>(null);
   const [trang, setTrang] = useState(0);
   const [sapXep, setSapXep] = useState<KieuSapXepDanhGia>("moi-nhat");
@@ -99,18 +118,12 @@ const DanhGiaSanPham: React.FC<DanhGiaSanPhamProps> = ({ maSach }) => {
     files: AnhChoTai[];
   } | null>(null);
   const navigate = useNavigate();
+  const mounted = useRef(true);
+  const daDangNhap = authStatus === "authenticated" && authUid !== null;
 
-  // Chỉ mời viết đánh giá khi token còn hạn, tránh để khách gõ xong mới bị chặn.
-  const daDangNhap = (() => {
-    const jwt = localStorage.getItem("jwt");
-    if (!jwt) return false;
-    try {
-      const { exp } = jwtDecode<{ exp?: number }>(jwt);
-      return exp != null && exp * 1000 > Date.now();
-    } catch {
-      return false;
-    }
-  })();
+  useEffect(() => () => {
+    mounted.current = false;
+  }, []);
 
   const taiTrang = useCallback(
     () => layTrangDanhGia(maSach, { page: trang, size: KICH_THUOC_TRANG, sort: sapXep, loc: locSao }),
@@ -163,6 +176,8 @@ const DanhGiaSanPham: React.FC<DanhGiaSanPhamProps> = ({ maSach }) => {
       setDangGui(false);
       return;
     }
+
+    if (!mounted.current) return;
 
     // Review chữ đã được commit. Ẩn form ngay, không để lỗi upload/refresh phía sau
     // biến một thao tác đã thành công thành thông báo "gửi thất bại".
@@ -295,6 +310,9 @@ const DanhGiaSanPham: React.FC<DanhGiaSanPhamProps> = ({ maSach }) => {
   // Hoi quyen truoc khi hien form, de nguoi dung khong go xong ca bai roi moi bi tu choi.
   // Loi o day khong duoc chan danh sach danh gia: doc va viet la hai viec doc lap.
   useEffect(() => {
+    // `unknown` là trạng thái tạm và thử lại được: giữ nguyên quyền cùng bản nháp
+    // đang gõ thay vì xoá, để một lần làm mới phiên không cuốn mất bài viết dở.
+    if (authStatus === "unknown") return;
     if (!daDangNhap) {
       setQuyenDanhGia(null);
       return;
@@ -310,7 +328,7 @@ const DanhGiaSanPham: React.FC<DanhGiaSanPhamProps> = ({ maSach }) => {
     return () => {
       conHieuLuc = false;
     };
-  }, [maSach, daDangNhap]);
+  }, [maSach, daDangNhap, authStatus]);
 
   
 
@@ -341,7 +359,7 @@ const DanhGiaSanPham: React.FC<DanhGiaSanPhamProps> = ({ maSach }) => {
 
   return (
     <div className="review-section my-4">
-      {!daDangNhap ? (
+      {authStatus === "guest" ? (
         <div className="review-login-prompt">
           <div>
             <strong>Bạn đã đọc cuốn này?</strong>
@@ -604,6 +622,20 @@ const DanhGiaSanPham: React.FC<DanhGiaSanPhamProps> = ({ maSach }) => {
         />
       )}
     </div>
+  );
+};
+
+const DanhGiaSanPham: React.FC<DanhGiaSanPhamProps> = ({ maSach }) => {
+  const auth = useAuthSession();
+  const boundaryKey = useAccountBoundaryKey(auth.status, auth.uid);
+
+  return (
+    <DanhGiaSanPhamContent
+      key={boundaryKey}
+      maSach={maSach}
+      authUid={auth.uid}
+      authStatus={auth.status}
+    />
   );
 };
 

@@ -1,7 +1,7 @@
 # Project Roadmap
 
 **Version**: 1.0  
-**Last Updated**: 2026-08-11
+**Last Updated**: 2026-08-14
 
 **Current Phase**: V1.2 (Active; server-side cart synchronization delivered)
 
@@ -79,10 +79,10 @@
 - `src/App.tsx` — route definitions
 
 **Outcome**:
-- Protected routes redirect to login when the JWT is missing, malformed or expired
-- Admin routes require `isAdmin === true`; a `STAFF`-only token is denied
+- Protected routes wait while AuthSession is `unknown`, then require an authenticated normalized principal
+- Admin routes require capability `ADMIN`; `STAFF` alone is denied
 - `/thanh-toan` and `/order` are guarded (previously unguarded)
-- Covered by `RouteGuard.test.tsx` (7 routes × 6 token states)
+- Covered by the RouteGuard matrix for unknown, guest, user, staff and admin states
 
 ### V1.1.3: Standardize API Patterns
 
@@ -191,11 +191,11 @@
 
 **Objective**: Persist authenticated carts while preserving a fast guest cart.
 
-**Delivered 2026-08-11**:
+**Delivered 2026-08-11; session ownership hardened 2026-08-14**:
 - [x] `CartApi.ts` validates server cart CRUD and guest-merge responses through shared request helpers
 - [x] Guests remain local; authenticated users load and mutate the backend cart, which is the source of truth
-- [x] Login captures the latest guest snapshot before storing the JWT, then merges with stable key/payload replay after a lost response
-- [x] Cache is bound to account and exact JWT session; stale responses cannot overwrite a newer session
+- [x] Login captures the latest guest snapshot before installing the memory session, then merges with stable key/payload replay after a lost response
+- [x] Cache ownership is canonical `account:<positive numeric uid>`; exact token/revision captures prevent stale request completion while same-UID rotation preserves state
 - [x] Authenticated mutations are FIFO; checkout awaits page and shared mutations, detects stale review state, and builds the order from the current authoritative snapshot
 - [x] Guest cart is capped at the backend contract of 100 unique lines
 
@@ -303,14 +303,14 @@
 - Image lazy-loading with skeleton placeholders
 - Request caching strategy
 
-### V2.0.5: Refresh Token Flow
+### V2.0.5: Refresh Token Flow — DELIVERED
 
-**Objective**: Improve security with token rotation.
-
-**Features**:
-- Backend: Issue refresh tokens
-- Frontend: Auto-refresh expired tokens
-- Transparent token refresh (no logout prompt)
+**Delivered 2026-08-14**:
+- [x] Fifteen-minute access JWT remains in frontend module memory only
+- [x] Backend issues opaque rotating refresh sessions in Secure, SameSite, HttpOnly cookies
+- [x] Controlled remember-me chooses browser-session versus hard 30-day absolute refresh lifetime
+- [x] GET/HEAD recovery shares one refresh and replays at most once; sent mutations never replay
+- [x] Multi-tab coordination shares metadata only, never credentials or principal data
 
 ## Backlog (Prioritization TBD)
 
@@ -338,7 +338,7 @@
 | Page Load Time (Lighthouse) | — | > 80 | > 85 |
 | Bundle Size (gzipped) | ~500KB | < 500KB | < 450KB |
 | TypeScript Strict Coverage | — | 100% | 100% |
-| Test Coverage | 368 tests trên 47 suites (chưa đo % dòng) | Giữ xanh các luồng tới hạn | > 60% |
+| Test Coverage | 425 tests trên 56 suites (chưa đo % dòng) | Giữ xanh các luồng tới hạn | > 60% |
 | Checkout Conversion | TBD | > 70% | > 75% |
 | Mobile Accessibility | — | > 85 | > 90 |
 

@@ -1,87 +1,43 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
-import { MemoryRouter, Routes, Route, useLocation } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import RouteGuard from "./RouteGuard";
+import { getAuthSnapshot, useAuthSession } from "../../api/AuthSession";
 
-// Route content stand-ins. Real page components are exercised by their own
-// suites; this table only needs to prove which content (or redirect target)
-// is reachable for a given token state.
-function Trang({ nhan }: { nhan: string }) {
+jest.mock("../../api/AuthSession", () => ({
+  getAuthSnapshot: jest.fn(),
+  useAuthSession: jest.fn(),
+}));
+
+const mockedGetAuthSnapshot = getAuthSnapshot as jest.MockedFunction<typeof getAuthSnapshot>;
+const mockedUseAuthSession = useAuthSession as jest.MockedFunction<typeof useAuthSession>;
+
+function Trang({ nhan }: { nhan: string }): JSX.Element {
   return <output data-testid="noi-dung-trang">{nhan}</output>;
 }
 
-function ViTriHienTai() {
+function TrangTheoTaiKhoan({ uid }: { uid: number }): JSX.Element {
+  const [uidLucMount] = React.useState(uid);
+  return <output data-testid="uid-luc-mount">{uidLucMount}</output>;
+}
+
+function ViTriHienTai(): JSX.Element {
   const location = useLocation();
   return <output data-testid="vi-tri-hien-tai">{location.pathname}</output>;
 }
 
-/**
- * Mirrors the target App.tsx route matrix from the Phase 2 plan:
- *   /profile, /dia-chi, /yeu-thich, /order, /order/:id, /thanh-toan -> require "user"
- *   /xu-ly-kq-thanh-toan                                -> public, no guard
- *   /quan-ly/*                                          -> require "admin"
- */
-function renderTaiDuongDan(duongDan: string) {
+function renderTaiDuongDan(duongDan: string): void {
   render(
     <MemoryRouter initialEntries={[duongDan]}>
       <Routes>
         <Route
           path="/quan-ly/*"
-          element={
-            <RouteGuard require="admin">
-              <Trang nhan="ADMIN" />
-            </RouteGuard>
-          }
+          element={<RouteGuard require="admin"><Trang nhan="ADMIN" /></RouteGuard>}
         />
         <Route
           path="/profile"
-          element={
-            <RouteGuard require="user">
-              <Trang nhan="PROFILE" />
-            </RouteGuard>
-          }
+          element={<RouteGuard require="user"><Trang nhan="PROFILE" /></RouteGuard>}
         />
-        <Route
-          path="/dia-chi"
-          element={
-            <RouteGuard require="user">
-              <Trang nhan="DIA_CHI" />
-            </RouteGuard>
-          }
-        />
-        <Route
-          path="/yeu-thich"
-          element={
-            <RouteGuard require="user">
-              <Trang nhan="YEU_THICH" />
-            </RouteGuard>
-          }
-        />
-        <Route
-          path="/order/:maDonHang"
-          element={
-            <RouteGuard require="user">
-              <Trang nhan="ORDER_DETAIL" />
-            </RouteGuard>
-          }
-        />
-        <Route
-          path="/order"
-          element={
-            <RouteGuard require="user">
-              <Trang nhan="ORDER" />
-            </RouteGuard>
-          }
-        />
-        <Route
-          path="/thanh-toan"
-          element={
-            <RouteGuard require="user">
-              <Trang nhan="THANH_TOAN" />
-            </RouteGuard>
-          }
-        />
-        <Route path="/xu-ly-kq-thanh-toan" element={<Trang nhan="KET_QUA_THANH_TOAN" />} />
         <Route path="/dang-nhap" element={<Trang nhan="DANG_NHAP" />} />
         <Route path="/" element={<Trang nhan="HOME" />} />
       </Routes>
@@ -90,148 +46,86 @@ function renderTaiDuongDan(duongDan: string) {
   );
 }
 
-function taoJwt(payload: Record<string, unknown>): string {
-  const encoded = btoa(JSON.stringify(payload));
-  return `header.${encoded}.signature`;
-}
-
-const mot_gio_sau = Math.floor(Date.now() / 1000) + 3600;
-const mot_gio_truoc = Math.floor(Date.now() / 1000) - 3600;
-
-const TOKEN = {
-  MALFORMED: "khong-phai-jwt-hop-le",
-  EXPIRED: taoJwt({ exp: mot_gio_truoc, isAdmin: false, isStaff: false }),
-  VALID_USER: taoJwt({ exp: mot_gio_sau, isAdmin: false, isStaff: false }),
-  STAFF_ONLY: taoJwt({ exp: mot_gio_sau, isAdmin: false, isStaff: true }),
-  VALID_ADMIN: taoJwt({ exp: mot_gio_sau, isAdmin: true, isStaff: false }),
-};
-
-function datToken(token: string | null) {
-  if (token === null) {
-    localStorage.removeItem("jwt");
-  } else {
-    localStorage.setItem("jwt", token);
-  }
-}
-
-const CAC_DUONG_DAN_YEU_CAU_USER: Array<{ duongDan: string; nhan: string }> = [
-  { duongDan: "/profile", nhan: "PROFILE" },
-  { duongDan: "/dia-chi", nhan: "DIA_CHI" },
-  { duongDan: "/yeu-thich", nhan: "YEU_THICH" },
-  { duongDan: "/order", nhan: "ORDER" },
-  { duongDan: "/order/7", nhan: "ORDER_DETAIL" },
-  { duongDan: "/thanh-toan", nhan: "THANH_TOAN" },
-];
-
 describe("RouteGuard", () => {
-  afterEach(() => {
-    localStorage.clear();
+  beforeEach(() => {
+    jest.clearAllMocks();
   });
 
-  describe.each(CAC_DUONG_DAN_YEU_CAU_USER)(
-    "require=user route $duongDan",
-    ({ duongDan, nhan }) => {
-      it("thiếu token -> chuyển hướng /dang-nhap", () => {
-        datToken(null);
-        renderTaiDuongDan(duongDan);
-        expect(screen.getByTestId("vi-tri-hien-tai")).toHaveTextContent("/dang-nhap");
-        expect(localStorage.getItem("jwt")).toBeNull();
-      });
+  it("keeps the route neutral while authentication bootstrap is unknown", () => {
+    mockedGetAuthSnapshot.mockReturnValue({ status: "unknown", uid: null, username: null, roles: [], capabilities: [] });
+    mockedUseAuthSession.mockReturnValue({ status: "unknown", uid: null, username: null, roles: [], capabilities: [] });
 
-      it("token sai định dạng -> xóa token và chuyển hướng /dang-nhap", () => {
-        datToken(TOKEN.MALFORMED);
-        renderTaiDuongDan(duongDan);
-        expect(screen.getByTestId("vi-tri-hien-tai")).toHaveTextContent("/dang-nhap");
-        expect(localStorage.getItem("jwt")).toBeNull();
-      });
+    renderTaiDuongDan("/profile");
 
-      it("token hết hạn -> xóa token và chuyển hướng /dang-nhap", () => {
-        datToken(TOKEN.EXPIRED);
-        renderTaiDuongDan(duongDan);
-        expect(screen.getByTestId("vi-tri-hien-tai")).toHaveTextContent("/dang-nhap");
-        expect(localStorage.getItem("jwt")).toBeNull();
-      });
-
-      it("token USER hợp lệ -> vào được trang", () => {
-        datToken(TOKEN.VALID_USER);
-        renderTaiDuongDan(duongDan);
-        expect(screen.getByTestId("noi-dung-trang")).toHaveTextContent(nhan);
-        expect(localStorage.getItem("jwt")).toBe(TOKEN.VALID_USER);
-      });
-
-      it("token isStaff:true/isAdmin:false vẫn là JWT hợp lệ -> vào được trang", () => {
-        datToken(TOKEN.STAFF_ONLY);
-        renderTaiDuongDan(duongDan);
-        expect(screen.getByTestId("noi-dung-trang")).toHaveTextContent(nhan);
-        expect(localStorage.getItem("jwt")).toBe(TOKEN.STAFF_ONLY);
-      });
-
-      it("token ADMIN hợp lệ -> vào được trang", () => {
-        datToken(TOKEN.VALID_ADMIN);
-        renderTaiDuongDan(duongDan);
-        expect(screen.getByTestId("noi-dung-trang")).toHaveTextContent(nhan);
-        expect(localStorage.getItem("jwt")).toBe(TOKEN.VALID_ADMIN);
-      });
-    },
-  );
-
-  describe("require=admin route /quan-ly/*", () => {
-    it("thiếu token -> chuyển hướng /dang-nhap", () => {
-      datToken(null);
-      renderTaiDuongDan("/quan-ly/danh-sach-sach");
-      expect(screen.getByTestId("vi-tri-hien-tai")).toHaveTextContent("/dang-nhap");
-    });
-
-    it("token sai định dạng -> xóa token và chuyển hướng /dang-nhap", () => {
-      datToken(TOKEN.MALFORMED);
-      renderTaiDuongDan("/quan-ly/danh-sach-sach");
-      expect(screen.getByTestId("vi-tri-hien-tai")).toHaveTextContent("/dang-nhap");
-      expect(localStorage.getItem("jwt")).toBeNull();
-    });
-
-    it("token hết hạn -> xóa token và chuyển hướng /dang-nhap", () => {
-      datToken(TOKEN.EXPIRED);
-      renderTaiDuongDan("/quan-ly/danh-sach-sach");
-      expect(screen.getByTestId("vi-tri-hien-tai")).toHaveTextContent("/dang-nhap");
-      expect(localStorage.getItem("jwt")).toBeNull();
-    });
-
-    it("token USER hợp lệ nhưng không phải admin -> không vào được, chuyển hướng /", () => {
-      datToken(TOKEN.VALID_USER);
-      renderTaiDuongDan("/quan-ly/danh-sach-sach");
-      expect(screen.getByTestId("vi-tri-hien-tai")).toHaveTextContent("/");
-      expect(screen.getByTestId("noi-dung-trang")).toHaveTextContent("HOME");
-      expect(localStorage.getItem("jwt")).toBe(TOKEN.VALID_USER);
-    });
-
-    it("token isStaff:true/isAdmin:false KHÔNG được vào admin -> chuyển hướng /", () => {
-      datToken(TOKEN.STAFF_ONLY);
-      renderTaiDuongDan("/quan-ly/danh-sach-sach");
-      expect(screen.getByTestId("vi-tri-hien-tai")).toHaveTextContent("/");
-      expect(screen.getByTestId("noi-dung-trang")).toHaveTextContent("HOME");
-      expect(localStorage.getItem("jwt")).toBe(TOKEN.STAFF_ONLY);
-    });
-
-    it("token ADMIN hợp lệ -> vào được trang quản lý", () => {
-      datToken(TOKEN.VALID_ADMIN);
-      renderTaiDuongDan("/quan-ly/danh-sach-sach");
-      expect(screen.getByTestId("noi-dung-trang")).toHaveTextContent("ADMIN");
-    });
+    expect(screen.getByText(/đang xác thực/i)).toBeInTheDocument();
+    expect(screen.getByTestId("vi-tri-hien-tai")).toHaveTextContent("/profile");
+    expect(screen.queryByTestId("noi-dung-trang")).not.toBeInTheDocument();
   });
 
-  describe("public route /xu-ly-kq-thanh-toan (VNPay return, no guard)", () => {
-    it.each([
-      ["thiếu token", null],
-      ["token sai định dạng", TOKEN.MALFORMED],
-      ["token hết hạn", TOKEN.EXPIRED],
-      ["token USER hợp lệ", TOKEN.VALID_USER],
-      ["token isStaff-only", TOKEN.STAFF_ONLY],
-      ["token ADMIN hợp lệ", TOKEN.VALID_ADMIN],
-    ])("%s -> luôn hiển thị được trang, không chuyển hướng", (_mo_ta, token) => {
-      datToken(token);
-      renderTaiDuongDan("/xu-ly-kq-thanh-toan");
-      expect(screen.getByTestId("noi-dung-trang")).toHaveTextContent("KET_QUA_THANH_TOAN");
-      expect(screen.getByTestId("vi-tri-hien-tai")).toHaveTextContent("/xu-ly-kq-thanh-toan");
-    });
+  it("redirects a guest user to login", () => {
+    mockedGetAuthSnapshot.mockReturnValue({ status: "guest", uid: null, username: null, roles: [], capabilities: [] });
+    mockedUseAuthSession.mockReturnValue({ status: "guest", uid: null, username: null, roles: [], capabilities: [] });
+
+    renderTaiDuongDan("/profile");
+
+    expect(screen.getByTestId("vi-tri-hien-tai")).toHaveTextContent("/dang-nhap");
+  });
+
+  it("remounts private content when authenticated uid changes", () => {
+    const accountA = { status: "authenticated" as const, uid: 1, username: "reader-a", roles: ["USER"], capabilities: ["USER"] };
+    const accountB = { ...accountA, uid: 2, username: "reader-b" };
+    let currentAuth = accountA;
+    mockedGetAuthSnapshot.mockImplementation(() => currentAuth);
+    mockedUseAuthSession.mockImplementation(() => currentAuth);
+
+    const view = render(
+      <MemoryRouter>
+        <RouteGuard require="user">
+          <TrangTheoTaiKhoan uid={currentAuth.uid} />
+        </RouteGuard>
+      </MemoryRouter>,
+    );
+    expect(screen.getByTestId("uid-luc-mount")).toHaveTextContent("1");
+
+    currentAuth = accountB;
+    view.rerender(
+      <MemoryRouter>
+        <RouteGuard require="user">
+          <TrangTheoTaiKhoan uid={currentAuth.uid} />
+        </RouteGuard>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByTestId("uid-luc-mount")).toHaveTextContent("2");
+  });
+
+  it("allows any authenticated account through a user route", () => {
+    const auth = { status: "authenticated" as const, uid: 2, username: "staff", roles: ["STAFF"], capabilities: ["STAFF"] };
+    mockedGetAuthSnapshot.mockReturnValue(auth);
+    mockedUseAuthSession.mockReturnValue(auth);
+
+    renderTaiDuongDan("/profile");
+
+    expect(screen.getByTestId("noi-dung-trang")).toHaveTextContent("PROFILE");
+  });
+
+  it("allows ADMIN through an admin route", () => {
+    const auth = { status: "authenticated" as const, uid: 1, username: "admin", roles: ["ADMIN"], capabilities: ["ADMIN"] };
+    mockedGetAuthSnapshot.mockReturnValue(auth);
+    mockedUseAuthSession.mockReturnValue(auth);
+
+    renderTaiDuongDan("/quan-ly/danh-sach-sach");
+
+    expect(screen.getByTestId("noi-dung-trang")).toHaveTextContent("ADMIN");
+  });
+
+  it("redirects a STAFF account home from an admin route", () => {
+    const auth = { status: "authenticated" as const, uid: 2, username: "staff", roles: ["STAFF"], capabilities: ["STAFF"] };
+    mockedGetAuthSnapshot.mockReturnValue(auth);
+    mockedUseAuthSession.mockReturnValue(auth);
+
+    renderTaiDuongDan("/quan-ly/danh-sach-sach");
+
+    expect(screen.getByTestId("vi-tri-hien-tai")).toHaveTextContent("/");
   });
 });

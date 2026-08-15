@@ -5,12 +5,22 @@ import ChiTietSanPham from './ChiTietSanPham';
 import { getBookByIdentifier, getSachLienQuan } from '../../api/SachApi';
 import { getSeoMeta } from '../../api/SeoApi';
 import { getDanhSachYeuThich } from '../../api/YeuThichApi';
+import { useAuthSession } from '../../api/AuthSession';
 
 jest.mock('../../api/SachApi', () => ({
   getBookByIdentifier: jest.fn(),
   getSachLienQuan: jest.fn(),
 }));
 jest.mock('../../api/SeoApi', () => ({ getSeoMeta: jest.fn() }));
+jest.mock('../../api/AuthSession', () => ({
+  useAuthSession: jest.fn(),
+  getAuthSnapshot: jest.fn(() => ({
+    status: 'guest', uid: null, username: null, roles: [], capabilities: [],
+  })),
+  captureAuthenticatedRequest: jest.fn(() => null),
+  isCurrentAuthCapture: jest.fn(() => false),
+  subscribeAuthTransition: jest.fn(() => () => undefined),
+}));
 jest.mock('../../api/YeuThichApi', () => ({
   getDanhSachYeuThich: jest.fn(),
   themYeuThich: jest.fn(),
@@ -28,6 +38,7 @@ const mockedGetBook = getBookByIdentifier as jest.MockedFunction<typeof getBookB
 const mockedGetSachLienQuan = getSachLienQuan as jest.MockedFunction<typeof getSachLienQuan>;
 const mockedGetSeoMeta = getSeoMeta as jest.MockedFunction<typeof getSeoMeta>;
 const mockedGetYeuThich = getDanhSachYeuThich as jest.MockedFunction<typeof getDanhSachYeuThich>;
+const mockedUseAuth = useAuthSession as jest.MockedFunction<typeof useAuthSession>;
 
 const book = {
   maSach: 7,
@@ -61,6 +72,9 @@ describe('ChiTietSanPham SEO integration', () => {
     document.head.innerHTML = '';
     document.title = '';
     jest.clearAllMocks();
+    mockedUseAuth.mockReturnValue({
+      status: 'guest', uid: null, username: null, roles: [], capabilities: [],
+    });
     mockedGetBook.mockResolvedValue(book as never);
     mockedGetSachLienQuan.mockResolvedValue([]);
     mockedGetYeuThich.mockResolvedValue([]);

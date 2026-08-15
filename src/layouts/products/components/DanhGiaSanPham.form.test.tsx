@@ -4,8 +4,10 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import DanhGiaSanPham from "./DanhGiaSanPham";
 import { layQuyenDanhGia, layTrangDanhGia, themDanhGiaMoi } from "../../../api/DanhGiaAPI";
+import { useAuthSession } from "../../../api/AuthSession";
 
 jest.mock("date-fns/locale", () => ({ vi: {} }));
+jest.mock("../../../api/AuthSession", () => ({ useAuthSession: jest.fn() }));
 jest.mock("react-toastify", () => ({ toast: { error: jest.fn(), success: jest.fn() } }));
 
 jest.mock("../../../api/DanhGiaAPI", () => ({
@@ -19,10 +21,7 @@ jest.mock("../../../api/DanhGiaAPI", () => ({
 const layTrangMock = layTrangDanhGia as jest.MockedFunction<typeof layTrangDanhGia>;
 const layQuyenMock = layQuyenDanhGia as jest.MockedFunction<typeof layQuyenDanhGia>;
 const themMock = themDanhGiaMoi as jest.MockedFunction<typeof themDanhGiaMoi>;
-
-function jwtConHan(): string {
-  return `header.${btoa(JSON.stringify({ exp: Math.floor(Date.now() / 1000) + 3600 }))}.signature`;
-}
+const mockedUseAuth = useAuthSession as jest.MockedFunction<typeof useAuthSession>;
 
 function trangRong(): Awaited<ReturnType<typeof layTrangDanhGia>> {
   return {
@@ -48,7 +47,7 @@ describe("DanhGiaSanPham — form gửi đánh giá", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     localStorage.clear();
-    localStorage.setItem("jwt", jwtConHan());
+    mockedUseAuth.mockReturnValue({ status: "authenticated", uid: 1, username: "reader", roles: ["USER"], capabilities: ["USER"] });
     layTrangMock.mockResolvedValue(trangRong());
     layQuyenMock.mockResolvedValue({ coThe: true, maDonHang: 42, lyDo: null });
     themMock.mockResolvedValue({

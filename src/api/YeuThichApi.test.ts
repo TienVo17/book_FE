@@ -5,13 +5,13 @@ import {
 } from './YeuThichApi';
 import { apiUrl } from './ApiUrl';
 
-function createJwt(): string {
-  const payload = btoa(JSON.stringify({
-    exp: Math.floor((Date.now() + 60_000) / 1000),
-    sub: 'customer-a',
-  }));
-  return `header.${payload}.signature`;
-}
+jest.mock('./AuthSession', () => ({
+  __esModule: true,
+  captureAuthenticatedRequest: () => ({ accessToken: 'test-access-token', revision: 1 }),
+  isCurrentAuthCapture: () => true,
+  refreshForRequest: () => Promise.resolve(false),
+  invalidateAuthCapture: () => false,
+}));
 
 const wishlist = [{
   maSach: 7,
@@ -25,7 +25,6 @@ describe('YeuThichApi', () => {
 
   beforeEach(() => {
     localStorage.clear();
-    localStorage.setItem('jwt', createJwt());
     global.fetch = jest.fn().mockImplementation(() => Promise.resolve(
       new Response(JSON.stringify(wishlist), {
         status: 200,

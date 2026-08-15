@@ -57,7 +57,7 @@ Key directories:
 | Carousel | react-responsive-carousel | 3.2 |
 | Notifications | react-toastify | 10.0 |
 | Date Utils | date-fns | 4.1 |
-| JWT Decode | jwt-decode | 4.0 |
+| Auth Session | Memory-only access token + rotating HttpOnly refresh cookie | — |
 | Build | react-scripts (CRA) | 5.0.1 |
 
 ## Key Features
@@ -69,31 +69,42 @@ Key directories:
 - **Checkout**: authenticated two-step flow (COD or VNPay sandbox). It waits for
   queued cart writes, verifies the current cart snapshot, and uses an idempotency
   key so a retry cannot duplicate an order
-- **Authentication**: JWT tokens (localStorage), login/register/password reset
+- **Authentication**: password login with controlled remember-me, memory-only access tokens, rotating HttpOnly refresh sessions, registration, and password reset
 - **Admin Panel**: Book CRUD, user management, order tracking, review moderation
 - **Responsive Design**: Bootstrap Icons, mobile-friendly layouts
 - **Performance**: Lazy-load scroll reveal, category search autocomplete
 
 ## Authentication & State
 
-- **JWT Storage**: token in `localStorage.jwt` (no refresh-token flow)
-- **State Model**: component state plus localStorage caches (no Redux/Context);
-  authenticated cart mutations are persisted through the backend API
-- **Auth Guards**: one `RouteGuard`. `require="user"` needs a valid non-expired JWT;
-  `require="admin"` also needs `isAdmin === true`. Guards are UX; the backend
-  authorizes every request independently.
-- **Cart**: `CartStorage.ts` is the only direct writer of the local
-  `localStorage.gioHang` snapshot. The guest cart is limited to 100 unique book
-  lines. For authenticated users, `CartSession.ts` serializes mutations through
-  `CartApi.ts`; backend responses are authoritative and the local snapshot is an
-  account- and exact-token-bound render cache.
-- **Login handoff**: immediately before storing the new JWT, login captures the
-  guest snapshot. A stable `Idempotency-Key` and exact payload are retained for
-  safe replay if the merge response is lost.
+- **Credential storage**: the 15-minute access token and CSRF value remain private
+  to `AuthSession.ts` memory. The opaque rotating refresh token is available only
+  to the backend through a same-origin `HttpOnly` cookie. No application token or
+  password is stored in Web Storage.
+- **Remember me**: unchecked login uses a browser-session refresh cookie; checked
+  login has a hard 30-day refresh-session expiry. The application never remembers
+  or stores the password itself.
+- **Bootstrap**: the app starts in `unknown` and checks the refresh session without
+  blocking public routes. Missing/expired refresh becomes `guest`; temporary
+  transport failure remains retryable `unknown` and does not cause a premature
+  redirect or guest CTA.
+- **Auth guards**: one `RouteGuard` uses the public session snapshot.
+  `require="user"` needs an authenticated principal; `require="admin"` needs the
+  `ADMIN` capability. Guards are UX; the backend authorizes every request.
+- **State model**: component state plus narrowly scoped localStorage cart/checkout
+  metadata (no Redux/Context); authenticated cart mutations persist through the
+  backend API.
+- **Cart**: `CartStorage.ts` is the only direct writer of
+  `localStorage.gioHang`. Guest carts are limited to 100 unique lines. For an
+  authenticated user, `CartSession.ts` serializes mutations through `CartApi.ts`;
+  backend responses are authoritative and the local render cache is bound to
+  `account:<numeric uid>` plus an exact in-memory request revision.
+- **Login handoff**: immediately before installing a validated session, login
+  captures the guest cart. A stable `Idempotency-Key` and exact payload are
+  retained for safe replay if the merge response is lost.
 - **Wishlist**: authenticated wishlist state is held in one in-memory external
   store and hydrated from `/api/yeu-thich`. Card, detail, and wishlist pages read
-  the same server-authoritative snapshot; exact-token guards reject stale account
-  responses and per-book queues serialize rapid toggles.
+  the same server-authoritative snapshot; exact request-revision guards reject
+  stale responses and per-book queues serialize rapid toggles.
 - **Checkout**: waits for component and shared cart mutations, compares the
   reviewed cart with the current snapshot, then submits that authoritative
   snapshot with an `Idempotency-Key`. A lost order response can be retried
@@ -105,8 +116,10 @@ This is a portfolio demo running on test data — no real payments, no real
 customer data, and no SLA. See
 [System Architecture](./docs/system-architecture.md#known-limitations) for detail.
 
-- **Bearer token in `localStorage`**: readable by any script on the page. Adequate
-  for a demo; a production go-live would need HttpOnly cookies plus CSRF defence.
+- **Production success-path evidence**: refresh-session security and negative
+  production contracts are verified, but checked/unchecked live login, rotation,
+  browser-restart, and logout still require a manual smoke with an authorized test
+  account before frontend production promotion.
 - **API deployment configuration**: production browser requests are root-relative
   and Vercel rewrites `/api/**`, `/tai-khoan/**`, and `/nguoi-dung/**` to the
   backend. `REACT_APP_API_BASE_URL` is development-only and accepts a localhost

@@ -1,20 +1,18 @@
 import React, { useRef, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { dangNhap } from '../../api/TaiKhoanApi';
+import { loginAuth, logoutAuth } from '../../api/AuthSession';
 import {
+  claimGuestCartForAccount,
   mergeGuestCartAfterLogin,
+  preserveFailedLoginHandoffForLogout,
   readGuestCartSnapshot,
-  readPendingCartMerge,
 } from '../../api/CartSession';
-import {
-  clearAuthenticatedSessionState,
-  notifyAuthSessionChanged,
-} from '../../api/SessionCleanup';
 
 const DangNhap = () => {
   const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const loginInFlight = useRef(false);
@@ -26,18 +24,25 @@ const DangNhap = () => {
     setIsLoading(true);
     setError("");
 
+    let sessionInstalled = false;
     try {
       const continueToCheckout = localStorage.getItem("nextPay") === "true";
-      const data = await dangNhap(username, password);
-      // Capture immediately before assigning the authenticated session so items
-      // added while the login request was pending are included in the handoff.
-      const guestSnapshot = readGuestCartSnapshot();
-      localStorage.setItem("jwt", data.jwt);
-      // Chuyển mọi state riêng tư sang JWT mới ngay lập tức. Cart merge có thể
-      // chờ mạng nhưng không được để wishlist của phiên cũ tiếp tục hiển thị.
-      notifyAuthSessionChanged();
-      // Nếu mất response, CartSession giữ nguyên key + payload. Người dùng có
-      // thể submit lại hoặc lần tải cart kế tiếp sẽ replay cùng merge an toàn.
+      let guestSnapshot: ReturnType<typeof readGuestCartSnapshot> = [];
+      await loginAuth({
+        username,
+        password,
+        rememberMe,
+        // The session is intentionally still unknown here, so the snapshot is
+        // captured before authenticated cart ownership becomes visible.
+        beforeInstall: (principal) => {
+          guestSnapshot = readGuestCartSnapshot();
+          claimGuestCartForAccount(
+            principal.uid,
+            guestSnapshot
+          );
+        },
+      });
+      sessionInstalled = true;
       await mergeGuestCartAfterLogin(guestSnapshot);
 
       if (continueToCheckout) {
@@ -47,15 +52,16 @@ const DangNhap = () => {
         navigate("/");
       }
     } catch (error) {
-      if (localStorage.getItem('jwt')) {
-        // Cart handoff là một phần của login transaction phía client. Roll back
-        // mọi JWT vừa cấp nếu handoff lỗi; chỉ giữ merge intent khi đã gửi một
-        // payload retry-safe, và giữ nextPay để lần login sau tiếp tục checkout.
-        clearAuthenticatedSessionState(
-          true,
-          Boolean(readPendingCartMerge()),
-          true,
-        );
+      if (sessionInstalled) {
+        // Preserve only a valid, same-account merge retry through this fail-closed
+        // logout; storage failure must never prevent server/session invalidation.
+        try {
+          preserveFailedLoginHandoffForLogout();
+        } catch {
+          // Logout remains mandatory even when private-state preservation fails.
+        } finally {
+          await logoutAuth();
+        }
       }
       setError(error instanceof Error
         ? error.message
@@ -116,7 +122,12 @@ const DangNhap = () => {
 
           <div className="d-flex justify-content-between align-items-center mb-4">
             <label style={{ fontSize: "0.85rem", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-              <input type="checkbox" style={{ accentColor: "var(--color-primary)" }} />
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(event) => setRememberMe(event.target.checked)}
+                style={{ accentColor: "var(--color-primary)" }}
+              />
               Ghi nhớ
             </label>
             <button

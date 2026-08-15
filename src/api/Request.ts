@@ -1,81 +1,42 @@
-import { clearAuthenticatedSessionState } from './SessionCleanup';
+import {
+  captureAuthenticatedRequest,
+  invalidateAuthCapture,
+  isCurrentAuthCapture,
+  refreshForRequest,
+  type AuthenticatedRequestCapture,
+} from './AuthSession';
+import { apiUrl } from './ApiUrl';
 
 export async function my_request<T = unknown>(duongDan: string): Promise<T> {
   return publicRequest<T>(duongDan);
 }
 
-interface JwtPayload {
-  exp?: number;
-  isAdmin?: boolean;
-  isStaff?: boolean;
-  isUser?: boolean;
-  sub?: string;
-}
-
-function parseJwt(token: string): JwtPayload | null {
-  try {
-    const [, payload] = token.split('.');
-    if (!payload) {
-      return null;
-    }
-    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
-    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
-    return JSON.parse(atob(padded));
-  } catch {
-    return null;
-  }
-}
-
-function clearAuth() {
-  clearAuthenticatedSessionState(true);
-}
-
 function parseJsonSafely(text: string): unknown {
   try {
-    return JSON.parse(text);
+    return JSON.parse(text) as unknown;
   } catch {
     return text;
   }
 }
 
-/**
- * Do dai toi da cua thong bao duoc phep hien thi. Stack trace va dump noi bo deu dai hon
- * nhieu, nen gioi han nay chan chung ngay ca khi lot qua cac kiem tra khac.
- */
 const MAX_MESSAGE_LENGTH = 200;
-
-/** Dau hieu cua chi tiet ky thuat noi bo — khong bao gio hien thi cho nguoi dung cuoi. */
+const REQUEST_TIMEOUT_MS = 15_000;
 const INTERNAL_DETAIL_PATTERN =
   /(\bat\s+[\w.$]+\([\w.]+:\d+\)|Exception|Throwable|SQLSTATE|java\.|org\.springframework|com\.example|jdbc:|SELECT\s|INSERT\s|UPDATE\s|\bstack\b)/i;
 
 function isSafeToDisplay(message: string): boolean {
-  return (
-    message.length > 0 &&
-    message.length <= MAX_MESSAGE_LENGTH &&
-    !message.includes('\n') &&
-    !INTERNAL_DETAIL_PATTERN.test(message)
-  );
+  return message.length > 0 && message.length <= MAX_MESSAGE_LENGTH &&
+    !message.includes('\n') && !INTERNAL_DETAIL_PATTERN.test(message);
 }
 
-/**
- * Chi lay thong bao tu truong `message` cua hop dong ApiError ma backend cam ket, va chi khi
- * no khong chua chi tiet ky thuat.
- *
- * Truoc day ham nay duyet moi gia tri chuoi trong response va hien thi cai dau tien tim duoc.
- * Neu backend (hoac mot proxy/WAF phia truoc) tra ve stack trace hay thong tin noi bo, no se
- * duoc in thang len man hinh nguoi dung. Mo rong be mat lo thong tin nay khong doi lai duoc
- * loi ich nao — nguoi dung khong lam gi duoc voi mot stack trace.
- */
 export function getApiMessage(body: unknown, fallback: string): string {
   if (typeof body === 'string') {
     const trimmed = body.trim();
     return isSafeToDisplay(trimmed) ? trimmed : fallback;
   }
-
   if (body && typeof body === 'object') {
     const payload = body as Record<string, unknown>;
     const directMessage = payload.message ?? payload.thongBao ?? payload.noiDung;
-
     if (typeof directMessage === 'string') {
       const trimmed = directMessage.trim();
       if (isSafeToDisplay(trimmed)) {
@@ -83,57 +44,62 @@ export function getApiMessage(body: unknown, fallback: string): string {
       }
     }
   }
-
   return fallback;
 }
 
 export async function parseResponseBody(response: Response): Promise<unknown> {
   const text = await response.text();
-  if (!text) {
-    return null;
-  }
-
-  return parseJsonSafely(text);
+  return text ? parseJsonSafely(text) : null;
 }
 
-export function getJwtPayload(token: string | null): JwtPayload | null {
-  if (!token) {
-    return null;
+async function fetchWithBody(
+  url: string,
+  options: RequestInit,
+): Promise<{ readonly response: Response; readonly body: unknown }> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const abortParent = () => controller.abort();
+  if (options.signal?.aborted) {
+    controller.abort();
+  } else {
+    options.signal?.addEventListener('abort', abortParent, { once: true });
   }
-  return parseJwt(token);
-}
-
-export function getValidJwtOrThrow(): string {
-  const token = localStorage.getItem('jwt');
-  if (!token) {
-    throw new Error('Phiên đăng nhập không tồn tại. Vui lòng đăng nhập lại.');
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    return {
+      response,
+      body: await parseResponseBody(response),
+    };
+  } catch (error) {
+    if (controller.signal.aborted && !options.signal?.aborted) {
+      throw new Error('Máy chủ không phản hồi. Vui lòng thử lại.');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+    options.signal?.removeEventListener('abort', abortParent);
   }
-
-  const payload = parseJwt(token);
-  if (!payload?.exp || payload.exp * 1000 <= Date.now()) {
-    clearAuth();
-    throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
-  }
-
-  return token;
 }
 
 interface ApiErrorPayload {
-  status?: number;
-  code?: string;
-  message?: string;
-  path?: string;
-  traceId?: string;
+  readonly code?: unknown;
+  readonly traceId?: unknown;
+  readonly path?: unknown;
 }
 
 function toApiError(response: Response, body: unknown, fallback: string): ApiRequestError {
   const payload = body && typeof body === 'object' ? body as ApiErrorPayload : {};
-  const responseTraceId = response.headers.get('X-Trace-Id') || undefined;
+  const traceId = typeof payload.traceId === 'string'
+    ? payload.traceId
+    : response.headers.get('X-Trace-Id') || undefined;
   return new ApiRequestError(
     getApiMessage(body, fallback),
     response.status,
     typeof payload.code === 'string' ? payload.code : undefined,
-    typeof payload.traceId === 'string' ? payload.traceId : responseTraceId,
+    traceId,
     typeof payload.path === 'string' ? payload.path : undefined,
   );
 }
@@ -152,35 +118,89 @@ export class ApiRequestError extends Error {
 }
 
 export async function publicRequest<T = unknown>(url: string, options: RequestInit = {}): Promise<T> {
-  const response = await fetch(url, options);
-  const body = await parseResponseBody(response);
+  const { response, body } = await fetchWithBody(url, options);
   if (!response.ok) {
     throw toApiError(response, body, `Không thể truy cập ${url}`);
   }
   return body as T;
 }
 
-export async function authRequest<T = unknown>(url: string, options: RequestInit = {}): Promise<T> {
-  const token = getValidJwtOrThrow();
+export interface AuthRequestResult<T> {
+  readonly data: T;
+  readonly capture: AuthenticatedRequestCapture;
+}
+
+function isTrustedAuthUrl(url: string): boolean {
+  const runtimeOrigin = typeof window === 'undefined' ? apiUrl('') : window.location.origin;
+  const apiOrigin = apiUrl('') || runtimeOrigin;
+  try {
+    const resolved = new URL(url, apiOrigin);
+    if (resolved.origin !== new URL(apiOrigin).origin) {
+      return false;
+    }
+    return resolved.pathname === '/api' ||
+      resolved.pathname.startsWith('/api/') ||
+      resolved.pathname === '/tai-khoan/doi-mat-khau';
+  } catch {
+    return false;
+  }
+}
+
+function buildAuthenticatedOptions(options: RequestInit, accessToken: string): RequestInit {
   const headers = new Headers(options.headers);
   const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
   if (!isFormData && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
-  headers.set('Authorization', `Bearer ${token}`);
+  headers.set('Authorization', `Bearer ${accessToken}`);
+  return { ...options, headers, credentials: options.credentials ?? 'include' };
+}
 
-  const response = await fetch(url, { ...options, headers });
-  const body = await parseResponseBody(response);
+function isReplayableMethod(method: string | undefined): boolean {
+  const normalized = (method ?? 'GET').toUpperCase();
+  return normalized === 'GET' || normalized === 'HEAD';
+}
 
-  if (!response.ok) {
-    if (
-      (response.status === 401 || response.status === 403) &&
-      localStorage.getItem('jwt') === token
-    ) {
-      clearAuth();
-    }
-    throw toApiError(response, body, `Request failed: ${response.status}`);
+async function sendAuthenticated<T>(
+  url: string,
+  options: RequestInit,
+  replayed: boolean,
+  expectedRevision?: number,
+): Promise<AuthRequestResult<T>> {
+  if (!isTrustedAuthUrl(url)) {
+    throw new Error('URL xác thực phải thuộc API origin hiện tại.');
+  }
+  const capture = captureAuthenticatedRequest();
+  if (!capture || (expectedRevision !== undefined && capture.revision !== expectedRevision)) {
+    throw new Error('Phiên đăng nhập đã thay đổi. Vui lòng thử lại.');
   }
 
-  return body as T;
+  const { response, body } = await fetchWithBody(
+    url,
+    buildAuthenticatedOptions(options, capture.accessToken),
+  );
+  if (response.ok) {
+    return { data: body as T, capture };
+  }
+
+  if (response.status === 401 && isCurrentAuthCapture(capture)) {
+    const refreshed = !replayed && await refreshForRequest(capture).catch(() => false);
+    if (refreshed && isReplayableMethod(options.method)) {
+      return sendAuthenticated<T>(url, options, true, capture.revision + 1);
+    }
+    invalidateAuthCapture(capture);
+  }
+
+  throw toApiError(response, body, `Request failed: ${response.status}`);
+}
+
+export async function authRequestWithCapture<T = unknown>(
+  url: string,
+  options: RequestInit = {},
+): Promise<AuthRequestResult<T>> {
+  return sendAuthenticated<T>(url, options, false);
+}
+
+export async function authRequest<T = unknown>(url: string, options: RequestInit = {}): Promise<T> {
+  return (await authRequestWithCapture<T>(url, options)).data;
 }

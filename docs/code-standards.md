@@ -1,7 +1,7 @@
 # Code Standards & Development Conventions
 
-**Version**: 1.1
-**Last Updated**: 2026-08-11
+**Version**: 1.2
+**Last Updated**: 2026-08-14
 
 ## Overview
 
@@ -189,22 +189,23 @@ try {
 }
 ```
 
-**401/403 Handling**: Automatically handled by `authRequest` in Request.ts (clears JWT, optionally redirects).
+**Auth failure handling**: `authRequest` may refresh and replay a current-capture `GET`/`HEAD` once after `401`. It never replays a sent mutation. Business `403` preserves the session. Callers still handle the resulting `ApiRequestError`.
 
 ## State Management
 
-### localStorage for Auth & Cart Cache
+### AuthSession and Approved Browser Storage
+
+Never persist an access token, refresh token, CSRF value, password, or raw principal in `localStorage`, `sessionStorage`, URLs, logs, or cross-tab payloads.
 
 ```typescript
-// Set JWT after login
-localStorage.setItem('jwt', token);
+// UI: consume only the frozen public snapshot
+const auth = useAuthSession();
 
-// Read JWT in Request.ts
-const token = localStorage.getItem('jwt');
-
-// Clear on logout
-localStorage.removeItem('jwt');
+// Domain API: let Request.ts capture memory credentials
+return authRequest(apiUrl('/api/yeu-thich'));
 ```
+
+`AuthSession.ts` is the only owner of in-memory access/CSRF credentials. The refresh token is backend-only through an HttpOnly cookie. Browser storage remains allowed for guest cart, canonical `cartCacheOwner`, exact cart/checkout idempotency intents, `nextPay`, and bounded metadata-only auth coordination.
 
 ### Component State for UI
 
@@ -233,7 +234,7 @@ await removeCartItem(maSach);
 - `CartStorage.ts` is the only module allowed to access `localStorage.gioHang` directly. It owns migration, normalization, stock clamping, the 100-unique-line guest limit, and `cartUpdated` events.
 - `CartSession.ts` selects behavior: guest mutations remain local; authenticated mutations enter its FIFO queue, call `CartApi.ts`, and cache only the authoritative server response.
 - `CartApi.ts` must use `authRequest` and `apiUrl`; page components must not call `/api/gio-hang` directly.
-- Preserve `cartCacheOwner` isolation by account and exact JWT token. Preserve a pending `cartMergeIntent`'s owner, stable key, and exact payload so a lost merge response can be replayed without duplicating quantities.
+- Preserve `cartCacheOwner` as `account:<positive numeric uid>` and use exact access-token/revision captures only in memory for stale-response guards. Clear legacy username/token/fingerprint owners instead of mapping them. Preserve a pending `cartMergeIntent`'s owner, stable key, and exact payload so a lost merge response can be replayed without duplicating quantities.
 - Checkout code must await its in-flight mutations and `waitForCartMutations()`, then compare the reviewed cart with the current snapshot before creating the order.
 - Keep the existing `useGioHang()` compatibility hook for hook-based callers. Do not introduce Redux/Context solely for cart state.
 
@@ -414,26 +415,15 @@ Before committing, ensure:
 
 ### Auth Guards
 
-Three separate guard implementations exist (RequireAuth, Adminroute, RequireAdmin, ProtectedRoute):
-- **RequireAuth**: Checks JWT presence only (no expiry verification)
-- **RouteGuard**: single guard for all protected routes. `require="user"` needs a
-  valid non-expired JWT; `require="admin"` additionally needs `isAdmin === true`.
-  The `isStaff` claim remains in the JWT payload for compatibility but grants no
-  admin access. Frontend guards are UX; the backend authorizes independently.
-- **RequireAdmin**: HOC variant (dead code, not wired)
-- **ProtectedRoute**: Inverse guard for guest-only routes (unused, not wired)
+`RouteGuard` is the active guard for protected routes. It preserves `unknown` without redirecting, requires an authenticated principal for `require="user"`, and requires the `ADMIN` capability for `require="admin"`; `STAFF` alone grants no admin access. Frontend guards are UX and the backend authorizes independently. Legacy `RequireAdmin`/`ProtectedRoute` files remain dead code and are not wired.
 
 **Action**: Consolidate into single guard with role parameter. See [roadmap](./project-roadmap.md).
 
 ### Data-Access Boundary
 
-All application API calls go through `src/api/` modules. `Request.ts` owns the
-only two `fetch()` call sites (`publicRequest` and `authRequest`); every other
-module builds on them, so authentication, error parsing and trace-id extraction
-are handled in one place.
+All application API calls go through `src/api/` modules. `Request.ts` owns public and business API transport; `AuthSession.ts` owns only CSRF/login/refresh/logout transport. No other module may call `fetch()` directly or construct Bearer headers.
 
-Failures surface as `ApiRequestError` carrying `status`, `code`, `traceId` and
-`path`. A `401`/`403` clears the stored JWT.
+Failures surface as `ApiRequestError` carrying `status`, `code`, `traceId`, and `path`. A current-session `401` follows the finite refresh matrix; stale `401` and business `403` never clear a replacement session.
 
 ### API Base URL
 

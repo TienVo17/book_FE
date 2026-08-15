@@ -2,7 +2,7 @@
 
 **Project**: Web Bán Sách (Bookstore Frontend)  
 **Version**: 0.1.0  
-**Last Updated**: 2026-08-11
+**Last Updated**: 2026-08-14
 **Owner**: Team
 
 ## Executive Summary
@@ -41,17 +41,21 @@ Web Bán Sách is a React-based e-commerce frontend for an online bookstore, pro
 **Requirements**:
 - Register with email, password, phone, full name, address
 - Email confirmation flow (activation token)
-- Login with JWT token storage in localStorage
+- Login sends a controlled `rememberMe` choice and never stores the password
+- Keep the 15-minute access token and CSRF value only in `AuthSession.ts` module memory
+- Keep the rotating opaque refresh token in a Secure, SameSite, HttpOnly cookie
 - Password reset via email link
 - Profile page: view/edit name, email, phone, address
 - Change password endpoint
 - Address book (multiple shipping addresses per user)
-- Logout clears localStorage.jwt
+- Logout invalidates local auth before a best-effort server cookie/session revocation
 
 **Acceptance Criteria**:
-- JWT payload includes `sub`, `exp` and the `isUser`/`isAdmin`/`isStaff` claims.
-  Only `isAdmin` grants admin access; `isStaff` is retained for payload compatibility.
-- 401 response auto-clears token from localStorage
+- Normalized principal includes immutable numeric `uid`, username and roles; the public snapshot exposes identity/capabilities but no token, CSRF value, expiry or revision.
+- Unchecked remember-me uses a browser-session refresh cookie; checked uses a hard 30-day absolute refresh expiry.
+- Bootstrap distinguishes retryable `unknown`, terminal `guest` and `authenticated` without premature private-route redirect.
+- A current GET/HEAD `401` may refresh once and replay once; sent mutations never replay, and business `403` does not log the user out.
+- Only capability `ADMIN` grants admin access; `STAFF` alone is denied.
 - Address CRUD works without page refresh (modal or form)
 - Password reset link valid for 24 hours (backend enforced)
 
@@ -63,7 +67,7 @@ Web Bán Sách is a React-based e-commerce frontend for an online bookstore, pro
 - Guest cart stored in `localStorage.gioHang`; maximum 100 unique book lines
 - Authenticated cart persisted by `/api/gio-hang` and treated as the source of truth
 - Guest snapshot merged after login with a stable idempotency key and exact payload
-- The local render cache must be isolated by account and exact JWT token; it must never cross account or token-rotation sessions
+- The local render cache must be isolated by canonical `account:<positive numeric uid>` ownership; exact access-token/revision captures must block stale request completion
 - View cart page with:
   - Product image, name, price, quantity
   - Remove / Update quantity buttons
@@ -79,7 +83,7 @@ Web Bán Sách is a React-based e-commerce frontend for an online bookstore, pro
 **Acceptance Criteria**:
 - Guest cart persists across browser sessions; authenticated cart survives local cache deletion
 - Retrying a lost login-merge response cannot add quantity twice
-- Cart cache, merge intent and checkout intent never leak between accounts or rotated JWT sessions
+- Cart cache, merge intent and checkout intent never leak between UIDs; same-UID access-token rotation preserves account-owned state
 - Retrying a lost merge response reuses its persisted, exact guest payload and idempotency key
 - Authenticated cart writes are serialized; checkout waits for in-flight cart mutations, detects a reviewed-cart mismatch, and submits the current authoritative snapshot
 - Coupon validation: amount validation, discount calculation
@@ -92,7 +96,7 @@ Web Bán Sách is a React-based e-commerce frontend for an online bookstore, pro
 **Description**: `ADMIN` users manage books, categories, coupons, orders, reviews, users.
 
 **Acceptance Criteria**:
-- Access gated by `isAdmin === true` + JWT expiry (a `STAFF`-only token is denied)
+- Access gated by an authenticated AuthSession snapshot plus capability `ADMIN`; while auth is `unknown`, the guard waits instead of redirecting (`STAFF` alone is denied)
 - Nested routing under `/quan-ly/*` with sidebar navigation
 - Features:
   - **Dashboard**: Order count, revenue, top-selling books
@@ -126,7 +130,9 @@ Web Bán Sách is a React-based e-commerce frontend for an online bookstore, pro
 - Toast notifications for add-to-cart, remove-from-cart, login, logout
 - Error messages for failed API calls (display via react-toastify)
 - Loading spinners on async operations
-- 401/403 responses trigger logout and redirect to login
+- GET/HEAD `401` recovery is bounded to one shared refresh and at most one replay
+- A sent mutation is never blindly replayed after `401`, timeout, or network uncertainty
+- Business `403` surfaces to the caller without refresh or logout
 - Form validation feedback (email, password requirements)
 
 **Acceptance Criteria**:
@@ -144,9 +150,10 @@ Web Bán Sách is a React-based e-commerce frontend for an online bookstore, pro
 
 ### N2: Security
 
-- JWT tokens in localStorage (inherent XSS risk; mitigated by Content Security Policy in nginx)
+- Fifteen-minute access JWT and CSRF value are module-memory only; neither enters Web Storage, URLs, logs, or cross-tab messages
+- Rotating opaque refresh token stays in a Secure, SameSite, HttpOnly cookie with browser-session or hard 30-day absolute lifetime according to `rememberMe`
 - No credentials in environment files or version control
-- Refresh token flow not implemented (single JWT, no expiry extension)
+- Production auth uses exact same-origin Vercel rewrites plus backend Origin/Referer and CSRF enforcement
 - CORS headers handled by backend Spring Boot
 
 ### N3: Compatibility
@@ -160,7 +167,7 @@ Web Bán Sách is a React-based e-commerce frontend for an online bookstore, pro
 - Type-safe TypeScript across all components
 - Organized by feature area (layouts/, api/, models/)
 - API modules centralized (DRY principle)
-- No global state library (localStorage only)
+- No global state library; component state is local, while auth and wishlist use narrow immutable external stores
 
 ### N5: Scalability
 
@@ -170,11 +177,11 @@ Web Bán Sách is a React-based e-commerce frontend for an online bookstore, pro
 
 ## Technical Constraints
 
-1. **No Server-Side Session State**: All state client-side or persisted in backend database
-2. **Single JWT Token**: No refresh-token rotation; one token per session
-3. **No State Management Library**: Avoid Redux/Context; use localStorage + component state
-4. **Native Fetch**: No axios; use native browser Fetch API
-5. **Create React App**: Locked to react-scripts 5.0.1; eject only as last resort
+1. **Server session boundary**: Backend persists rotating refresh sessions; business APIs remain Bearer-only and never authenticate from the refresh cookie alone.
+2. **Memory access token**: The 15-minute access JWT is owned only by `AuthSession.ts`; components and domain modules do not decode or persist it.
+3. **No broad State Management Library**: Avoid Redux and broad auth Context; use narrow external stores, component state, and approved cart/checkout metadata only.
+4. **Native Fetch**: No axios; use native browser Fetch API through `Request.ts` or the dedicated `AuthSession.ts` transport.
+5. **Create React App**: Locked to react-scripts 5.0.1; eject only as last resort.
 6. **API Routing**: Vercel production uses root-relative requests through exact same-origin rewrites; development and local Docker Compose may use the explicit `http://localhost:8080` override.
 
 ## Success Metrics
@@ -186,7 +193,7 @@ Web Bán Sách is a React-based e-commerce frontend for an online bookstore, pro
 | Cart Operations Latency | Guest < 500ms local; authenticated depends on API |
 | Mobile Accessibility Score | > 85 |
 | Checkout Completion Rate | > 70% (tracked by backend) |
-| 401/403 Error Recovery | Auto-logout + redirect to login |
+| Auth Error Recovery | One GET/HEAD refresh/replay maximum; no mutation replay; business 403 preserves session |
 
 ## Dependencies
 
@@ -207,7 +214,7 @@ Web Bán Sách is a React-based e-commerce frontend for an online bookstore, pro
 
 | Risk | Mitigation |
 |------|------------|
-| XSS via localStorage JWT | CSP headers in nginx; sanitize user inputs |
+| Access-token theft through persistent browser storage | Keep access/CSRF values in module memory only; refresh credential remains an HttpOnly cookie; enforce CSP and source-scan tests |
 | Guest cart lost on localStorage clear | Explain guest storage boundary; authenticated carts restore from backend |
 | Incorrect production API routing | Test exact Vercel rewrites, canonical backend destination, no-store headers, and backend canonical-origin policy |
 | Mixed API patterns (fetch vs modules) | Standardize on api/ modules (code review) |
@@ -220,11 +227,14 @@ Web Bán Sách is a React-based e-commerce frontend for an online bookstore, pro
 - Shopping cart, checkout, VNPay payment
 - Admin panel (book, category, coupon CRUD)
 
+### Current Security Foundation
+- Unified `RouteGuard` over AuthSession status and capabilities
+- Memory-only 15-minute access token with rotating HttpOnly refresh sessions
+- Numeric UID ownership for cart/wishlist and stale request isolation
+
 ### Future Phase
-- Unify auth guards (consolidate 3 implementations)
-- Refresh token flow
+- Google identity login, then Facebook identity login after separate release gates
 - Advanced filtering (price range, rating, author)
-- Wishlist persistence on backend
 - Email notifications (order confirmation, shipment updates)
 
 ## Glossary

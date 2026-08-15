@@ -4,8 +4,10 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import DanhGiaSanPham from "./DanhGiaSanPham";
 import { layTrangDanhGia } from "../../../api/DanhGiaAPI";
+import { useAuthSession } from "../../../api/AuthSession";
 
 jest.mock("date-fns/locale", () => ({ vi: {} }));
+jest.mock("../../../api/AuthSession", () => ({ useAuthSession: jest.fn() }));
 
 jest.mock("../../../api/DanhGiaAPI", () => ({
   layTrangDanhGia: jest.fn(),
@@ -16,6 +18,7 @@ jest.mock("../../../api/DanhGiaAPI", () => ({
 }));
 
 const layTrangMock = layTrangDanhGia as jest.MockedFunction<typeof layTrangDanhGia>;
+const mockedUseAuth = useAuthSession as jest.MockedFunction<typeof useAuthSession>;
 
 type Trang = Awaited<ReturnType<typeof layTrangDanhGia>>;
 
@@ -47,6 +50,7 @@ describe("DanhGiaSanPham — đọc phân trang và phân bố", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     localStorage.clear();
+    mockedUseAuth.mockReturnValue({ status: "guest", uid: null, username: null, roles: [], capabilities: [] });
     layTrangMock.mockResolvedValue(trang());
   });
 

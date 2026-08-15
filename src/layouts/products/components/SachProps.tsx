@@ -13,6 +13,7 @@ import {
   useWishlist,
 } from "../../../api/WishlistSession";
 import { toast } from "react-toastify";
+import { useAuthSession } from "../../../api/AuthSession";
 
 interface SachPropsInterface {
   sach: SachModel;
@@ -20,6 +21,7 @@ interface SachPropsInterface {
 
 const SachProps: React.FC<SachPropsInterface> = (props) => {
   const maSach: number = props.sach.maSach;
+  const auth = useAuthSession();
 
   const [danhSachAnh, setDanhSachAnh] = useState<HinhAnhModel[]>([]);
   const [dangTaiDuLieu, setDangTaiDuLieu] = useState(true);
@@ -43,8 +45,10 @@ const SachProps: React.FC<SachPropsInterface> = (props) => {
   const handleToggleYeuThich = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const jwt = localStorage.getItem('jwt');
-    if (!jwt) {
+    if (auth.status === "unknown") {
+      return;
+    }
+    if (auth.status === "guest") {
       toast.info("Vui lòng đăng nhập để sử dụng tính năng yêu thích!");
       return;
     }

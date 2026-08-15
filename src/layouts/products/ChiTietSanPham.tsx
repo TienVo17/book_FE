@@ -16,9 +16,11 @@ import {
   useWishlist,
 } from "../../api/WishlistSession";
 import SachProps from "./components/SachProps";
+import { useAuthSession } from "../../api/AuthSession";
 
 const ChiTietSanPham: React.FC = () => {
   const navigate = useNavigate();
+  const auth = useAuthSession();
   // The route param is an identifier: either a legacy numeric id or a canonical
   // slug. The numeric book id is only known after the product loads, so
   // id-based calls (reviews, wishlist, SEO) key off the loaded product.
@@ -61,7 +63,10 @@ const ChiTietSanPham: React.FC = () => {
     // Unauthenticated: never mutate the cart before auth is validated. Send
     // the user to login with an explicit return target to /thanh-toan
     // (the existing "nextPay" flag, consumed by DangNhap after sign-in).
-    if (!localStorage.getItem("jwt")) {
+    if (auth.status === "unknown") {
+      return;
+    }
+    if (auth.status === "guest") {
       localStorage.setItem("nextPay", "true");
       navigate("/dang-nhap");
       return;
@@ -146,8 +151,10 @@ const ChiTietSanPham: React.FC = () => {
   }, [maSachNumber]);
 
   const toggleYeuThich = async () => {
-    const jwt = localStorage.getItem('jwt');
-    if (!jwt) {
+    if (auth.status === "unknown") {
+      return;
+    }
+    if (auth.status === "guest") {
       toast.info("Vui lòng đăng nhập để sử dụng tính năng yêu thích!");
       return;
     }

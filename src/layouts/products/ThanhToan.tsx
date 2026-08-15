@@ -32,6 +32,7 @@ import {
     HinhThucGiaoHangResponse,
     getHinhThucGiaoHang,
 } from '../../api/DonHangApi';
+import { useAuthSession } from '../../api/AuthSession';
 import {
     ensureIntent,
     startNewIntent,
@@ -44,6 +45,7 @@ import {
 type SanPhamGioHang = CartItem & { hinhAnh?: string };
 
 function ThanhToan() {
+    const auth = useAuthSession();
     const [gioHang, setGioHang] = useState<SanPhamGioHang[]>([]);
     const [dangTaiGioHang, setDangTaiGioHang] = useState(true);
     const [loiTaiGioHang, setLoiTaiGioHang] = useState<string | null>(null);
@@ -408,17 +410,19 @@ function ThanhToan() {
             // Backend checkout chỉ xóa các dòng sách đã đặt. Với tài khoản,
             // refresh snapshot authoritative thay vì xóa cache mù; CartSession
             // không ghi đè nếu có mutation mới trong lúc refresh chờ response.
-            if (localStorage.getItem('jwt')) {
+            if (auth.status === 'authenticated') {
                 try {
                     setGioHang(await refreshCartAfterCheckout());
                 } catch {
                     setGioHang(readCartForCurrentSession());
                     toast.info('Đơn hàng đã được tạo. Giỏ hàng sẽ được đồng bộ lại ở lần tải tiếp theo.');
                 }
-            } else if (getCartFingerprint() === cartFingerprintHienTai) {
+            } else if (auth.status === 'guest' && getCartFingerprint() === cartFingerprintHienTai) {
                 clearCart();
                 setGioHang([]);
             } else {
+                // An unknown session is not evidence of a guest session. Keep the
+                // local snapshot until authentication reaches a terminal state.
                 setGioHang(readCart());
                 toast.info('Đơn hàng đã được tạo. Giỏ hàng có thay đổi mới nên được giữ lại.');
             }

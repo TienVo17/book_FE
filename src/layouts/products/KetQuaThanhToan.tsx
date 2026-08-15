@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { getVNPayCallbackResult } from '../../api/DonHangApi';
 import { refreshCartAfterCheckout } from '../../api/CartSession';
+import { bootstrapAuth, getAuthSnapshot } from '../../api/AuthSession';
 
 type PaymentResult = 'loading' | 'success' | 'cancelled-paid' | 'failure';
 
@@ -20,12 +21,20 @@ function KetQuaThanhToan() {
 
                 const success = data === 'ordersuccess';
                 setResult(success ? 'success' : 'failure');
-                if (success && localStorage.getItem('jwt')) {
+                if (success) {
                     try {
-                        await refreshCartAfterCheckout();
+                        // A terminal root session needs no extra round trip. Only
+                        // a browser return arriving during bootstrap retries the
+                        // session check; callback query parameters are never auth.
+                        if (getAuthSnapshot().status === 'unknown') {
+                            await bootstrapAuth();
+                        }
+                        if (getAuthSnapshot().status === 'authenticated') {
+                            await refreshCartAfterCheckout();
+                        }
                     } catch {
-                        // Payment status is already committed. CartSession will
-                        // retry hydration on the next cart access.
+                        // Payment status is already committed. A later cart access
+                        // can retry hydration after an unavailable auth service.
                     }
                 }
             })

@@ -3,30 +3,25 @@ import {
   clearWishlistSession,
   syncWishlistSession,
 } from '../../api/WishlistSession';
-import { AUTH_SESSION_CHANGED_EVENT } from '../../api/SessionCleanup';
+import {
+  getAuthSnapshot,
+  subscribeAuthSession,
+} from '../../api/AuthSession';
 
 const WishlistBootstrap: React.FC = () => {
   useEffect(() => {
-    const syncStoredSession = () => {
-      if (!localStorage.getItem('jwt')) {
+    const syncAuthSession = () => {
+      const auth = getAuthSnapshot();
+      if (auth.status === 'unknown') return;
+      if (auth.status === 'guest') {
         clearWishlistSession();
         return;
       }
       void syncWishlistSession().catch(() => undefined);
     };
-    const syncExternalSession = (event: StorageEvent) => {
-      if (event.key === 'jwt' || event.key === null) {
-        syncStoredSession();
-      }
-    };
 
-    syncStoredSession();
-    window.addEventListener(AUTH_SESSION_CHANGED_EVENT, syncStoredSession);
-    window.addEventListener('storage', syncExternalSession);
-    return () => {
-      window.removeEventListener(AUTH_SESSION_CHANGED_EVENT, syncStoredSession);
-      window.removeEventListener('storage', syncExternalSession);
-    };
+    syncAuthSession();
+    return subscribeAuthSession(syncAuthSession);
   }, []);
 
   return null;
