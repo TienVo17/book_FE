@@ -504,6 +504,42 @@ async function postAuth(path: string, csrfToken: string, body?: unknown, accessT
   });
 }
 
+export interface PreSessionResult {
+  readonly ok: boolean;
+  readonly status: number;
+  readonly body: unknown;
+}
+
+/**
+ * GET cho các luồng chạy khi CHƯA có phiên: cookie đi kèm là thứ duy nhất nhận dạng người
+ * gọi, nên bắt buộc `credentials: 'include'`.
+ */
+export async function getPreSessionResource(path: string): Promise<PreSessionResult> {
+  const result = await fetchAuth(apiUrl(path), { credentials: 'include' });
+  return { ok: result.response.ok, status: result.response.status, body: result.body };
+}
+
+/**
+ * POST có bảo vệ CSRF cho các luồng chạy khi chưa có phiên — hiện là bước hoàn tất đăng ký
+ * bằng provider.
+ *
+ * Nằm ở đây chứ không phải trong `SocialAuthApi` vì chỉ một module được sở hữu CSRF token.
+ * Nhân bản chỗ lấy token ra nơi khác là mở thêm một chỗ nữa có thể quên vòng lấy lại khi
+ * máy chủ từ chối token cũ.
+ */
+export async function postPreSessionMutation(
+  path: string,
+  body?: unknown,
+): Promise<PreSessionResult> {
+  let csrfToken = await fetchCsrf();
+  let result = await postAuth(path, csrfToken, body);
+  if (result.response.status === 403 && hasCsrfRejectionCode(result.body)) {
+    csrfToken = await fetchCsrf();
+    result = await postAuth(path, csrfToken, body);
+  }
+  return { ok: result.response.ok, status: result.response.status, body: result.body };
+}
+
 function validateLoginInput(input: LoginAuthInput): void {
   if (!input || typeof input.username !== 'string' || !input.username.trim() ||
       typeof input.password !== 'string' || !input.password || typeof input.rememberMe !== 'boolean') {

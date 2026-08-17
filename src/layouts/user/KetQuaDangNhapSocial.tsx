@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { bootstrapAuth } from "../../api/AuthSession";
+import HoanTatDangKySocial from "./HoanTatDangKySocial";
 
 /**
  * Các đường quay về được phép sau khi đăng nhập qua provider.
@@ -58,17 +59,10 @@ const KetQuaDangNhapSocial: React.FC = () => {
   }, [ketQua, tiepTuc, navigate]);
 
   if (ketQua === "can-dang-ky") {
-    return (
-      <div className="auth-container">
-        <div className="auth-card text-center" role="status">
-          <h2>Cần hoàn tất đăng ký</h2>
-          <p>
-            Tài khoản Google của bạn chưa liên kết với tài khoản nào ở đây. Vui lòng hoàn tất
-            đăng ký để tiếp tục.
-          </p>
-        </div>
-      </div>
-    );
+    // Form nằm ngay tại route này chứ không phải một route riêng: mọi đường dưới
+    // `/tai-khoan/` đều bị rewrite sang backend, chỉ `ket-qua` có ngoại lệ. Thêm route mới
+    // mà quên thêm ngoại lệ là người dùng rơi vào trang lỗi của backend.
+    return <HoanTatDangKySocial tiepTuc={tiepTuc} />;
   }
 
   if (ketQua === "can-lien-ket") {

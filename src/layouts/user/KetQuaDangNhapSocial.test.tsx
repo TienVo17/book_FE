@@ -3,12 +3,21 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import KetQuaDangNhapSocial from './KetQuaDangNhapSocial';
 import { bootstrapAuth } from '../../api/AuthSession';
+import { layHoSoDangKy } from '../../api/SocialAuthApi';
 
 jest.mock('../../api/AuthSession', () => ({
   bootstrapAuth: jest.fn(),
 }));
+jest.mock('../../api/SocialAuthApi', () => ({
+  layHoSoDangKy: jest.fn(),
+  guiMaXacMinhEmail: jest.fn(),
+  xacMinhEmail: jest.fn(),
+  hoanTatDangKy: jest.fn(),
+  SocialSignupError: class SocialSignupError extends Error {},
+}));
 
 const mockedBootstrap = bootstrapAuth as jest.MockedFunction<typeof bootstrapAuth>;
+const mockedHoSo = layHoSoDangKy as jest.MockedFunction<typeof layHoSoDangKy>;
 
 function ViTri(): JSX.Element {
   const location = useLocation();
@@ -32,6 +41,12 @@ function renderResult(search: string): void {
 describe('KetQuaDangNhapSocial', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // Đặt ở đây chứ không ở factory: cấu hình Jest của CRA bật `resetMocks`, nên
+    // implementation khai trong factory bị xoá trước mỗi test.
+    //
+    // Hồ sơ treo mãi để trang giữ nguyên trạng thái đang tải, nhờ đó phép kiểm tra không
+    // phụ thuộc vào việc lời gọi mạng thắng hay thua cuộc đua với lần render đầu.
+    mockedHoSo.mockReturnValue(new Promise(() => undefined));
     mockedBootstrap.mockResolvedValue({
       status: 'authenticated', uid: 7, username: 'reader', roles: ['USER'], capabilities: ['USER'],
     });
@@ -64,10 +79,18 @@ describe('KetQuaDangNhapSocial', () => {
     expect(screen.getByTestId('vi-tri')).not.toHaveTextContent('evil.example');
   });
 
-  it('explains that signing up is still required without claiming a session', async () => {
+  /**
+   * Nhánh này từng là ngõ cụt: nó giải thích rằng cần đăng ký rồi dừng, nên mọi lần đăng
+   * nhập social đều kết thúc ở đó vì không có gì tạo ra `auth_identity`. Giờ nó phải mở ra
+   * form hoàn tất.
+   *
+   * Bất biến cũ vẫn giữ nguyên: chưa có tài khoản thì chưa được nhận phiên. Bootstrap chỉ
+   * được gọi sau khi form hoàn tất thành công, không phải khi vừa vào trang.
+   */
+  it('opens the completion form without claiming a session', async () => {
     renderResult('?ket-qua=can-dang-ky&tiep-tuc=%2F');
 
-    expect(await screen.findByRole('status')).toHaveTextContent('hoàn tất đăng ký');
+    expect(await screen.findByRole('status')).toHaveTextContent('Đang tải thông tin đăng ký');
     expect(mockedBootstrap).not.toHaveBeenCalled();
   });
 
