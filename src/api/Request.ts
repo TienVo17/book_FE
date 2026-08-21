@@ -6,6 +6,7 @@ import {
   type AuthenticatedRequestCapture,
 } from './AuthSession';
 import { apiUrl } from './ApiUrl';
+import { beginServerWakeWatch } from './ServerWakeSignal';
 
 export async function my_request<T = unknown>(duongDan: string): Promise<T> {
   return publicRequest<T>(duongDan);
@@ -20,7 +21,14 @@ function parseJsonSafely(text: string): unknown {
 }
 
 const MAX_MESSAGE_LENGTH = 200;
-const REQUEST_TIMEOUT_MS = 15_000;
+/** Mutation không bao giờ được phát lại, nên ngân sách của nó phải ngắn và dứt khoát. */
+const MUTATION_TIMEOUT_MS = 15_000;
+/**
+ * Đọc idempotent được chờ lâu hơn: instance backend ngủ khi không có traffic, và
+ * request đánh thức phải đợi JVM khởi động cùng pool kết nối mở lại. Cắt ở 15 giây
+ * biến một server đang lên thành thông báo "không phản hồi" sai sự thật.
+ */
+const IDEMPOTENT_TIMEOUT_MS = 45_000;
 const INTERNAL_DETAIL_PATTERN =
   /(\bat\s+[\w.$]+\([\w.]+:\d+\)|Exception|Throwable|SQLSTATE|java\.|org\.springframework|com\.example|jdbc:|SELECT\s|INSERT\s|UPDATE\s|\bstack\b)/i;
 
@@ -52,13 +60,23 @@ export async function parseResponseBody(response: Response): Promise<unknown> {
   return text ? parseJsonSafely(text) : null;
 }
 
-async function fetchWithBody(
+interface FetchOutcome {
+  readonly response: Response;
+  readonly body: unknown;
+}
+
+/** Hết ngân sách chờ của chính chúng ta — khác hẳn với việc caller tự huỷ request. */
+const TIMED_OUT = Symbol('request-timed-out');
+
+async function attemptFetch(
   url: string,
   options: RequestInit,
-): Promise<{ readonly response: Response; readonly body: unknown }> {
+): Promise<FetchOutcome | typeof TIMED_OUT> {
+  const budget = isReplayableMethod(options.method) ? IDEMPOTENT_TIMEOUT_MS : MUTATION_TIMEOUT_MS;
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timeout = setTimeout(() => controller.abort(), budget);
   const abortParent = () => controller.abort();
+  const releaseWakeWatch = beginServerWakeWatch();
   if (options.signal?.aborted) {
     controller.abort();
   } else {
@@ -75,13 +93,34 @@ async function fetchWithBody(
     };
   } catch (error) {
     if (controller.signal.aborted && !options.signal?.aborted) {
-      throw new Error('Máy chủ không phản hồi. Vui lòng thử lại.');
+      return TIMED_OUT;
     }
     throw error;
   } finally {
     clearTimeout(timeout);
+    releaseWakeWatch();
     options.signal?.removeEventListener('abort', abortParent);
   }
+}
+
+async function fetchWithBody(
+  url: string,
+  options: RequestInit,
+): Promise<FetchOutcome> {
+  const first = await attemptFetch(url, options);
+  if (first !== TIMED_OUT) {
+    return first;
+  }
+  // Chỉ đọc idempotent mới được gửi lại: lần đầu đã đánh thức backend, lần hai
+  // thường trúng instance đã sẵn sàng. Mutation giữ nguyên bất biến "không phát lại"
+  // vì server có thể đã nhận và xử lý nó rồi.
+  if (isReplayableMethod(options.method) && !options.signal?.aborted) {
+    const second = await attemptFetch(url, options);
+    if (second !== TIMED_OUT) {
+      return second;
+    }
+  }
+  throw new Error('Máy chủ không phản hồi. Vui lòng thử lại.');
 }
 
 interface ApiErrorPayload {

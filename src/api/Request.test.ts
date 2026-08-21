@@ -10,6 +10,23 @@ import {
   loginAuth,
   resetAuthSessionForTests,
 } from './AuthSession';
+import { getServerWakeSnapshot, resetServerWakeForTests } from './ServerWakeSignal';
+
+/** Đẩy hết microtask đang chờ để timer giả và chuỗi promise của fetch đi cùng nhịp. */
+async function flushMicrotasks(rounds = 8): Promise<void> {
+  for (let index = 0; index < rounds; index += 1) {
+    await Promise.resolve();
+  }
+}
+
+/** Fetch treo cho tới khi bị abort — mô phỏng instance đang khởi động lại. */
+function hangUntilAborted(_url: string, options: RequestInit): Promise<Response> {
+  return new Promise<Response>((_resolve, reject) => {
+    options.signal?.addEventListener('abort', () => {
+      reject(new DOMException('aborted', 'AbortError'));
+    });
+  });
+}
 
 const authPayload = {
   accessToken: 'access-token',
@@ -37,6 +54,7 @@ describe('authRequest', () => {
   beforeEach(() => {
     localStorage.clear();
     resetAuthSessionForTests();
+    resetServerWakeForTests();
     global.fetch = jest.fn();
   });
 
@@ -93,7 +111,7 @@ describe('authRequest', () => {
 
   it('bounds public response body consumption after headers arrive', async () => {
     jest.useFakeTimers();
-    (global.fetch as jest.Mock).mockImplementationOnce((_url, options: RequestInit) => Promise.resolve({
+    (global.fetch as jest.Mock).mockImplementation((_url, options: RequestInit) => Promise.resolve({
       ok: true,
       status: 200,
       text: () => new Promise<string>((_resolve, reject) => {
@@ -103,9 +121,115 @@ describe('authRequest', () => {
 
     try {
       const request = publicRequest('/public-api');
-      await Promise.resolve();
-      jest.advanceTimersByTime(15_001);
+      request.catch(() => undefined);
+      await flushMicrotasks();
+      jest.advanceTimersByTime(45_001);
+      await flushMicrotasks();
+      jest.advanceTimersByTime(45_001);
       await expect(request).rejects.toThrow('Máy chủ không phản hồi. Vui lòng thử lại.');
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  // Render free tier ngủ sau ~15 phút; lần đánh thức mất hàng chục giây. Ngân sách
+  // 15s cũ biến mọi lần khởi động thành "máy chủ không phản hồi" dù server vẫn sống.
+  it('gives an idempotent read the cold-start budget instead of the mutation budget', async () => {
+    jest.useFakeTimers();
+    (global.fetch as jest.Mock).mockImplementation(hangUntilAborted);
+
+    try {
+      const request = publicRequest('/public-api');
+      request.catch(() => undefined);
+      await flushMicrotasks();
+
+      jest.advanceTimersByTime(15_001);
+      await flushMicrotasks();
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+
+      jest.advanceTimersByTime(30_000);
+      await flushMicrotasks();
+      expect(global.fetch).toHaveBeenCalledTimes(2);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('retries a timed-out read exactly once and resolves when the woken server answers', async () => {
+    jest.useFakeTimers();
+    (global.fetch as jest.Mock)
+      .mockImplementationOnce(hangUntilAborted)
+      .mockResolvedValueOnce(jsonResponse({ id: 9 }));
+
+    try {
+      const request = publicRequest<{ id: number }>('/public-api');
+      await flushMicrotasks();
+      jest.advanceTimersByTime(45_001);
+      await flushMicrotasks();
+
+      await expect(request).resolves.toEqual({ id: 9 });
+      expect(global.fetch).toHaveBeenCalledTimes(2);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('never retries a timed-out mutation and keeps its shorter budget', async () => {
+    jest.useFakeTimers();
+    (global.fetch as jest.Mock).mockImplementation(hangUntilAborted);
+
+    try {
+      const request = publicRequest('/public-api', { method: 'POST', body: '{}' });
+      request.catch(() => undefined);
+      await flushMicrotasks();
+      jest.advanceTimersByTime(15_001);
+
+      await expect(request).rejects.toThrow('Máy chủ không phản hồi. Vui lòng thử lại.');
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('announces a server wake-up while a request stays slow and clears it once answered', async () => {
+    jest.useFakeTimers();
+    let answer: ((response: Response) => void) | undefined;
+    (global.fetch as jest.Mock).mockImplementationOnce(() => new Promise<Response>(resolve => {
+      answer = resolve;
+    }));
+
+    try {
+      const request = publicRequest<{ ok: boolean }>('/public-api');
+      await flushMicrotasks();
+      expect(getServerWakeSnapshot()).toBe(false);
+
+      jest.advanceTimersByTime(5_000);
+      expect(getServerWakeSnapshot()).toBe(true);
+
+      answer?.(jsonResponse({ ok: true }));
+      await expect(request).resolves.toEqual({ ok: true });
+      expect(getServerWakeSnapshot()).toBe(false);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('clears the wake-up announcement after a request fails outright', async () => {
+    jest.useFakeTimers();
+    (global.fetch as jest.Mock).mockImplementation(hangUntilAborted);
+
+    try {
+      const request = publicRequest('/public-api');
+      request.catch(() => undefined);
+      await flushMicrotasks();
+      jest.advanceTimersByTime(5_000);
+      expect(getServerWakeSnapshot()).toBe(true);
+
+      jest.advanceTimersByTime(40_001);
+      await flushMicrotasks();
+      jest.advanceTimersByTime(45_001);
+      await expect(request).rejects.toThrow('Máy chủ không phản hồi. Vui lòng thử lại.');
+      expect(getServerWakeSnapshot()).toBe(false);
     } finally {
       jest.useRealTimers();
     }

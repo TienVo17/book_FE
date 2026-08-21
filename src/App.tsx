@@ -31,6 +31,7 @@ import HuyNhanTin from "./layouts/nhan-tin/HuyNhanTin";
 import XacNhanNhanTin from "./layouts/nhan-tin/XacNhanNhanTin";
 import WishlistBootstrap from "./layouts/utils/WishlistBootstrap";
 import KetQuaDangNhapSocial from "./layouts/user/KetQuaDangNhapSocial";
+import ThongBaoMayChuKhoiDong from "./layouts/utils/ThongBaoMayChuKhoiDong";
 import { bootstrapAuth, useAuthSession } from "./api/AuthSession";
 
 
@@ -73,6 +74,7 @@ function App() {
   return (
     <BrowserRouter>
       <AuthBootstrapBoundary>
+      <ThongBaoMayChuKhoiDong />
       <RouteMetadata />
       <PrivateHydrationBoundary />
       <Routes>
