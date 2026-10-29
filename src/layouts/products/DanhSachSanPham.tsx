@@ -28,12 +28,13 @@ function DanhSachSanPham({ maTheLoai, tieuDe }: DanhSachSanPhamProps) {
 
   useEffect(() => {
     let conHieuLuc = true;
+    const controller = new AbortController();
     setDangTaiDuLieu(true);
     setLoi(false);
 
     const request = maTheLoai === 0
-      ? getAllBook(trangHienTai - 1)
-      : findByBook("", maTheLoai, trangHienTai - 1);
+      ? getAllBook(trangHienTai - 1, controller.signal)
+      : findByBook("", maTheLoai, trangHienTai - 1, { signal: controller.signal });
 
     request
       .then((kq) => {
@@ -50,6 +51,7 @@ function DanhSachSanPham({ maTheLoai, tieuDe }: DanhSachSanPhamProps) {
 
     return () => {
       conHieuLuc = false;
+      controller.abort();
     };
   }, [trangHienTai, maTheLoai, lanThuLai]);
 

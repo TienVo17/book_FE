@@ -22,7 +22,7 @@ function ThongBaoMayChuKhoiDong(): JSX.Element | null {
         fontSize: '0.9rem',
       }}
     >
-      Máy chủ đang khởi động, vui lòng đợi trong giây lát…
+      Máy chủ đang khởi động hoặc phản hồi chậm. Vui lòng chờ…
     </div>
   );
 }
