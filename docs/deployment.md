@@ -76,6 +76,25 @@ For an urgent service restoration, promote a known-good deployment from the Verc
 
 ## Backend Connectivity
 
+### Idle-backend recovery
+
+Public book/category GET requests use the bounded recovery policy in
+[`Request.ts`](../src/api/Request.ts): up to four minutes total and 20 attempts,
+with per-attempt timeouts and increasing delays. Gateway 502/503/504 responses,
+transport failures and HTML loading pages are retried. Ordinary 4xx/500 responses
+and malformed non-HTML data remain terminal. There is no extra health preflight
+on successful requests. The slow-server banner stays visible across retries.
+
+Homepage sections fail independently and offer a manual retry. Catalogue-list
+and homepage requests are cancelled when their owner unmounts or changes filters.
+The enhanced policy excludes mutations, authentication, activation, payment and
+foreign origins; their existing timeout/auth-refresh behavior is unchanged.
+
+Render can still sleep or restart. The optional dedicated external heartbeat and
+its deployment/disable instructions are owned by the paired backend's
+`README.md` section "Free-tier backend heartbeat"; GitHub scheduled diagnostics
+alone are not reliable warming.
+
 Vercel preserves the browser request prefix while proxying to
 `https://book-be-jakn.onrender.com`. The backend must allow the canonical
 `https://tienvo17.vercel.app` origin for the credentialed auth/session routes.

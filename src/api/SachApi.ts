@@ -38,9 +38,9 @@ function mapSach(data: any): SachModel {
   };
 }
 
-async function laySach(duongDan: string): Promise<KetQuaInterface> {
+async function laySach(duongDan: string, signal?: AbortSignal): Promise<KetQuaInterface> {
   const ketQua: SachModel[] = [];
-  const response = await my_request<SachPageResponse>(duongDan);
+  const response = await my_request<SachPageResponse>(duongDan, { signal });
   const responseData = response.content;
   const tongSoTrang: number = response.totalPages;
   const tongSoSach: number = response.totalElements;
@@ -51,8 +51,8 @@ async function laySach(duongDan: string): Promise<KetQuaInterface> {
   return { ketQua, tongSoSach, tongSoTrang };
 }
 
-export async function getAllBook(trangHienTai: number): Promise<KetQuaInterface> {
-  return laySach(apiUrl(`/api/sach?page=${trangHienTai}`));
+export async function getAllBook(trangHienTai: number, signal?: AbortSignal): Promise<KetQuaInterface> {
+  return laySach(apiUrl(`/api/sach?page=${trangHienTai}`), signal);
 }
 
 export async function get3NewBook(): Promise<KetQuaInterface> {
@@ -67,6 +67,7 @@ export interface TimKiemSachOptions {
   giaMin?: number;
   giaMax?: number;
   size?: number;
+  signal?: AbortSignal;
 }
 
 export async function findByBook(
@@ -94,7 +95,7 @@ export async function findByBook(
   if (options.size !== undefined) {
     duongDan += `&size=${options.size}`;
   }
-  return laySach(duongDan);
+  return laySach(duongDan, options.signal);
 }
 
 export async function getBookById(maSach: number): Promise<SachModel | null> {
@@ -158,12 +159,12 @@ export async function findAll(trangHienTai: number): Promise<KetQuaInterface> {
   return { ketQua, tongSoSach, tongSoTrang };
 }
 
-export async function getSachBanChay(limit: number = 8): Promise<SachModel[]> {
-  return my_request<SachModel[]>(apiUrl(`/api/sach/ban-chay?limit=${limit}`));
+export async function getSachBanChay(limit: number = 8, signal?: AbortSignal): Promise<SachModel[]> {
+  return my_request<SachModel[]>(apiUrl(`/api/sach/ban-chay?limit=${limit}`), { signal });
 }
 
-export async function getSachMoiNhat(limit: number = 8): Promise<SachModel[]> {
-  return my_request<SachModel[]>(apiUrl(`/api/sach/moi-nhat?limit=${limit}`));
+export async function getSachMoiNhat(limit: number = 8, signal?: AbortSignal): Promise<SachModel[]> {
+  return my_request<SachModel[]>(apiUrl(`/api/sach/moi-nhat?limit=${limit}`), { signal });
 }
 
 export async function getSachLienQuan(maSach: number, limit: number = 6): Promise<SachModel[]> {

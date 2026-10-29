@@ -8,8 +8,8 @@ import {
 import { apiUrl } from './ApiUrl';
 import { beginServerWakeWatch } from './ServerWakeSignal';
 
-export async function my_request<T = unknown>(duongDan: string): Promise<T> {
-  return publicRequest<T>(duongDan);
+export async function my_request<T = unknown>(duongDan: string, options: RequestInit = {}): Promise<T> {
+  return publicRequest<T>(duongDan, options);
 }
 
 function parseJsonSafely(text: string): unknown {
@@ -29,6 +29,8 @@ const MUTATION_TIMEOUT_MS = 15_000;
  * biến một server đang lên thành thông báo "không phản hồi" sai sự thật.
  */
 const IDEMPOTENT_TIMEOUT_MS = 45_000;
+const CATALOGUE_RECOVERY_MS = 240_000;
+const CATALOGUE_MAX_ATTEMPTS = 20;
 const INTERNAL_DETAIL_PATTERN =
   /(\bat\s+[\w.$]+\([\w.]+:\d+\)|Exception|Throwable|SQLSTATE|java\.|org\.springframework|com\.example|jdbc:|SELECT\s|INSERT\s|UPDATE\s|\bstack\b)/i;
 
@@ -71,12 +73,11 @@ const TIMED_OUT = Symbol('request-timed-out');
 async function attemptFetch(
   url: string,
   options: RequestInit,
+  budget = isReplayableMethod(options.method) ? IDEMPOTENT_TIMEOUT_MS : MUTATION_TIMEOUT_MS,
 ): Promise<FetchOutcome | typeof TIMED_OUT> {
-  const budget = isReplayableMethod(options.method) ? IDEMPOTENT_TIMEOUT_MS : MUTATION_TIMEOUT_MS;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), budget);
   const abortParent = () => controller.abort();
-  const releaseWakeWatch = beginServerWakeWatch();
   if (options.signal?.aborted) {
     controller.abort();
   } else {
@@ -98,12 +99,83 @@ async function attemptFetch(
     throw error;
   } finally {
     clearTimeout(timeout);
-    releaseWakeWatch();
     options.signal?.removeEventListener('abort', abortParent);
   }
 }
 
-async function fetchWithBody(
+function isCatalogueRead(url: string, options: RequestInit): boolean {
+  if ((options.method ?? 'GET').toUpperCase() !== 'GET') return false;
+  try {
+    const origin = apiUrl('') || window.location.origin;
+    const resolved = new URL(url, origin);
+    if (resolved.origin !== new URL(origin).origin) return false;
+    // Only verified public catalogue reads get this longer recovery window.
+    return /^\/api\/sach(?:\/(?:\d+(?:\/lien-quan)?|ban-chay|moi-nhat|goi-y|slug\/[^/]+|findImage\/\d+))?$/.test(resolved.pathname) ||
+      /^\/api\/the-loai(?:\/[^/]+)?$/.test(resolved.pathname);
+  } catch {
+    return false;
+  }
+}
+
+function waitForRetry(delay: number, signal?: AbortSignal | null): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const abort = () => {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', abort);
+      reject(new DOMException('Request aborted', 'AbortError'));
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', abort);
+      resolve();
+    }, delay);
+    if (signal?.aborted) abort();
+    else signal?.addEventListener('abort', abort, { once: true });
+  });
+}
+
+async function recoverCatalogue(url: string, options: RequestInit): Promise<FetchOutcome> {
+  const deadline = Date.now() + CATALOGUE_RECOVERY_MS;
+  for (let attempt = 0; attempt < CATALOGUE_MAX_ATTEMPTS; attempt += 1) {
+    if (options.signal?.aborted) throw new DOMException('Request aborted', 'AbortError');
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) break;
+    try {
+      const result = await attemptFetch(url, options, Math.min(IDEMPOTENT_TIMEOUT_MS, remaining));
+      if (result !== TIMED_OUT) {
+        const { response, body } = result;
+        const gatewayFailure = [502, 503, 504].includes(response.status);
+        const loadingPage = response.ok && typeof body === 'string' && (
+          response.headers.get('Content-Type')?.includes('text/html') ||
+          /^\s*<(?:!doctype\s+html|html|head|body)\b/i.test(body)
+        );
+        if (!gatewayFailure && !loadingPage) {
+          if (response.ok && (body === null || typeof body !== 'object')) {
+            throw new Error('Dữ liệu sách trả về không hợp lệ. Vui lòng thử lại.');
+          }
+          return result;
+        }
+      }
+    } catch (error) {
+      // Only fetch/body transport errors qualify, never caller cancellation.
+      if (options.signal?.aborted || !(error instanceof TypeError)) throw error;
+    }
+    if (attempt + 1 >= CATALOGUE_MAX_ATTEMPTS || Date.now() >= deadline) break;
+    await waitForRetry(Math.min(2_000 * 2 ** attempt, 15_000, deadline - Date.now()), options.signal);
+  }
+  throw new Error('Máy chủ không phản hồi. Vui lòng thử lại.');
+}
+
+async function fetchWithBody(url: string, options: RequestInit): Promise<FetchOutcome> {
+  const releaseWakeWatch = beginServerWakeWatch();
+  try {
+    if (isCatalogueRead(url, options)) return await recoverCatalogue(url, options);
+    return await fetchWithLegacyTimeout(url, options);
+  } finally {
+    releaseWakeWatch();
+  }
+}
+
+async function fetchWithLegacyTimeout(
   url: string,
   options: RequestInit,
 ): Promise<FetchOutcome> {
